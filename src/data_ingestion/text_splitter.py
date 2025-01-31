@@ -1,6 +1,5 @@
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import warnings
-
 warnings.filterwarnings("ignore")  
 
 def split_text(text: str) -> list:  

@@ -3,9 +3,7 @@ from langchain.embeddings import OpenAIEmbeddings
 from langchain.chat_models import ChatOpenAI  
 from dotenv import load_dotenv
 import os
-
 import warnings
-
 warnings.filterwarnings("ignore")
 
 # Load environment variables first

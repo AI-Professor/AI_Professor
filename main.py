@@ -2,7 +2,6 @@ from src.data_ingestion.pdf_parser import extract_text_from_pdf
 from src.data_ingestion.text_splitter import split_text  
 from src.nlp.qa_system import initialize_qa_system, answer_question  
 import warnings
-
 warnings.filterwarnings("ignore")
 
 def main():  

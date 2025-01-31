@@ -1,6 +1,5 @@
 from PyPDF2 import PdfReader  
 import warnings
-
 warnings.filterwarnings("ignore")
 
 def extract_text_from_pdf(pdf_path: str) -> str:  
