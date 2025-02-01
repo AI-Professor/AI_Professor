@@ -8,14 +8,14 @@ from dotenv import load_dotenv
 import warnings
 warnings.filterwarnings("ignore")
 
-# Load environment variables first
-load_dotenv(override=True)  # Force reload environment variables
+load_dotenv(override=True) 
 
 # Get API key with validation
 openai_api_key = os.getenv("OPENAI_API_KEY")
 if not openai_api_key:
     raise ValueError("OPENAI_API_KEY not found in environment variables")
 
+#This function initialize our connection to gpt and send our knowledge graph to our gpt model
 def initialize_qa_system(text_chunks: list):  
     # Initialize embeddings with explicit API key
     embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
@@ -29,6 +29,7 @@ def initialize_qa_system(text_chunks: list):
         print(f"Error creating FAISS index: {str(e)}")
         raise
 
+#This function define the scope and ability of our gpt model and how should it respond to questions.
 def answer_question(question: str, db: FAISS) -> str:  
     try:
         # Search with error handling

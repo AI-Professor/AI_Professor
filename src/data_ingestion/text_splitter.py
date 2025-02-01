@@ -2,6 +2,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 import warnings
 warnings.filterwarnings("ignore")  
 
+#This function split the pdf file we read in into organized chunk
 def split_text(text: str) -> list:  
     splitter = RecursiveCharacterTextSplitter(  
         chunk_size=1000,  

@@ -6,10 +6,11 @@ import webbrowser
 import os
 import sys
 
-# Add project root to Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 warnings.filterwarnings("ignore")
+
+#This is our main function. We will call all of the functions here. This is the file we execute.
 
 def main():  
     # Ingest the book chapter  

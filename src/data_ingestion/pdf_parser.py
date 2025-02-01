@@ -2,6 +2,7 @@ from PyPDF2 import PdfReader
 import warnings
 warnings.filterwarnings("ignore")
 
+#This function extract text from a PDF input file
 def extract_text_from_pdf(pdf_path: str) -> str:  
     text = ""  
     reader = PdfReader(pdf_path)  

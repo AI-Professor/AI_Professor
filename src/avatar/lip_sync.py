@@ -7,6 +7,7 @@ from pathlib import Path
 
 load_dotenv()
 
+#This function will use the audio we created from tts and combine with our avatar image to create an avatar video and store in the path
 def create_talking_avatar(text: str) -> str:
     """Robust D-ID API integration with proper error handling"""
     api_key = os.getenv("DID_API_KEY")
@@ -83,9 +84,3 @@ def create_talking_avatar(text: str) -> str:
     except requests.exceptions.RequestException as e:
         raise Exception(f"API request failed: {str(e)}")
     
-if __name__ == "__main__":
-    try:
-        video_path = create_talking_avatar(text="Hello students! Today we'll learn about AI.")
-        print(f"Video saved at: {video_path}")
-    except Exception as e:
-        print(f"Error: {str(e)}")
