@@ -28,7 +28,8 @@
 │   ├── avatar/                 # Avatar management  
 │   │   ├── avatar_design/      # 2D avatar assets (images, animations)  
 │   │   ├── lip_sync.py         # D-ID integration for lip-syncing  
-│   │   └── render_lesson.py    # Generates avatar video from script  
+│   │   └── render_lesson.py    # Generates avatar video from script
+│   │   └── tts.py              # Transform text to audio speech  
 │   │  
 │   ├── ui/                     # User interface  
 │   │   ├── frontend/           # React/Streamlit code  

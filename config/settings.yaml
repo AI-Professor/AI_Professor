@@ -1,0 +1,12 @@
+script_templates:
+  teaching: |
+    [Introduction] {introduction}
+    [Key Concepts] {concepts}
+    [Examples] {examples}
+    [Summary] {summary}
+  storytelling: |
+    [Opening Scene] {opening_scene}
+    [Character Introduction] {character_intro}
+    [Conflict] {conflict}
+    [Resolution] {resolution}
+    [Moral/Lesson] {lesson}

@@ -6,7 +6,7 @@ load_dotenv()
 
 api_key = os.getenv("DID_API_KEY")
 
-url = "https://api.d-id.com/talks/tlk_chlgZkagnCyT8PHrFTomJ"
+url = "https://api.d-id.com/talks/tlk_3r7UniKwJTGjJKlW_mkO1"
 
 headers = {
     "accept": "application/json",

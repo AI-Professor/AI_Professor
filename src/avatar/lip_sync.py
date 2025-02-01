@@ -64,6 +64,7 @@ def create_talking_avatar(audio_path: str) -> str:
 
         talk_id = response.json()["id"]
         print(f"Video processing started. Talk ID: {talk_id}")
+        print(f"⏳ Estimated processing time: {len(audio_path) // 150000} seconds")
 
         # Poll for completion status
         max_attempts = 20  # Allow up to 40 seconds (20 attempts * 2 seconds)
