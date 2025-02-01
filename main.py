@@ -31,10 +31,10 @@ def main():
         print("✅ Lecture script prepared successfully!\n")
 
         #Generate lecture audio from lesson script
-        print("🔊 Rendering lecture audio...")
-        lecture_audio = text_to_speech(text=lesson_script)
-        print(f"🔊 Full lecture audio ready: {lecture_audio}")
-        os.system(f'open {lecture_audio}')
+        #print("🔊 Rendering lecture audio...")
+        #lecture_audio = text_to_speech(text=lesson_script)
+        #print(f"🔊 Full lecture audio ready: {lecture_audio}")
+        #os.system(f'open {lecture_audio}')
 
         #Generate lecture video from lecture audio
         #print("🎥 Rendering lecture video...")
