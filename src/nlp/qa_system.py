@@ -1,8 +1,10 @@
+import os
 from langchain.vectorstores import FAISS  
 from langchain.embeddings import OpenAIEmbeddings  
 from langchain.chat_models import ChatOpenAI  
+from src.avatar.lip_sync import create_talking_avatar
+from src.avatar.tts import text_to_speech
 from dotenv import load_dotenv
-import os
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -49,8 +51,22 @@ def answer_question(question: str, db: FAISS) -> str:
         
         Answer in 2-3 sentences:"""
         
-        return llm.predict(prompt)
+        answer_text = llm.predict(prompt)
+    
+        # Generate avatar response
+        audio_file = text_to_speech(answer_text)
+        video_url = create_talking_avatar(answer_text)
+        
+        return {
+            "text": answer_text,
+            "audio": audio_file,
+            "video": video_url
+        }
         
     except Exception as e:
         print(f"Error answering question: {str(e)}")
-        return "I'm having trouble answering that right now."
+        return {  # Keep return type consistent
+            "text": "I'm having trouble answering that right now.",
+            "audio": None,
+            "video": None
+        }
