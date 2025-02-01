@@ -1,4 +1,26 @@
 # AI_Professor
+
+# Setup
+Step 1: Clone the repository to your computer
+git clone <your-repo-url>
+cd <your-repo-folder>
+
+Step 2: Create and activate a virtual environment
+python -m venv venv
+source venv/bin/activate  # macOS/Linux
+venv\Scripts\activate     # Windows
+
+Step 3: Install all dependencies from requirements.txt
+pip install -r requirements.txt
+
+# Get to know the project 
+Step 1: 
+Start with AI_Professor/main.py, here is the main execution file. We compile and run all of the functions in this file as a prototype or a model.
+
+Step 2:
+If you have any question about any of the function used in main.py, you can follow the Folder Directions below to see the detail of the implementations of each function. 
+
+# Folder Directions
 ├── .env                        # Stores API keys (OpenAI, ElevenLabs, D-ID)  
 ├── requirements.txt            # Python dependencies  
 ├── README.md                   # Project overview, setup instructions  
