@@ -15,25 +15,28 @@ warnings.filterwarnings("ignore")
 
 #This is our main function. We will call all of the functions here. This is the file we execute.
 def main():  
-    # Ingest the book chapter  
     try:
+        #Ingest pdf textbook and build knowledge graph
         print("📖 Loading course material...")
         text = extract_text_from_pdf("data/raw/book.pdf")  
         chunks = split_text(text)  
         db = initialize_qa_system(chunks)
         print("✅ Course material loaded successfully!\n")
 
+        #Generate lesson script from knowledge graph
         print("📝 Generating lesson script...")
         lesson_script = generate_lesson_script(db)
         with open("data/processed/lesson_script.txt", "w") as f:
             f.write(lesson_script)
         print("✅ Lecture script prepared successfully!\n")
 
+        #Generate lecture audio from lesson script
         print("🔊 Rendering lecture audio...")
         lecture_audio = text_to_speech(text=lesson_script)
         print(f"🔊 Full lecture audio ready: {lecture_audio}")
         os.system(f'open {lecture_audio}')
 
+        #Generate lecture video from lecture audio
         #print("🎥 Rendering lecture video...")
         #lecture_video = create_talking_avatar(lecture_audio)
         #print(f"🎥 Full lecture video ready: {lecture_video}")
