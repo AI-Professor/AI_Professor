@@ -1,6 +1,8 @@
 from src.data_ingestion.pdf_parser import extract_text_from_pdf  
 from src.data_ingestion.text_splitter import split_text  
 from src.nlp.qa_system import initialize_qa_system, answer_question  
+from src.avatar.tts import text_to_speech
+from src.avatar.lip_sync import create_talking_avatar
 import warnings
 import webbrowser
 import os
@@ -11,7 +13,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 warnings.filterwarnings("ignore")
 
 #This is our main function. We will call all of the functions here. This is the file we execute.
-
 def main():  
     # Ingest the book chapter  
     try:
@@ -36,22 +37,16 @@ def main():
             
             # Get answer with avatar components
             response = answer_question(question, db)
+            answer_text = response['text']
+            print(f"\n👩🏫 AI Professor: {answer_text}")
             
-            # Display response
-            print(f"\n👩🏫 AI Professor: {response['text']}")
-            
-            # Play audio and video
-            if response.get('audio'):
-                if sys.platform == "darwin":
-                    os.system(f"afplay {response['audio']}")
-                elif sys.platform == "win32":
-                    os.system(f"start {response['audio']}")
-                else:  # Linux
-                    os.system(f"xdg-open {response['audio']}")
-                
-            if response.get('video'):
-                webbrowser.open(response['video'])
-                
+            audio_path = text_to_speech(text=answer_text)
+            print(f"🔊 Audio generated: {audio_path}")
+            video_path = create_talking_avatar(audio_path=audio_path)
+            print(f"🎥 Video generated: {video_path}")
+
+            os.system(f'open {video_path}')
+
         except KeyboardInterrupt:
             print("\n👋 Goodbye!")
             break

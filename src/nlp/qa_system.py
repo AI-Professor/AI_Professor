@@ -2,20 +2,18 @@ import os
 from langchain.vectorstores import FAISS  
 from langchain.embeddings import OpenAIEmbeddings  
 from langchain.chat_models import ChatOpenAI  
-from src.avatar.lip_sync import create_talking_avatar
-from src.avatar.tts import text_to_speech
 from dotenv import load_dotenv
 import warnings
 warnings.filterwarnings("ignore")
 
-load_dotenv(override=True) 
+# Load environment variables first
+load_dotenv(override=True)  # Force reload environment variables
 
 # Get API key with validation
 openai_api_key = os.getenv("OPENAI_API_KEY")
 if not openai_api_key:
     raise ValueError("OPENAI_API_KEY not found in environment variables")
 
-#This function initialize our connection to gpt and send our knowledge graph to our gpt model
 def initialize_qa_system(text_chunks: list):  
     # Initialize embeddings with explicit API key
     embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
@@ -29,7 +27,6 @@ def initialize_qa_system(text_chunks: list):
         print(f"Error creating FAISS index: {str(e)}")
         raise
 
-#This function define the scope and ability of our gpt model and how should it respond to questions.
 def answer_question(question: str, db: FAISS) -> str:  
     try:
         # Search with error handling
@@ -54,20 +51,13 @@ def answer_question(question: str, db: FAISS) -> str:
         
         answer_text = llm.predict(prompt)
     
-        # Generate avatar response
-        audio_file = text_to_speech(answer_text)
-        video_url = create_talking_avatar(answer_text)
         
         return {
             "text": answer_text,
-            "audio": audio_file,
-            "video": video_url
         }
         
     except Exception as e:
         print(f"Error answering question: {str(e)}")
         return {  # Keep return type consistent
             "text": "I'm having trouble answering that right now.",
-            "audio": None,
-            "video": None
         }
