@@ -159,7 +159,7 @@ startButton.onclick = async () => {
       const { text, audio } = await backendResponse.json();
       addChatMessage(`AI: ${text}`, 'ai');
       
-      await handleUserInput("apple");
+      await handleUserInput(text);
   } catch (error) {
       showStatusMessage(`❌ Processing error: ${error.message}`, true);
   }
@@ -378,7 +378,7 @@ function setStreamVideoElement(stream) {
   }
 }
 function playIdleVideo() {
-  idleVideoElement.src = DID_API.service == 'clips' ? '/public/assets/idle/alex_v2_idle.mp4' : '/public/assets/idle/emma_idle.mp4';
+  idleVideoElement.src = DID_API.service == 'clips' ? '/public/assets/idle/Henry_Idle_Video.mp4' : '/public/assets/idle/Henry_Idle_Video.mp4';
 }
 function stopAllStreams() {
   if (streamVideoElement.srcObject) {

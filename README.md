@@ -84,8 +84,6 @@ After all of the steps above is done, you can now go on and try the project out.
 ├── public/                         # Frontend files
 │   ├── assets/
 │   │    ├── idle/                   # Idle videos
-│   │    │   ├── emma_idle.mp4
-│   │    │   └── alex_v2_idle.mp4
 │   │    └── bg.png                     # Background image
 │   ├── index.html                      # Lecture Agent HTML 
 │   ├── index-agents.html               # Q&A Agent HTML
