@@ -1,11 +1,17 @@
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import warnings
-warnings.filterwarnings("ignore")  
+warnings.filterwarnings("ignore")
 
-#This function split the pdf file we read in into organized chunk
-def split_text(text: str) -> list:  
-    splitter = RecursiveCharacterTextSplitter(  
-        chunk_size=1000,  
-        chunk_overlap=200  
-    )  
-    return splitter.split_text(text)  
+def split_text(text: str, is_code: bool = False) -> list:
+    if is_code:
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=800,
+            chunk_overlap=100,
+            separators=["\n\n", "\n", " ", ""]
+        )
+    else:
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200
+        )
+    return splitter.split_text(text)

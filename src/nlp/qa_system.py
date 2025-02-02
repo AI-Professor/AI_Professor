@@ -30,7 +30,11 @@ def initialize_qa_system(text_chunks: list):
 def answer_question(question: str, db: FAISS) -> str:  
     try:
         # Search with error handling
-        relevant_text = db.similarity_search(question, k=2)
+        video_keywords = ["video", "lecture", "demonstrate", "visual"]
+        is_video_question = any(kw in question.lower() for kw in video_keywords)
+        
+        search_k = 4 if is_video_question else 2
+        relevant_text = db.similarity_search(question, k=search_k)
         
         # Initialize chat model with explicit API key
         llm = ChatOpenAI(

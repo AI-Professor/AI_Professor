@@ -1,11 +1,14 @@
 from fastapi.responses import JSONResponse
 import uvicorn
-from src.data_ingestion.pdf_parser import extract_text_from_pdf  
+from src.data_ingestion.pdf_parser import extract_text_from_pdf 
+from src.data_ingestion.epub_parser import extract_text_from_epub
+from src.data_ingestion.video_parser import extract_text_from_video 
 from src.data_ingestion.text_splitter import split_text  
 from src.nlp.qa_system import initialize_qa_system, answer_question  
 from src.avatar.tts import text_to_speech
 from src.avatar.lip_sync import create_talking_avatar
 from src.avatar.script_generator import generate_lesson_script
+from pathlib import Path
 import argparse
 import warnings
 import webbrowser
@@ -27,7 +30,7 @@ global_db = None
 
 def init_system():
     global global_db
-    text = extract_text_from_pdf("data/raw/book.pdf")
+    text = extract_text_from_epub("data/raw/scrum.epub")
     chunks = split_text(text)
     global_db = initialize_qa_system(chunks)
 
@@ -77,17 +80,26 @@ async def audio_answer(text_data: dict):
 
 #This is our main function. We will call all of the functions here. This is the file we execute.
 def main():  
+    file = Path("data/raw/scrum.epub")
+    text = ""
     try:
         #Ingest pdf textbook and build knowledge graph
-        print("📖 Loading course material...")
-        text = extract_text_from_pdf("data/raw/book.pdf")  
+        print("📖 Loading course material...") 
+        if file.suffix.lower() == '.pdf':
+            text += extract_text_from_pdf(str(file))
+        elif file.suffix.lower() == '.epub':
+            text += extract_text_from_epub(str(file))
+        elif file.suffix.lower() in ['.mp4', '.mov', '.avi']:
+            text += extract_text_from_video(str(file))
+        elif file.suffix.lower() == '.youtube':
+            text += extract_text_from_video(file.read_text().strip(), is_youtube=True)
         chunks = split_text(text)  
         db = initialize_qa_system(chunks)
         print("✅ Course material loaded successfully!\n")
 
         #Generate lesson script from knowledge graph
         print("📝 Generating lesson script...")
-        lesson_script = generate_lesson_script(db)
+        lesson_script = generate_lesson_script(db, "TEACHING")
         with open("data/processed/lesson_script/lesson_script.txt", "w") as f:
             f.write(lesson_script)
         print("✅ Lecture script prepared successfully!\n")
