@@ -1,0 +1,30 @@
+{
+  "name": "ai_professor",
+  "version": "1.0.0",
+  "description": "# Setup Step 1: Clone the repository to your computer git clone <your-repo-url> cd <your-repo-folder>",
+  "main": "app.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "client": "cd src/ui/frontend && npm start",
+    "server": "node app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.9",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "fs": "^0.0.1-security",
+    "socket.io": "^4.8.1",
+    "webrtc-adapter": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}

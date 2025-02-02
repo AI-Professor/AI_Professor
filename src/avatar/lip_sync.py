@@ -8,7 +8,7 @@ from pathlib import Path
 load_dotenv()
 
 #This function will use the audio we created from tts and combine with our avatar image to create an avatar video and store in the path
-def create_talking_avatar(audio_path: str) -> str:
+def create_talking_avatar(audio_url: str) -> str:
     """Robust D-ID API integration with proper error handling"""
     api_key = os.getenv("DID_API_KEY")
     elevenlabs_key = os.getenv("ELEVENLABS_API_KEY")
@@ -18,29 +18,6 @@ def create_talking_avatar(audio_path: str) -> str:
         raise ValueError("ELEVENLABS_API_KEY missing from .env")
     
     video_dir = Path(__file__).parent.parent.parent / "assets" / "videos"
-    audio_url = ""
-
-    try:
-        upload_audio_response = requests.post(
-            "https://api.d-id.com/audios",
-            headers={
-                "accept": "application/json",
-                "authorization": f"Basic {api_key}"
-            },
-            files={
-                "audio": ("response.mp3", open(f"{audio_path}", "rb"), "audio/mpeg")
-            },
-            timeout=30
-        )
-
-        if upload_audio_response.status_code != 201:
-            raise Exception(f"Audio upload failed: {upload_audio_response.text}")
-        
-        audio_url = upload_audio_response.json()["url"]
-        print("Audio url generated successfully!")
-    
-    except requests.exceptions.RequestException as e:
-        raise Exception(f"API request failed: {str(e)}")
 
     try:
         response = requests.post(
@@ -64,7 +41,6 @@ def create_talking_avatar(audio_path: str) -> str:
 
         talk_id = response.json()["id"]
         print(f"Video processing started. Talk ID: {talk_id}")
-        print(f"⏳ Estimated processing time: {len(audio_path) // 150000} seconds")
 
         # Poll for completion status
         max_attempts = 20  # Allow up to 40 seconds (20 attempts * 2 seconds)

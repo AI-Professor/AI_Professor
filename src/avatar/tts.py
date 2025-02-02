@@ -3,12 +3,15 @@ import os
 from dotenv import load_dotenv
 from pathlib import Path
 import time
+import requests
 
 load_dotenv()
 
+api_key = os.getenv("DID_API_KEY")
 client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
 
-#This function convert text to speech and store in our assets/audio folder
+#This function convert text to speech and store in our assets/audio folder.
+#Then it also uploade the audio to D-ID to get ready for synthesizing with the video.
 def text_to_speech(text: str):
     """Convert text to speech using ElevenLabs"""
     audio_dir = Path(__file__).parent.parent.parent / "assets" / "audio"
@@ -29,5 +32,21 @@ def text_to_speech(text: str):
         for chunk in audio_stream:
             if chunk:
                 f.write(chunk)
+
+    upload_audio_response = requests.post(
+            "https://api.d-id.com/audios",
+            headers={
+                "accept": "application/json",
+                "authorization": f"Basic {api_key}"
+            },
+            files={
+                "audio": (f"{filename}", open(f"{audio_path}", "rb"), "audio/mpeg")
+            },
+            timeout=30
+        )
+    if upload_audio_response.status_code != 201:
+            raise Exception(f"Audio upload failed: {upload_audio_response.text}")
+    audio_url = upload_audio_response.json()["url"]
+
     
-    return str(audio_path)
+    return str(audio_path), str(audio_url)
