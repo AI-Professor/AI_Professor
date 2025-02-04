@@ -23,7 +23,7 @@ class BasicQuizEngine:
         ''')
         self.conn.commit()
     
-    def generate_quiz_from_script(self, script_path: str, num_questions=10):        
+    def generate_quiz_from_script(self, script_path: str, num_questions: int):        
         with open(script_path) as f:
             script = f.read()
             
