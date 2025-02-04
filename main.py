@@ -126,7 +126,7 @@ def main():
 
         #Generate lesson script from knowledge graph
         print("📝 Generating lesson script...")
-        lesson_script = generate_lesson_script(db, "TEACHING")
+        lesson_script = generate_lesson_script(db, "TEACHING", 5)
         with open("data/processed/lesson_script/lesson_script.txt", "w") as f:
             f.write(lesson_script)
         print("✅ Lecture script prepared successfully!\n")

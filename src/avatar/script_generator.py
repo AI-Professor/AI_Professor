@@ -1,43 +1,43 @@
 from src.nlp.qa_system import answer_question
 from pathlib import Path
 
-def generate_lesson_script(db, template):
+def generate_lesson_script(db, template, length):
     """Auto-generates lesson script using GPT-4"""
 
     templates = {
-        "STORYTELLING": """Create a 3-minute lesson script from this course material. Use this template structure 
+        "STORYTELLING": f"""Create a {length}-minute lesson script from this course material. Use this template structure 
         BUT DO NOT INCLUDE SECTION HEADERS IN THE FINAL SCRIPT TEXT. Format like natural speech:
 
         STORYTELLING STRUCTURE:
-        1. Opening Scene (30s)
-        2. Character Introduction (30s)
-        3. Conflict (30s)
-        4. Resolution (30s)
-        5. Moral/Lesson (30s)
+        1. Opening Scene ({length/5}m)
+        2. Character Introduction ({length/5}m)
+        3. Conflict ({length/5}m)
+        4. Resolution ({length/5}m)
+        5. Moral/Lesson ({length/5}m)
 
         Write ONLY the spoken content, no timestamps or section titles. Maintain this flow naturally.""",
 
-        "TEACHING": """Create a 3-minute structured teaching lesson from this course material. Use this template structure 
+        "TEACHING": f"""Create a {length}-minute structured teaching lesson from this course material. Use this template structure 
         BUT DO NOT INCLUDE SECTION HEADERS IN THE FINAL SCRIPT TEXT. Keep the flow conversational:
 
         TEACHING STRUCTURE:
-        1. Introduction to Topic (30s)
-        2. Explanation of Key Concepts (1m 30s)
-        3. Practical Examples (1m)
-        4. Interactive Question/Engagement (30s)
-        5. Summary & Takeaways (30s)
+        1. Introduction to Topic ({length/5}m)
+        2. Explanation of Key Concepts ({length/5}m)
+        3. Practical Examples ({length/5}m)
+        4. Interactive Question/Engagement ({length/5}m)
+        5. Summary & Takeaways ({length/5}m)
 
         Write as if you are delivering a spoken lecture. Make it engaging and clear.""",
 
-        "DISCUSSION": """Generate a 3-minute discussion-driven lesson from this course material. Use this template structure 
+        "DISCUSSION": f"""Generate a {length}-minute discussion-driven lesson from this course material. Use this template structure 
         BUT DO NOT INCLUDE SECTION HEADERS IN THE FINAL SCRIPT TEXT. Keep the flow conversational:
 
         DISCUSSION STRUCTURE:
-        1. Thought-Provoking Question (30s)
-        2. Exploration of Perspectives (1m 30s)
-        3. Counterarguments/Alternative Views (1m)
-        4. Real-World Application (1m)
-        5. Final Reflection & Conclusion (30s)
+        1. Thought-Provoking Question ({length/5}m)
+        2. Exploration of Perspectives ({length/5}m)
+        3. Counterarguments/Alternative Views ({length/5}m)
+        4. Real-World Application ({length/5}m)
+        5. Final Reflection & Conclusion ({length/5}m)
 
         Maintain a dynamic and engaging tone, guiding the listener through the conversation naturally."""
     }

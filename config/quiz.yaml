@@ -1,0 +1,5 @@
+quiz:
+  num_questions: 10
+  question_types: ["multiple_choice"]
+  difficulty_levels: ["easy", "medium"]
+  concepts: ["OOP", "Algorithms", "Data Structures"]
