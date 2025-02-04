@@ -38,7 +38,7 @@ const streamEventLabel = document.getElementById('stream-event-label');
 
 const presenterInputByService = {
   talks: {
-    source_url: 's3://d-id-images-prod/google-oauth2|104334720993388125263/img_0YOHFuhxr6PjqDWR_PBzk/avatar.jpg',
+    source_url: 's3://d-id-images-prod/google-oauth2|104334720993388125263/img_dA-Rhe522l1ZtWP8BO3HH/avatar.jpg',
   },
   clips: {
     presenter_id: 'v2_public_alex@qcvo4gupoy',
@@ -67,7 +67,7 @@ connectButton.onclick = async () => {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ ...presenterInputByService[DID_API.service], stream_warmup,
-      source_url: "s3://d-id-images-prod/google-oauth2|104334720993388125263/img_0YOHFuhxr6PjqDWR_PBzk/avatar.jpg"
+      source_url: "s3://d-id-images-prod/google-oauth2|104334720993388125263/img_dA-Rhe522l1ZtWP8BO3HH/avatar.jpg"
      }),
   });
 

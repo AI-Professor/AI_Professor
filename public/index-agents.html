@@ -161,6 +161,25 @@
         border-radius: 50%;
         background-color: #fff;
       }
+      .file-upload-section {
+        margin: 20px;
+        padding: 20px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+      }
+
+      .file-upload-section input[type="file"] {
+        margin: 10px 0;
+        padding: 10px;
+        border: 1px solid #7459fe;
+        border-radius: 4px;
+      }
+
+      #uploadStatus {
+        margin-top: 10px;
+        color: #666;
+        min-height: 20px;
+      }
     </style>
   </head>
 
@@ -185,6 +204,12 @@
         <h3>Voice Interaction</h3>
         <button id="start-button">Start Speaking</button>
         <div id="msgHistory" style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;"></div>
+      </div>
+      <div class="file-upload-section">
+        <h3>Upload Course Materials</h3>
+        <input type="file" id="fileInput" accept=".pdf,.epub,.mp4,.mov,.avi" multiple/>
+        <button id="upload-button">Upload & Process</button>
+        <div id="uploadStatus"></div>
       </div>
 
       <!-- added div#status -->

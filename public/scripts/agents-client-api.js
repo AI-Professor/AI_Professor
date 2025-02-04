@@ -38,7 +38,7 @@ const streamEventLabel = document.getElementById('stream-event-label');
 
 const presenterInputByService = {
   talks: {
-    source_url: 's3://d-id-images-prod/google-oauth2|104334720993388125263/img_0YOHFuhxr6PjqDWR_PBzk/avatar.jpg',
+    source_url: 's3://d-id-images-prod/google-oauth2|104334720993388125263/img_dA-Rhe522l1ZtWP8BO3HH/avatar.jpg',
   },
   clips: {
     presenter_id: 'v2_public_alex@qcvo4gupoy',
@@ -109,7 +109,7 @@ connectButton.onclick = async () => {
       Authorization: `Basic ${DID_API.key}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ ...presenterInputByService[DID_API.service], stream_warmup,source_url: "s3://d-id-images-prod/google-oauth2|104334720993388125263/img_0YOHFuhxr6PjqDWR_PBzk/avatar.jpg" }),
+    body: JSON.stringify({ ...presenterInputByService[DID_API.service], stream_warmup,source_url: "s3://d-id-images-prod/google-oauth2|104334720993388125263/img_dA-Rhe522l1ZtWP8BO3HH/avatar.jpg" }),
   });
 
   const { id: newStreamId, offer, ice_servers: iceServers, session_id: newSessionId } = await sessionResponse.json();
@@ -178,6 +178,47 @@ destroyButton.onclick = async () => {
   stopAllStreams();
   closePC();
 };
+const uploadButton = document.getElementById('upload-button');
+uploadButton.onclick = async () => {
+  const fileInput = document.getElementById('fileInput');
+  const files = Array.from(fileInput.files);
+  
+  if (files.length === 0) {
+      showStatusMessage('Please select files first', true);
+      return;
+  }
+
+  const formData = new FormData();
+  files.forEach(file => formData.append('files', file));
+
+  try {
+      showStatusMessage('Uploading files...');
+      const response = await fetch('http://localhost:5001/api/upload', {
+          method: 'POST',
+          body: formData
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Upload failed');
+      
+      showStatusMessage(result.message);
+      await checkSystemStatus();
+      
+  } catch (error) {
+      showStatusMessage(`Upload failed: ${error.message}`, true);
+  }
+};
+async function checkSystemStatus() {
+  try {
+      const response = await fetch('http://localhost:5001/health');
+      const status = await response.json();
+      if (status.initialized) {
+          showStatusMessage('System ready with latest content');
+      }
+  } catch (error) {
+      console.error('Status check failed:', error);
+  }
+}
 function onIceGatheringStateChange() {
   iceGatheringStatusLabel.innerText = peerConnection.iceGatheringState;
   iceGatheringStatusLabel.className = 'iceGatheringState-' + peerConnection.iceGatheringState;

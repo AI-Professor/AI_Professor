@@ -1,3 +1,4 @@
+from typing import List
 from fastapi.responses import JSONResponse
 import uvicorn
 from src.data_ingestion.pdf_parser import extract_text_from_pdf 
@@ -14,9 +15,11 @@ import warnings
 import webbrowser
 import os
 import sys
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+import shutil
+
 AUDIO_DIR = "data/processed/audio"
 os.makedirs(AUDIO_DIR, exist_ok=True)
 app = FastAPI()
@@ -25,18 +28,6 @@ app.mount("/audio", StaticFiles(directory=AUDIO_DIR), name="audio")
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 warnings.filterwarnings("ignore")
-
-global_db = None
-
-def init_system():
-    global global_db
-    text = extract_text_from_epub("data/raw/scrum.epub")
-    chunks = split_text(text)
-    global_db = initialize_qa_system(chunks)
-
-@app.on_event("startup")
-async def startup_event():
-    init_system()
 
 @app.get("/health")
 async def health_check():
@@ -77,6 +68,44 @@ async def audio_answer(text_data: dict):
             content={"error": str(e)}
         )
 
+@app.post("/api/upload")
+async def upload_file(files: List[UploadFile] = File(...)):
+    try:
+        # Create upload directory
+        UPLOAD_DIR = "data/raw/"
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        
+        text = ""
+        # Save file
+        for file in files:
+            file_path = os.path.join(UPLOAD_DIR, file.filename)
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            
+            # Process file
+            if file.filename.lower().endswith('.pdf'):
+                text += extract_text_from_pdf(file_path)
+            elif file.filename.lower().endswith('.epub'):
+                text += extract_text_from_epub(file_path)
+            elif file.filename.lower().split('.')[-1] in ['mp4', 'mov', 'avi']:
+                text += extract_text_from_video(file_path)
+        
+        # Initialize QA system with new content
+        global global_db
+        chunks = split_text(text)
+        global_db = initialize_qa_system(chunks)
+        
+        return {"status": "success", "message": f"Processed {file.filename}"}
+    
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"File processing failed: {str(e)}"}
+        )
+    finally:
+        if 'file' in locals():
+            file.file.close()
+
 
 #This is our main function. We will call all of the functions here. This is the file we execute.
 def main():  
@@ -91,8 +120,6 @@ def main():
             text += extract_text_from_epub(str(file))
         elif file.suffix.lower() in ['.mp4', '.mov', '.avi']:
             text += extract_text_from_video(str(file))
-        elif file.suffix.lower() == '.youtube':
-            text += extract_text_from_video(file.read_text().strip(), is_youtube=True)
         chunks = split_text(text)  
         db = initialize_qa_system(chunks)
         print("✅ Course material loaded successfully!\n")
