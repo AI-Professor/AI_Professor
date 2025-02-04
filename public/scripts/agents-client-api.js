@@ -268,7 +268,7 @@ function onConnectionStateChange() {
   peerStatusLabel.innerText = peerConnection.connectionState;
   peerStatusLabel.className = 'peerConnectionState-' + peerConnection.connectionState;
   if (peerConnection.connectionState === 'connected') {
-    playIdleVideo();
+    playIdleVideo()
     /**
      * A fallback mechanism: if the 'stream/ready' event isn't received within 5 seconds after asking for stream warmup,
      * it updates the UI to indicate that the system is ready to start streaming data.
