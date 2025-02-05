@@ -1,3 +1,4 @@
+import json
 from typing import List
 from fastapi.responses import JSONResponse
 import uvicorn
@@ -20,6 +21,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import shutil
 
+from src.nlp.quiz_system import BasicQuizEngine
+
+#global_db
 AUDIO_DIR = "data/processed/audio"
 os.makedirs(AUDIO_DIR, exist_ok=True)
 app = FastAPI()
@@ -35,7 +39,7 @@ async def health_check():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5001", "http://localhost:3000"],  # Frontend's port
+    allow_origins=["http://localhost:3000", "http://localhost:5001"],  # Frontend's port
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -94,6 +98,10 @@ async def upload_file(files: List[UploadFile] = File(...)):
         global global_db
         chunks = split_text(text)
         global_db = initialize_qa_system(chunks)
+
+        lesson_script = generate_lesson_script(global_db, "TEACHING", 5)
+        with open("data/processed/lesson_script/lesson_script.txt", "w") as f:
+            f.write(lesson_script)
         
         return {"status": "success", "message": f"Processed {file.filename}"}
     
@@ -106,6 +114,25 @@ async def upload_file(files: List[UploadFile] = File(...)):
         if 'file' in locals():
             file.file.close()
 
+@app.get("/api/generate-quiz")
+async def generate_quiz():
+    quiz_engine = BasicQuizEngine(global_db)
+    quiz_engine.generate_quiz_from_script("data/processed/lesson_script/lesson_script.txt", num_questions=3)
+    
+    # Retrieve all questions
+    cursor = quiz_engine.conn.cursor()
+    cursor.execute("SELECT * FROM questions ORDER BY RANDOM() LIMIT 10")
+    questions = cursor.fetchall()
+
+    return [
+        {
+            "id": q[0],
+            "question": q[1],
+            "options": json.loads(q[2]),
+            "answer": q[3],
+            "concept": q[4]
+        } for q in questions
+    ]
 
 #This is our main function. We will call all of the functions here. This is the file we execute.
 def main():  

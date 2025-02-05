@@ -180,6 +180,28 @@
         color: #666;
         min-height: 20px;
       }
+
+      .quiz-question {
+        padding: 20px;
+        margin: 20px 0;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+      }
+
+      .quiz-question button {
+        display: block;
+        width: 100%;
+        margin: 5px 0;
+        padding: 10px;
+        text-align: left;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        cursor: pointer;
+      }
+
+      .quiz-question button:hover {
+        background: #e9ecef;
+      }
     </style>
   </head>
 
@@ -199,6 +221,11 @@
       <div id="buttons">
         <button id="connect-button" type="button">Connect</button>
         <button id="destroy-button" type="button">Destroy</button>
+      </div>
+      <div id="quiz-section">
+        <h2>Lecture Quiz</h2>
+        <button id="start-quiz-btn">Start Quiz</button>
+        <div id="quiz-container"></div>
       </div>
       <div class="status-box">
         <h3>Voice Interaction</h3>

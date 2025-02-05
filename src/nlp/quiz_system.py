@@ -1,12 +1,25 @@
 import json
+import os
 import sqlite3
 from src.data_ingestion.text_splitter import split_text
+from langchain_community.chat_models import ChatOpenAI;
+from dotenv import load_dotenv;
 import pandas as pd
 
+load_dotenv(override=True)
+
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if not openai_api_key:
+    raise ValueError("OPENAI_API_KEY not found in environment variables")
+
 class BasicQuizEngine:
-    def __init__(self, db, llm):
+    def __init__(self, db):
         self.knowledge_graph = db
-        self.llm = llm
+        self.llm = ChatOpenAI(
+            model="gpt-4",
+            openai_api_key=openai_api_key,
+            temperature=0.7
+        )
         self.conn = sqlite3.connect('data/processed/quiz_data.db')
         self._init_db()
 

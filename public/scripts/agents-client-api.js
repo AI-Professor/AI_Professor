@@ -22,6 +22,9 @@ let lastBytesReceived;
 let videoIsPlaying = false;
 let streamVideoOpacity = 0;
 
+let currentQuiz = [];
+let currentQuestionIndex = 0;
+
 const stream_warmup = true;
 let isStreamReady = !stream_warmup;
 
@@ -208,6 +211,59 @@ uploadButton.onclick = async () => {
       showStatusMessage(`Upload failed: ${error.message}`, true);
   }
 };
+async function startQuiz() {
+  try {
+    const response = await fetch('http://localhost:5001/api/generate-quiz');
+    if (!response.ok) throw new Error('Failed to fetch quiz');
+    
+    currentQuiz = await response.json();
+    console.log(typeof(currentQuiz))
+    console.log(currentQuiz)
+    
+    if (!currentQuiz?.length) {
+      showStatusMessage('No questions available!', true);
+      return;
+    }
+    
+    currentQuestionIndex = 0;
+    showQuestion(currentQuiz[currentQuestionIndex]);
+    
+  } catch (error) {
+    showStatusMessage(`Quiz Error: ${error.message}`, true);
+  }
+}
+function showQuestion(question) {
+  const quizContainer = document.getElementById('quiz-container');
+  quizContainer.innerHTML = `
+    <div class="quiz-question">
+      <h3>Question ${currentQuestionIndex + 1}</h3>
+      <p>${question.question}</p>
+      ${question.options.map((opt, i) => `
+        <button data-answer="${i}" style="color: black;">
+          ${String.fromCharCode(65 + i)} ${opt}
+        </button>
+      `).join('')}
+    </div>
+  `;
+}
+async function handleAnswer(selectedIndex) {
+  const correct = selectedIndex === currentQuiz[currentQuestionIndex].answer;
+  
+  // Show result
+  showStatusMessage(correct ? "Correct! 🎉" : "Incorrect ❌", !correct);
+  
+  // Next question
+  currentQuestionIndex++;
+  if(currentQuestionIndex < currentQuiz.length) {
+    showQuestion(currentQuiz[currentQuestionIndex]);
+  } else {
+    showStatusMessage("Quiz completed! Well done!", false);
+    // Optional: Add score calculation
+    const score = currentQuiz.filter((q, i) => 
+      i < currentQuestionIndex && selectedIndex === q.answer).length;
+    showStatusMessage(`Final Score: ${score}/${currentQuiz.length}`, false);
+  }
+}
 async function checkSystemStatus() {
   try {
       const response = await fetch('http://localhost:5001/health');
@@ -485,5 +541,14 @@ window.addEventListener('beforeunload', async () => {
           method: 'DELETE',
           headers: { 'Authorization': `Basic ${DID_CONFIG.key}` }
       });
+  }
+});
+document.getElementById('start-quiz-btn').addEventListener('click', startQuiz);
+
+// Event delegation for dynamic answer buttons
+document.getElementById('quiz-container').addEventListener('click', function(event) {
+  if (event.target.closest('button[data-answer]')) {
+    const selectedIndex = parseInt(event.target.getAttribute('data-answer'));
+    handleAnswer(selectedIndex);
   }
 });
