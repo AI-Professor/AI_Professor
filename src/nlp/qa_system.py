@@ -6,15 +6,14 @@ from dotenv import load_dotenv
 import warnings
 warnings.filterwarnings("ignore")
 
-# Load environment variables first
-load_dotenv(override=True)  # Force reload environment variables
-
-# Get API key with validation
+#Get API key from our .env file for API calls to GPT-4 model
+load_dotenv(override=True) 
 openai_api_key = os.getenv("OPENAI_API_KEY")
 if not openai_api_key:
     raise ValueError("OPENAI_API_KEY not found in environment variables")
 
-def initialize_qa_system(text_chunks: list):  
+#This function will use OpenAI model to generate a knowledge graph based on our input material. It will be stored in data/processed/knowledge_graph folder.
+def initialize_qa_system(text_chunks: list) -> FAISS:  
     # Initialize embeddings with explicit API key
     embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
     
@@ -27,6 +26,7 @@ def initialize_qa_system(text_chunks: list):
         print(f"Error creating FAISS index: {str(e)}")
         raise
 
+#This function will use GPT-4 model to generate an answer to an user's input question and return it.
 def answer_question(question: str, db: FAISS) -> str:  
     try:
         # Search with error handling

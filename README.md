@@ -37,26 +37,34 @@ If you have any question about any of the function used in main.py or app.js, yo
 
 Step 4:
 After all of the steps above is done, you can now go on and try the project out. You need to open two different terminal windows. Go to our root directory in both windows. One of them you want to run source venv/bin/activate for macOS/Linux or venv\Scripts\activate for Windows, then do python main.py, now our backend server start working. Then you want to do npm run dev or npm start in the other window, now our frontend server start working. Finally, open any browser in your computer and go to localhost:3000/agents and enjoy it!
+Our backend API will be running on localhost:5001 and our frontend API will be running on localhost:3000.
 
 # Folder Directions
-├── .env                            # Store API keys (OpenAI, ElevenLabs, D-ID)
-├── node_modules/                   # Auto-generated
-├── package.json                    # Node.js dependencies
-├── requirements.txt                # Python dependencies
-├── README.md                       # Project overview, setup instructions
-├── main.py                         # Primary entry point
-├── app.js                          # New Express server (for D-ID web interface)
-├── setup.py                        # Installation script (optional)
+├── *README.md*                     # Project overview, setup instructions
+├── *main.py*                       # Primary entry point 
+├── *app.js*                        # New Express server (for D-ID web interface)
+├── *.env*                          # Store API keys (OpenAI,ElevenLabs,D-ID) for backend *check setup step 5*
+├── *api.json*                      # Store API keys (D-ID) for frontend *check setup step 6*
+├── venv                            # Python virtual environment *appear after setup step 2*
+├── requirements.txt                # Python dependencies *for setup step 3*
+├── node_modules/                   # Auto-generated *appear after setup step 4*
+├── package.json                    # Node.js dependencies with minimum version
+├── package-lock.json               # Node.js dependencies with exact version
 ├── .gitignore                      # Excludes secrets, logs, virtualenv
-├── node_modules                    # A cache for external modules
 │  
 ├── data/                           # Raw and processed data  
-│   ├── raw/                        # Original input files (PDFs, EPUBs)  
-│   │   └── book_chapter.pdf      
+│   ├── raw/                        # Original input files (PDFs, EPUBs, videos)  
+│   │   ├── book_chapter.pdf
+│   │   ├── scrum.epub
+│   │   └── python_tutorial.mp4      
 │   │  
 │   └── processed/                  # Cleaned and structured data  
 │       ├── lesson_script/          # Lecture scripts
 │       │   └── lesson_script.txt 
+│       ├── audio/                  # Lecture and Q&A audio
+│       │   └── audio.mp3
+│       ├── quiz_data/              # Quiz database
+│       │   └── quiz_data.db
 │       └── knowledge_graph/        # Vector database (FAISS)  
 │           ├── index.faiss  
 │           └── index.pkl  
@@ -64,39 +72,38 @@ After all of the steps above is done, you can now go on and try the project out.
 ├── src/                            # Source code  
 │   ├── data_ingestion/             # Text processing scripts  
 │   │   ├── pdf_parser.py           # Extracts text from PDFs  
+│   │   ├── epub_parser.py          # Extracts text from epubs 
+│   │   ├── video_parser.py         # Extracts text from videos  
 │   │   └── text_splitter.py        # Splits text into sections  
 │   │  
 │   ├── nlp/                        # NLP and AI components  
 │   │   ├── qa_system.py            # GPT-4 Q&A with LangChain  
-│   │   └── stt_tts.py              # Speech-to-text/text-to-speech logic  
+│   │   └── quiz_system.py          # Quiz generation machine using OpenAI and SQLite3
 │   │  
 │   ├── avatar/                     # Avatar management  
 │   │   ├── avatar_design/          # 2D avatar assets (images, animations)  
 │   │   ├── lip_sync.py             # D-ID integration for lip-syncing
-│   │   ├── api/                    # Avatar API 
-│   │   │   └── did_client.js       # D-ID API wrappers  
-│   │   └── tts.py                  # Transform text to audio speech  
+│   │   ├── script_generator.py     # Lecture script generator using input materials
+│   │   ├── tts.py                  # Transform text to audio speech   
 │   │  
 │   └── utils/                      # Helper functions  
 │       ├── config_loader.py        # Loads environment variables  
 │       └── logger.py               # Logging setup  
 │ 
 ├── public/                         # Frontend files
+│   ├── index-agents.html           # Agent HTML
 │   ├── assets/
-│   │    ├── idle/                   # Idle videos
-│   │    └── bg.png                     # Background image
-│   ├── index.html                      # Lecture Agent HTML 
-│   ├── index-agents.html               # Q&A Agent HTML
-│   ├── styles/                         # Frontend styling
+│   │    ├── idle/                  # Idle videos
+│   │    └── bg.png                 # Background image 
+│   ├── styles/                     # Frontend styling
 │   │   └── style-agents.css
 │   └── scripts/            
-│       ├── voice-ui.js                 # Voice recognition
-│       ├── agents-client-api.js        # Q&A Agent
-│       └── streaming-client-api.js     # Lecture Agent
+│       ├── voice-ui.js             # Voice recognition
+│       └── agents-client-api.js    # Frontend Agent
 │  
 ├── tests/                          # Unit and integration tests  
 │   ├── test_data_ingestion.py  
-│   └── test_qa_system.py  
+│   └── test_quiz.py  
 │  
 ├── notebooks/                      # Experimental Jupyter notebooks  
 │   └── prototype_testing.ipynb     # Early-stage concept validation  
@@ -106,13 +113,5 @@ After all of the steps above is done, you can now go on and try the project out.
 │  
 ├── logs/                           # Log files (errors, API calls)  
 │   └── app.log  
-│  
-├── assets/                         # Media files for the avatar/UI  
-│   ├── images/                     # Avatar PNGs/SVGs  
-│   ├── audio/                      # Generated voice clips (ElevenLabs)  
-│   └── videos/                     # Rendered avatar lessons (D-ID)  
-│  
-├── config/                         # Configuration files  
-│   ├── settings.yaml               # Hyperparameters   
-│   ├── api.json                    # D-ID credentials
-│   └── streaming.yaml              # Streaming parameters
+│ 
+├── backups/                        # Backups generated by backup_data.sh

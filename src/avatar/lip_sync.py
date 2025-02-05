@@ -7,7 +7,7 @@ from pathlib import Path
 
 load_dotenv()
 
-#This function will use the audio we created from tts and combine with our avatar image to create an avatar video and store in the path
+#This function will use the audio we created from tts and combine with our avatar image to create an avatar video and store in the path. It will return the video path where the video is stored in our backend.
 def create_talking_avatar(audio_url: str) -> str:
     """Robust D-ID API integration with proper error handling"""
     api_key = os.getenv("DID_API_KEY")

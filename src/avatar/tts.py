@@ -5,16 +5,17 @@ from pathlib import Path
 import time
 import requests
 
+#Get API key from our .env file for API calls to D-ID(video) and ELEVENLABS(audio) model
 load_dotenv()
-
 api_key = os.getenv("DID_API_KEY")
 client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
 
 #This function convert text to speech and store in our assets/audio folder.
 #Then it also uploade the audio to D-ID to get ready for synthesizing with the video.
+#This function will return two strings. The audio path for where it is stored and the audio url on D-ID
 def text_to_speech(text: str):
     """Convert text to speech using ElevenLabs"""
-    audio_dir = Path(__file__).parent.parent.parent / "assets" / "audio"
+    audio_dir = Path(__file__).parent.parent.parent / "data" / "processed" / "audio"
 
     filename = f"lecture_{int(time.time())}.mp3"
     audio_path = audio_dir / filename

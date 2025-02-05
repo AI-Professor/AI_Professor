@@ -1,0 +1,9 @@
+"Welcome everyone! Today we're going to talk about Agile methodology, specifically focusing on meetings and estimations. Agile is all about adaptability and learning, so remember, these are starting points for your team and you should adjust as you see fit. 
+
+In Agile, meetings are crucial for keeping the team on track. One technique we recommend is creating a timeline of each sprint to help remember all events, not just the recent or problematic ones. To do this, each team member contributes as many events as they remember to a timeline, using index cards or sticky notes. 
+
+Let's look at an example. Imagine we're in a sprint, and we're using a wall and sticky notes to build a timeline of events. Each team member contributes, adding notes about code updates, discovered bugs, or customer feedback. This helps us remember the good and the bad, and keep our discussion on topic. 
+
+Now, let's switch gears a bit. How would you estimate the time it takes to complete a task? It's tricky, isn't it? It's like asking how long it would take to get from point A to B without knowing the mode of transport or distance. The same principle applies in Agile when estimating work with story sizes. 
+
+To wrap up, remember that Agile is all about learning and adapting. Use the sprint timeline to keep track of events and help your team's memory. And when it comes to estimating, just like our journey example, there are many variables to consider. So keep practicing, keep adjusting, and find what works best for your team!"

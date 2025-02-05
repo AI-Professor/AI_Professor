@@ -1,6 +1,7 @@
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import re
 
+#This function will dynamically split text input based on input length into chunks for knowledge graph construction. 
 def split_text(text: str) -> list:
     # Analyze text characteristics
     text_length = len(text)

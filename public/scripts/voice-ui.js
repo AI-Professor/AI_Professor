@@ -1,3 +1,4 @@
+//This function allows user to have voice input. This can recognize user's voice.
 export function initializeVoiceRecognition() {
   return new Promise((resolve, reject) => {
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();

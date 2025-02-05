@@ -1,3 +1,4 @@
+/*This is our stylesheet for index-agents.html*/
 .peerConnectionState-new {
   color: cornflowerblue;
 }
@@ -60,11 +61,25 @@
   color: grey;
 }
 
-#agentId-label, #chatId-label{
+.streamEvent-started {
   color: green;
 }
 
-/* added css from here */
+.streamEvent-done {
+  color: orange;
+}
+
+.streamEvent-ready {
+  color: green;
+}
+
+.streamEvent-error {
+  color: red;
+}
+
+.streamEvent-dont-care {
+  color: gray;
+}
 
 body * {
   font-family: 'Mulish', sans-serif;
@@ -72,10 +87,9 @@ body * {
 }
 
 #content {
-  display: flex;
-  flex-direction: row;
-  justify-content: space-evenly;
-  margin-top: 50px;
+  width: 820px;
+  position: relative;
+  margin: 0 auto;
 }
 
 #buttons {
@@ -94,50 +108,20 @@ button {
   color: #fff;
 }
 
-button#connect-button {
-background-color: green;
-}
-button#destroy-button{
-  background-color: red;
-}
-
-button#start-button{
-  margin: 1em;
-}
-
-button:hover, #destroy-button:hover,#connect-button:hover {
-  filter: brightness(85%);
+button:hover {
+  background-color: #9480ff;
   cursor: pointer;
   transition: all 0.2s ease-out;
 }
 
-h4{
-  margin: 0;
-  margin-bottom: 10px;
-}
-
-textarea {
-  font-size: 16px;
-  text-align: center;
-  width: 500px;
-  border-radius: 5px;
-  padding: 10px 20px;
-  border: 2px solid #7459fe;
-  font-size: 16px;
-  margin: 0 5px;
-}
-
-#msgHistory {
-  overflow-y: auto;
-  line-break: loose;
-}
-
 #status {
+  clear: both;
+  padding: 20px 0 0 0;
+  text-align: left;
   display: inline-block;
   zoom: 1;
   line-height: 140%;
   font-size: 15px;
-  width: 400px;
 }
 
 #status div {
@@ -145,31 +129,72 @@ textarea {
 }
 
 #video-wrapper {
-  /* height: 500px; */
-  width: 400px;
-  height: 400px;
+  background: url(/public/assets/bg.png);
+  height: 500px;
   background-position: top;
 }
 
-.chat{
+#video-wrapper div {
+  position: relative;
+  height: 100%;
   width: 400px;
+  margin: 0 auto;
 }
-
 
 video {
-  /* display: block; */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  /*border:1px solid;*/
   border-radius: 50%;
-  background-image: url("/assets/images/avatar.jpg");
-  background-position: top;
-  /* position: absolute; */
-  background-size: contain;
+  background-color: #fff;
+}
+.file-upload-section {
+  margin: 20px;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
 }
 
-.animated {
-  animation: opacityAnimation 0.2s ease-in-out;
+.file-upload-section input[type="file"] {
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid #7459fe;
+  border-radius: 4px;
 }
 
-@keyframes opacityAnimation {
-from { opacity: 0.8; }
-to { opacity: 1; }
+#uploadStatus {
+  margin-top: 10px;
+  color: #666;
+  min-height: 20px;
+}
+
+.quiz-question {
+  padding: 20px;
+  margin: 20px 0;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+.quiz-question button {
+  display: block;
+  width: 100%;
+  margin: 5px 0;
+  padding: 10px;
+  text-align: left;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  cursor: pointer;
+}
+
+.quiz-question button:hover {
+  background: #e9ecef;
+}
+
+.danger {
+  background-color: #ff4444 !important;
+}
+.danger:hover {
+  background-color: #cc0000 !important;
 }

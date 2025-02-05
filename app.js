@@ -88,8 +88,7 @@ app.post('/python-api/upload-files', upload.any(), async (req, res) => {
 }
 });
 
-app.get('/', (req, res) => res.sendFile(__dirname + '/public/index.html'));
-app.get('/agents', (req, res) => res.sendFile(__dirname + '/public/index-agents.html'));
+app.get('/', (req, res) => res.sendFile(__dirname + '/public/index-agents.html'));
 
 const server = http.createServer(app);
 server.listen(port, () => {

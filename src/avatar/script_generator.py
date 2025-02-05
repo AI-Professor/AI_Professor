@@ -1,6 +1,7 @@
 from src.nlp.qa_system import answer_question
 from pathlib import Path
 
+#This function will generate lesson script through GPT-4 model identified in answer_question function in src/nlp/qa_system.py. The content is based on the template we defined here and give to GPT-4.
 def generate_lesson_script(db, template, length):
     """Auto-generates lesson script using GPT-4"""
 

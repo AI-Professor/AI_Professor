@@ -3,6 +3,7 @@ from pytube import YouTube
 import tempfile
 import os
 
+#This function will take any video input and transcribe information to text using Whisper model
 def transcribe_video(video_path: str, is_youtube: bool = False) -> str:
     model = whisper.load_model("base")
     
@@ -18,6 +19,7 @@ def transcribe_video(video_path: str, is_youtube: bool = False) -> str:
     
     return result["text"]
 
+#This function will extract all text content from the transcribed video text
 def extract_text_from_video(video_path: str, is_youtube: bool = False) -> str:
     try:
         return transcribe_video(video_path, is_youtube)

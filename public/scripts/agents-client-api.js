@@ -1,4 +1,7 @@
 'use strict';
+//This is the javascript files for our index-agents.html frontend UI
+
+//We will fetch our D-ID API key from frontend environment file api.json
 const DID_API = await (await fetch("/api.json")).json();
 const API_BASE = `${DID_API.url}/talks/streams`;
 import { initializeVoiceRecognition } from "./voice-ui.js";
@@ -11,6 +14,7 @@ const RTCPeerConnection = (
   window.mozRTCPeerConnection
 ).bind(window);
 
+//Initialize global variables
 let peerConnection;
 let pcDataChannel;
 let streamId;
@@ -29,6 +33,7 @@ let score = 0;
 const stream_warmup = true;
 let isStreamReady = !stream_warmup;
 
+//Initialize interactive global variables from frontend HTML
 const idleVideoElement = document.getElementById('idle-video-element');
 const streamVideoElement = document.getElementById('stream-video-element');
 idleVideoElement.setAttribute('playsinline', '');
@@ -50,49 +55,7 @@ const presenterInputByService = {
   },
 };
 
-async function handleUserInput(text) {
-  // Generate audio from TTS service
-  try {
-      const backendResponse = await fetch('http://localhost:5001/api/audio-answer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: text })
-    }).catch(error => {
-      throw new Error(`Network error: ${error.message}`);
-    });
-
-    if (!backendResponse.ok) {
-      const errorText = await backendResponse.text();
-      throw new Error(`API Error ${backendResponse.status}: ${errorText}`);
-    }
-    const {audio_url} = await backendResponse.json();
-
-    await fetchWithRetry(`${API_BASE}/${streamId}`, {
-      method: 'POST',
-      headers: {
-          Authorization : `Basic ${DID_API.key}`,
-          'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-          script: {
-              type: 'audio',
-              audio_url: audio_url
-          },
-          ...(DID_API.service === 'clips' && {
-            background: {
-              color: '#FFFFFF',
-            },
-          }),
-          config: {
-            stitch: true,
-          },
-          session_id: sessionId,
-      })
-  });
-  } catch (error) {
-    showStatusMessage(`❌ Processing error: ${error.message}`, true);
-}
-}
+//The following section of functions will serve connect button clicked event. These functions are meant to create a live stream, establish a WebRTC connection with the platform, and submit network information to initialize connection. These steps are crucial to our implementation to Real-Time Q&A feature. Detailed explanation can be find on "https://docs.d-id.com/reference/talks-streams-overview".
 const connectButton = document.getElementById('connect-button');
 connectButton.onclick = async () => {
   if (peerConnection && peerConnection.connectionState === 'connected') {
@@ -141,165 +104,6 @@ connectButton.onclick = async () => {
     }),
   });
 };
-const startButton = document.getElementById('start-button');
-startButton.onclick = async () => {
-  try {
-      const userQuestion = await initializeVoiceRecognition();
-      addChatMessage(`You: ${userQuestion}`, 'user');
-      
-      const backendResponse = await fetch('http://localhost:5001/api/answer', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question: userQuestion })
-      }).catch(error => {
-        throw new Error(`Network error: ${error.message}`);
-      });
-      
-      if (!backendResponse.ok) {
-        const errorText = await response.text();
-        throw new Error(`API Error ${response.status}: ${errorText}`);
-      }
-      
-      const { text, audio } = await backendResponse.json();
-      addChatMessage(`AI: ${text}`, 'ai');
-      
-      await handleUserInput("apple");
-  } catch (error) {
-      showStatusMessage(`❌ Processing error: ${error.message}`, true);
-  }
-};
-const destroyButton = document.getElementById('destroy-button');
-destroyButton.onclick = async () => {
-  await fetch(`${DID_API.url}/${DID_API.service}/streams/${streamId}`, {
-    method: 'DELETE',
-    headers: {
-      Authorization: `Basic ${DID_API.key}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ session_id: sessionId }),
-  });
-
-  stopAllStreams();
-  closePC();
-};
-const uploadButton = document.getElementById('upload-button');
-uploadButton.onclick = async () => {
-  const fileInput = document.getElementById('fileInput');
-  const files = Array.from(fileInput.files);
-  
-  if (files.length === 0) {
-      showStatusMessage('Please select files first', true);
-      return;
-  }
-
-  const formData = new FormData();
-  files.forEach(file => formData.append('files', file));
-
-  try {
-      showStatusMessage('Uploading files...');
-      const response = await fetch('http://localhost:5001/api/upload', {
-          method: 'POST',
-          body: formData
-      });
-
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Upload failed');
-      
-      showStatusMessage(result.message);
-      await checkSystemStatus();
-      
-  } catch (error) {
-      showStatusMessage(`Upload failed: ${error.message}`, true);
-  }
-};
-const quizButton = document.getElementById('start-quiz-btn');
-quizButton.onclick = async () => {
-  try {
-    const response = await fetch('http://localhost:5001/api/generate-quiz');
-    if (!response.ok) throw new Error('Failed to fetch quiz');
-    
-    currentQuiz = await response.json();
-    console.log(typeof(currentQuiz))
-    console.log(currentQuiz)
-    
-    if (!currentQuiz?.length) {
-      showStatusMessage('No questions available!', true);
-      return;
-    }
-    
-    currentQuestionIndex = 0;
-    score = 0
-    showQuestion(currentQuiz[currentQuestionIndex]);
-    
-  } catch (error) {
-    showStatusMessage(`Quiz Error: ${error.message}`, true);
-  }
-};
-const clearQuizButton = document.getElementById('clear-quiz-btn');
-clearQuizButton.onclick = async () => {
-  try {
-    showStatusMessage('Clearing quiz database...');
-    
-    const response = await fetch('http://localhost:5001/api/clear-quiz', {
-      method: 'DELETE'
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: "Unknown error" }));
-      throw new Error(error.error || 'Failed to clear quiz');
-    }
-
-    const result = await response.json();
-    showStatusMessage(result.message);
-    currentQuiz = []; // Reset current quiz
-    
-  } catch (error) {
-    showStatusMessage(`Clear Error: ${error.message}`, true);
-  }
-};
-function showQuestion(question) {
-  const quizContainer = document.getElementById('quiz-container');
-  quizContainer.innerHTML = `
-    <div class="quiz-question">
-      <h3>Question ${currentQuestionIndex + 1}</h3>
-      <p>${question.question}</p>
-      ${question.options.map((opt, i) => `
-        <button data-answer="${i}" style="color: black;">
-          ${String.fromCharCode(65 + i)} ${opt}
-        </button>
-      `).join('')}
-    </div>
-  `;
-}
-async function handleAnswer(selectedIndex) {
-  const correct = selectedIndex === currentQuiz[currentQuestionIndex].answer;
-  
-  // Show result
-  showStatusMessage(correct ? "Correct! 🎉" : "Incorrect ❌", !correct);
-  if (correct){
-    score += 1
-  }
-  
-  // Next question
-  currentQuestionIndex++;
-  if(currentQuestionIndex < currentQuiz.length) {
-    showQuestion(currentQuiz[currentQuestionIndex]);
-  } else {
-    showStatusMessage("Quiz completed! Well done!", false);
-    showStatusMessage(`Final Score: ${score}/${currentQuiz.length}`, false);
-  }
-}
-async function checkSystemStatus() {
-  try {
-      const response = await fetch('http://localhost:5001/health');
-      const status = await response.json();
-      if (status.initialized) {
-          showStatusMessage('System ready with latest content');
-      }
-  } catch (error) {
-      console.error('Status check failed:', error);
-  }
-}
 function onIceGatheringStateChange() {
   iceGatheringStatusLabel.innerText = peerConnection.iceGatheringState;
   iceGatheringStatusLabel.className = 'iceGatheringState-' + peerConnection.iceGatheringState;
@@ -502,6 +306,100 @@ function setStreamVideoElement(stream) {
 function playIdleVideo() {
   idleVideoElement.src = DID_API.service == 'clips' ? '/public/assets/idle/Henry_Idle_Video.mp4' : '/public/assets/idle/Henry_Idle_Video.mp4';
 }
+
+//The following section of functions will serve to record an user's voice input, send it to backend through API calls in main.py to process, and get our GPT-4 model's answer back from backend and create a stream talk that can be seen and listend on our frontend Real-Time interaction.
+const startButton = document.getElementById('start-button');
+startButton.onclick = async () => {
+  try {
+      const userQuestion = await initializeVoiceRecognition();
+      addChatMessage(`You: ${userQuestion}`, 'user');
+      
+      const backendResponse = await fetch('http://localhost:5001/api/answer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: userQuestion })
+      }).catch(error => {
+        throw new Error(`Network error: ${error.message}`);
+      });
+      
+      if (!backendResponse.ok) {
+        const errorText = await response.text();
+        throw new Error(`API Error ${response.status}: ${errorText}`);
+      }
+      
+      const { text, audio } = await backendResponse.json();
+      addChatMessage(`AI: ${text}`, 'ai');
+      
+      await handleUserInput("apple");
+  } catch (error) {
+      showStatusMessage(`❌ Processing error: ${error.message}`, true);
+  }
+};
+async function handleUserInput(text) {
+  // Generate audio from TTS service
+  try {
+      const backendResponse = await fetch('http://localhost:5001/api/audio-answer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text })
+    }).catch(error => {
+      throw new Error(`Network error: ${error.message}`);
+    });
+
+    if (!backendResponse.ok) {
+      const errorText = await backendResponse.text();
+      throw new Error(`API Error ${backendResponse.status}: ${errorText}`);
+    }
+    const {audio_url} = await backendResponse.json();
+
+    await fetchWithRetry(`${API_BASE}/${streamId}`, {
+      method: 'POST',
+      headers: {
+          Authorization : `Basic ${DID_API.key}`,
+          'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+          script: {
+              type: 'audio',
+              audio_url: audio_url
+          },
+          ...(DID_API.service === 'clips' && {
+            background: {
+              color: '#FFFFFF',
+            },
+          }),
+          config: {
+            stitch: true,
+          },
+          session_id: sessionId,
+      })
+  });
+  } catch (error) {
+    showStatusMessage(`❌ Processing error: ${error.message}`, true);
+}
+}
+function addChatMessage(text, sender) {
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `chat-msg ${sender}`;
+  msgDiv.textContent = text;
+  document.getElementById('msgHistory').appendChild(msgDiv);
+}
+
+//The following section of functions will serve destroy button clicked. It will destroy the live stream we created and cut off peer connection
+const destroyButton = document.getElementById('destroy-button');
+destroyButton.onclick = async () => {
+  await fetch(`${DID_API.url}/${DID_API.service}/streams/${streamId}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Basic ${DID_API.key}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ session_id: sessionId }),
+  });
+
+  stopAllStreams();
+  closePC();
+};
 function stopAllStreams() {
   if (streamVideoElement.srcObject) {
     console.log('stopping video streams');
@@ -535,12 +433,138 @@ function closePC(pc = peerConnection) {
     peerConnection = null;
   }
 }
-function addChatMessage(text, sender) {
-  const msgDiv = document.createElement('div');
-  msgDiv.className = `chat-msg ${sender}`;
-  msgDiv.textContent = text;
-  document.getElementById('msgHistory').appendChild(msgDiv);
+
+//The following section of functions will serve upload function. It will take required form of input files and send it to our backend through API calls in main.py to process. It will initialize our knowledge graph based on given input
+const uploadButton = document.getElementById('upload-button');
+uploadButton.onclick = async () => {
+  const fileInput = document.getElementById('fileInput');
+  const files = Array.from(fileInput.files);
+  
+  if (files.length === 0) {
+      showStatusMessage('Please select files first', true);
+      return;
+  }
+
+  const formData = new FormData();
+  files.forEach(file => formData.append('files', file));
+
+  try {
+      showStatusMessage('Uploading files...');
+      const response = await fetch('http://localhost:5001/api/upload', {
+          method: 'POST',
+          body: formData
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Upload failed');
+      
+      showStatusMessage(result.message);
+      await checkSystemStatus();
+      
+  } catch (error) {
+      showStatusMessage(`Upload failed: ${error.message}`, true);
+  }
+};
+async function checkSystemStatus() {
+  try {
+      const response = await fetch('http://localhost:5001/health');
+      const status = await response.json();
+      if (status.initialized) {
+          showStatusMessage('System ready with latest content');
+      }
+  } catch (error) {
+      console.error('Status check failed:', error);
+  }
 }
+
+//The following section of functions will serve start quiz button. It will call backend API to generate some quiz questions based on lesson script and send them back to frontend.
+const quizButton = document.getElementById('start-quiz-btn');
+quizButton.onclick = async () => {
+  try {
+    const response = await fetch('http://localhost:5001/api/generate-quiz');
+    if (!response.ok) throw new Error('Failed to fetch quiz');
+    
+    currentQuiz = await response.json();
+    console.log(typeof(currentQuiz))
+    console.log(currentQuiz)
+    
+    if (!currentQuiz?.length) {
+      showStatusMessage('No questions available!', true);
+      return;
+    }
+    
+    currentQuestionIndex = 0;
+    score = 0
+    showQuestion(currentQuiz[currentQuestionIndex]);
+    
+  } catch (error) {
+    showStatusMessage(`Quiz Error: ${error.message}`, true);
+  }
+};
+function showQuestion(question) {
+  const quizContainer = document.getElementById('quiz-container');
+  quizContainer.innerHTML = `
+    <div class="quiz-question">
+      <h3>Question ${currentQuestionIndex + 1}</h3>
+      <p>${question.question}</p>
+      ${question.options.map((opt, i) => `
+        <button data-answer="${i}" style="color: black;">
+          ${String.fromCharCode(65 + i)} ${opt}
+        </button>
+      `).join('')}
+    </div>
+  `;
+}
+async function handleAnswer(selectedIndex) {
+  const correct = selectedIndex === currentQuiz[currentQuestionIndex].answer;
+  
+  // Show result
+  showStatusMessage(correct ? "Correct! 🎉" : "Incorrect ❌", !correct);
+  if (correct){
+    score += 1
+  }
+  
+  // Next question
+  currentQuestionIndex++;
+  if(currentQuestionIndex < currentQuiz.length) {
+    showQuestion(currentQuiz[currentQuestionIndex]);
+  } else {
+    showStatusMessage("Quiz completed! Well done!", false);
+    showStatusMessage(`Final Score: ${score}/${currentQuiz.length}`, false);
+  }
+}
+document.getElementById('quiz-container').addEventListener('click', function(event) {
+  if (event.target.closest('button[data-answer]')) {
+    const selectedIndex = parseInt(event.target.getAttribute('data-answer'));
+    handleAnswer(selectedIndex);
+  }
+});
+
+//This function will serve clear quiz button. It will call backend API to cleanup quiz questions database table and recycle memory for future use.
+const clearQuizButton = document.getElementById('clear-quiz-btn');
+clearQuizButton.onclick = async () => {
+  try {
+    showStatusMessage('Clearing quiz database...');
+    
+    const response = await fetch('http://localhost:5001/api/clear-quiz', {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "Unknown error" }));
+      throw new Error(error.error || 'Failed to clear quiz');
+    }
+
+    const result = await response.json();
+    showStatusMessage(result.message);
+    currentQuiz = []; // Reset current quiz
+    
+  } catch (error) {
+    showStatusMessage(`Clear Error: ${error.message}`, true);
+  }
+};
+
+//These two functions are constantly used by state changing event to check status of our frontend UI .
 function showStatusMessage(message, isError = false) {
   const statusDiv = document.createElement('div');
   statusDiv.className = `status-msg ${isError ? 'error' : 'info'}`;
@@ -560,18 +584,13 @@ async function fetchWithRetry(url, options, retries = 3) {
       throw error;
   }
 }
+
+//Final clean up after everything is done.
 window.addEventListener('beforeunload', async () => {
   if (currentStreamId) {
       await fetch(`${API_BASE}/${currentStreamId}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Basic ${DID_CONFIG.key}` }
       });
-  }
-});
-// Event delegation for dynamic answer buttons
-document.getElementById('quiz-container').addEventListener('click', function(event) {
-  if (event.target.closest('button[data-answer]')) {
-    const selectedIndex = parseInt(event.target.getAttribute('data-answer'));
-    handleAnswer(selectedIndex);
   }
 });

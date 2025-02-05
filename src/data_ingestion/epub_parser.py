@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 import warnings
 warnings.filterwarnings("ignore")
 
+#This function will take a .epub file as input and extract all text content from it
 def extract_text_from_epub(epub_path: str) -> str:
     book = epub.read_epub(epub_path)
     text = []
