@@ -39,6 +39,64 @@ Step 4:
 After all of the steps above is done, you can now go on and try the project out. You need to open two different terminal windows. Go to our root directory in both windows. One of them you want to run source venv/bin/activate for macOS/Linux or venv\Scripts\activate for Windows, then do python main.py, now our backend server start working. Then you want to do npm run dev or npm start in the other window, now our frontend server start working. Finally, open any browser in your computer and go to localhost:3000/agents and enjoy it!
 Our backend API will be running on localhost:5001 and our frontend API will be running on localhost:3000.
 
+# Key commands
+- source venv/bin/activate          # for Mac/Linux users. Run this command whenever you have a new terminal window opened to activate your virtual environment. Otherwise nothing will work.
+- venv\Scripts\activate             # the same function as above but for Windows users
+- python main.py                    # run backend API at localhost:5001
+- python main.py --mode=cli         # run backend main at terminal for testing purposes 
+- npm run dev                       # run frontend API at localhost:3000 in developer mode
+- npm start                         # run frontend API in normal mode
+- pip install -r requirements.txt   !!! run this after every pull and merge to make sure your backend dependencies and modules are updated with everyone elses. Otherwise your code won't work
+- npm install                       !!! run this after every pull and merge to make sure your frontend dependencies and modules are updated with everyone elses. Otherwise your code won't work
+- pip freeze > requirements.txt     !!! store any newly installed pip modules into requirements.txt !!!Important!!! Always remember to run this in the command whenever you install any new modules. Otherwise other people are not able to run your code.
+
+# Important Git commands
+- git status                        # check status
+- git init                          # initialize a repository
+- git clone <your-repo-url>         # find this in main page of repository, either start with http or a SSH key
+- git branch <branch-name>          # create a new branch
+- git checkout <branch-name>        # go to work on that branch
+- git checkout -b <branch-name>     # create and go to work on that branch
+- git branch                        # see a list of all local branches
+- git branch -a                     # see a list of all local and remote branches
+- git branch -d <branch-name>       # delete a branch
+- git push origin --delete <branch-name>    # delete a remote branch
+- git add <file-name>               # add a file or several files for staging
+- git add -A                        # add all files (new, modified, deleted) for staging
+- git add .                         # add new and modified files for staging only
+- git add *                         # add modified and deleted files for staging only
+- git commit -m "commit message"    # after files added for staging, write a commit message about what have you done for this commit and commit staged files
+- git commit --amend --no-edit      # amend last commit, no change in commit message
+- git push origin <branch-name>     # after commit, push all new changes to a specific branch in remote repo
+- git pull origin <branch-name>     # pull changes from a remote branch and merge into local repo
+- git fetch                         # fetch new changes without merge
+- git merge <branch-name>           # merge another branch into current branch
+- git rebase <branch-name>          # rebase current branch onto another branch
+- git merge --abort                 # abort ongoing merge
+- git rebase --abort                # abort ongoing rebase
+- git stash                         # store uncommitted changes temporaly for later
+- git stash list                    # check all stashed changes
+- git stash pop                     # pop the latest stashed changes
+- git stash apply stash@{1}         # apply a specific stash
+- git stash drop stash@{0}          # drop a specific stash
+- git reset --soft HEAD~1           # undo last commit but keep changes staged
+- git reset --mixed HEAD~1          # undo last commit and unstage changes
+- git reset --hard HEAD~1           # undo last commit and discard changes
+- git log --oneline --graph --all   # view commit history
+- git diff <file-name>              # view changes in a specific file
+- git show <commit-hash>            # view a specific commit
+- git remote -v                     # check remote repositories
+- git remote add origin <repo-url>  # add a new remote repository
+- git remote set-url origin <new-url># change the url of the remote repository
+- git tag -a v1.0 -m "Version 1.0"  # create a tag
+- git push origin --tags            # push tags to remote
+- git tag -d <tag-name>             # delete a local tag
+- git push origin --delete <tag-name># delete a remote tag
+- git tag                           # list all local and remote tags
+- git tag -n                        # detailed information about tags
+- git fetch --tags                  # fetch all remote tags
+
+
 # Folder Directions
 ├── *README.md*                     # Project overview, setup instructions
 ├── *main.py*                       # Primary entry point 
