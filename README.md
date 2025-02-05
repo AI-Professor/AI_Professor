@@ -98,20 +98,20 @@ Our backend API will be running on localhost:5001 and our frontend API will be r
 
 
 # Folder Directions
-├── *README.md*                     # Project overview, setup instructions  
-├── *main.py*                       # Primary entry point  
-├── *app.js*                        # New Express server (for D-ID web interface)  
-├── *.env*                          # Store API keys (OpenAI,ElevenLabs,D-ID) for backend *check setup step 5*  
-├── *api.json*                      # Store API keys (D-ID) for frontend *check setup step 6*  
-├── venv                            # Python virtual environment *appear after setup step 2*  
-├── requirements.txt                # Python dependencies *for setup step 3*  
-├── node_modules/                   # Auto-generated *appear after setup step 4*  
-├── package.json                    # Node.js dependencies with minimum version  
-├── package-lock.json               # Node.js dependencies with exact version  
-├── .gitignore                      # Excludes secrets, logs, virtualenv  
-│  
-├── data/                           # Raw and processed data  
-│   ────── raw/                        # Original input files (PDFs, EPUBs, videos)  
+──── *README.md*                     # Project overview, setup instructions  
+──── *main.py*                       # Primary entry point  
+──── *app.js*                        # New Express server (for D-ID web interface)  
+──── *.env*                          # Store API keys (OpenAI,ElevenLabs,D-ID) for backend *check setup step 5*  
+──── *api.json*                      # Store API keys (D-ID) for frontend *check setup step 6*  
+──── venv                            # Python virtual environment *appear after setup step 2*  
+──── requirements.txt                # Python dependencies *for setup step 3*  
+──── node_modules/                   # Auto-generated *appear after setup step 4*  
+──── package.json                    # Node.js dependencies with minimum version  
+──── package-lock.json               # Node.js dependencies with exact version  
+──── .gitignore                      # Excludes secrets, logs, virtualenv  
+  
+──── data/                           # Raw and processed data   
+   ──── raw/                        # Original input files (PDFs, EPUBs, videos)  
 │   │   ├── book_chapter.pdf  
 │   │   ├── scrum.epub  
 │   │   └── python_tutorial.mp4     
