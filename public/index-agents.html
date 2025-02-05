@@ -202,6 +202,13 @@
       .quiz-question button:hover {
         background: #e9ecef;
       }
+
+      .danger {
+        background-color: #ff4444 !important;
+      }
+      .danger:hover {
+        background-color: #cc0000 !important;
+      }
     </style>
   </head>
 
@@ -225,6 +232,7 @@
       <div id="quiz-section">
         <h2>Lecture Quiz</h2>
         <button id="start-quiz-btn">Start Quiz</button>
+        <button id="clear-quiz-btn" class="danger">Clear Quiz Database</button>
         <div id="quiz-container"></div>
       </div>
       <div class="status-box">

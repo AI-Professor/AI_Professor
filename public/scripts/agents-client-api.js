@@ -24,6 +24,7 @@ let streamVideoOpacity = 0;
 
 let currentQuiz = [];
 let currentQuestionIndex = 0;
+let score = 0;
 
 const stream_warmup = true;
 let isStreamReady = !stream_warmup;
@@ -162,7 +163,7 @@ startButton.onclick = async () => {
       const { text, audio } = await backendResponse.json();
       addChatMessage(`AI: ${text}`, 'ai');
       
-      await handleUserInput(text);
+      await handleUserInput("apple");
   } catch (error) {
       showStatusMessage(`❌ Processing error: ${error.message}`, true);
   }
@@ -211,7 +212,8 @@ uploadButton.onclick = async () => {
       showStatusMessage(`Upload failed: ${error.message}`, true);
   }
 };
-async function startQuiz() {
+const quizButton = document.getElementById('start-quiz-btn');
+quizButton.onclick = async () => {
   try {
     const response = await fetch('http://localhost:5001/api/generate-quiz');
     if (!response.ok) throw new Error('Failed to fetch quiz');
@@ -226,12 +228,35 @@ async function startQuiz() {
     }
     
     currentQuestionIndex = 0;
+    score = 0
     showQuestion(currentQuiz[currentQuestionIndex]);
     
   } catch (error) {
     showStatusMessage(`Quiz Error: ${error.message}`, true);
   }
-}
+};
+const clearQuizButton = document.getElementById('clear-quiz-btn');
+clearQuizButton.onclick = async () => {
+  try {
+    showStatusMessage('Clearing quiz database...');
+    
+    const response = await fetch('http://localhost:5001/api/clear-quiz', {
+      method: 'DELETE'
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "Unknown error" }));
+      throw new Error(error.error || 'Failed to clear quiz');
+    }
+
+    const result = await response.json();
+    showStatusMessage(result.message);
+    currentQuiz = []; // Reset current quiz
+    
+  } catch (error) {
+    showStatusMessage(`Clear Error: ${error.message}`, true);
+  }
+};
 function showQuestion(question) {
   const quizContainer = document.getElementById('quiz-container');
   quizContainer.innerHTML = `
@@ -251,6 +276,9 @@ async function handleAnswer(selectedIndex) {
   
   // Show result
   showStatusMessage(correct ? "Correct! 🎉" : "Incorrect ❌", !correct);
+  if (correct){
+    score += 1
+  }
   
   // Next question
   currentQuestionIndex++;
@@ -258,9 +286,6 @@ async function handleAnswer(selectedIndex) {
     showQuestion(currentQuiz[currentQuestionIndex]);
   } else {
     showStatusMessage("Quiz completed! Well done!", false);
-    // Optional: Add score calculation
-    const score = currentQuiz.filter((q, i) => 
-      i < currentQuestionIndex && selectedIndex === q.answer).length;
     showStatusMessage(`Final Score: ${score}/${currentQuiz.length}`, false);
   }
 }
@@ -543,8 +568,6 @@ window.addEventListener('beforeunload', async () => {
       });
   }
 });
-document.getElementById('start-quiz-btn').addEventListener('click', startQuiz);
-
 // Event delegation for dynamic answer buttons
 document.getElementById('quiz-container').addEventListener('click', function(event) {
   if (event.target.closest('button[data-answer]')) {

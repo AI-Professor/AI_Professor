@@ -114,9 +114,10 @@ class BasicQuizEngine:
             print("Successfully cleared all quiz questions!")
         
         except sqlite3.Error as e:
-            print(f"Error clearing questions: {str(e)}")
+            self.conn.rollback()
+            raise Exception(f"Database error: {str(e)}")
         
         finally:
             # Optional: Only vacuum if you need to reclaim space
-            # cursor.execute("VACUUM")
-            pass
+            cursor.execute("VACUUM")
+            cursor.close()

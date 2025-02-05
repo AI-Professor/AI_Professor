@@ -116,6 +116,7 @@ async def upload_file(files: List[UploadFile] = File(...)):
 
 @app.get("/api/generate-quiz")
 async def generate_quiz():
+    global quiz_engine
     quiz_engine = BasicQuizEngine(global_db)
     quiz_engine.generate_quiz_from_script("data/processed/lesson_script/lesson_script.txt", num_questions=3)
     
@@ -133,6 +134,24 @@ async def generate_quiz():
             "concept": q[4]
         } for q in questions
     ]
+
+@app.delete("/api/clear-quiz")
+async def clear_quiz():
+    try:
+        # Initialize quiz engine
+        quiz_engine = BasicQuizEngine(global_db)
+        quiz_engine.clear_all_questions()
+        
+        return JSONResponse(
+            status_code=200,
+            content={"message": "Quiz database cleared successfully"}
+        )
+        
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Failed to clear quiz: {str(e)}"}
+        )
 
 #This is our main function. We will call all of the functions here. This is the file we execute.
 def main():  
