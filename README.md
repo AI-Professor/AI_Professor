@@ -147,74 +147,74 @@ Our backend API will be running on localhost:5001 and our frontend API will be r
 
 
 # Folder Directions
-── *README.md*                     # Project overview, setup instructions  
-── *main.py*                       # Primary entry point  
-── *app.js*                        # New Express server (for D-ID web interface)  
-── *.env*                          # Store API keys (OpenAI,ElevenLabs,D-ID) for backend *check setup step 5*  
-── *api.json*                      # Store API keys (D-ID) for frontend *check setup step 6*  
-── venv                            # Python virtual environment *appear after setup step 2*  
-── requirements.txt                # Python dependencies *for setup step 3*  
-── node_modules/                   # Auto-generated *appear after setup step 4*  
-── package.json                    # Node.js dependencies with minimum version  
-── package-lock.json               # Node.js dependencies with exact version  
-── .gitignore                      # Excludes secrets, logs, virtualenv  
+── *README.md*                              ### Project overview, setup instructions  
+── *main.py*                                ### Primary entry point  
+── *app.js*                                 ### New Express server (for D-ID web interface)  
+── *.env*                                   ### Store API keys (OpenAI,ElevenLabs,D-ID) for backend *check setup step 5*  
+── *api.json*                               ### Store API keys (D-ID) for frontend *check setup step 6*  
+── venv                                     ### Python virtual environment *appear after setup step 2*  
+── requirements.txt                         ### Python dependencies *for setup step 3*  
+── node_modules/                            ### Auto-generated *appear after setup step 4*  
+── package.json                             ### Node.js dependencies with minimum version  
+── package-lock.json                        ### Node.js dependencies with exact version  
+── .gitignore                               ### Excludes secrets, logs, virtualenv  
     
-── data/                           # Raw and processed data   
-    ──── raw/                        # Original input files (PDFs, EPUBs, videos)  
+── data/                                    ### Raw and processed data   
+    ──── raw/                               ### Original input files (PDFs, EPUBs, videos)  
         ────── book_chapter.pdf  
         ────── scrum.epub  
         ────── python_tutorial.mp4       
-    ──── processed/                  # Cleaned and structured data  
-        ────── lesson_script/          # Lecture scripts  
+    ──── processed/                         ### Cleaned and structured data  
+        ────── lesson_script/               ### Lecture scripts  
             ──────── lesson_script.txt  
-        ────── audio/                  # Lecture and Q&A audio  
+        ────── audio/                       ### Lecture and Q&A audio  
             ──────── audio.mp3  
-        ────── quiz_data/              # Quiz database  
+        ────── quiz_data/                   ### Quiz database  
             ──────── quiz_data.db  
-        ────── knowledge_graph/        # Vector database (FAISS)  
+        ────── knowledge_graph/             ### Vector database (FAISS)  
             ──────── index.faiss  
             ──────── index.pkl  
   
-──src/                            # Source code  
-    ──── data_ingestion/             # Text processing scripts  
-        ────── pdf_parser.py           # Extracts text from PDFs  
-        ────── epub_parser.py          # Extracts text from epubs  
-        ────── video_parser.py         # Extracts text from videos   
-        ────── text_splitter.py        # Splits text into sections    
-    ──── nlp/                        # NLP and AI components  
-        ────── qa_system.py            # GPT-4 Q&A with LangChain  
-        ────── quiz_system.py          # Quiz generation machine using OpenAI and SQLite3  
-    ──── avatar/                     # Avatar management  
-        ────── avatar_design/          # 2D avatar assets (images, animations)  
-        ────── lip_sync.py             # D-ID integration for lip-syncing  
-        ────── script_generator.py     # Lecture script generator using input materials  
-        ────── tts.py                  # Transform text to audio speech   
-    ──── utils/                      # Helper functions  
-        ────── config_loader.py        # Loads environment variables  
-        ────── logger.py               # Logging setup  
+──src/                                      ### Source code  
+    ──── data_ingestion/                    ### Text processing scripts  
+        ────── pdf_parser.py                ### Extracts text from PDFs  
+        ────── epub_parser.py               ### Extracts text from epubs  
+        ────── video_parser.py              ### Extracts text from videos   
+        ────── text_splitter.py             ### Splits text into sections    
+    ──── nlp/                               ### NLP and AI components  
+        ────── qa_system.py                 ### GPT-4 Q&A with LangChain  
+        ────── quiz_system.py               ### Quiz generation machine using OpenAI and SQLite3  
+    ──── avatar/                            ### Avatar management  
+        ────── avatar_design/               ### 2D avatar assets (images, animations)  
+        ────── lip_sync.py                  ### D-ID integration for lip-syncing  
+        ────── script_generator.py          ### Lecture script generator using input materials  
+        ────── tts.py                       ### Transform text to audio speech   
+    ──── utils/                             ### Helper functions  
+        ────── config_loader.py             ### Loads environment variables  
+        ────── logger.py                    ### Logging setup  
   
-── public/                         # Frontend files  
-    ──── index-agents.html           # Agent HTML  
+── public/                                  ### Frontend files  
+    ──── index-agents.html                  ### Agent HTML  
     ──── assets/  
-        ────── idle/                  # Idle videos  
-        ────── bg.png                 # Background image  
-    ──── styles/                     # Frontend styling  
+        ────── idle/                        ### Idle videos  
+        ────── bg.png                       ### Background image  
+    ──── styles/                            ### Frontend styling  
         ────── style-agents.css  
     ──── scripts/  
-        ────── voice-ui.js             # Voice recognition  
-        ────── agents-client-api.js    # Frontend Agent  
+        ────── voice-ui.js                  ### Voice recognition  
+        ────── agents-client-api.js         ### Frontend Agent  
   
-── tests/                          # Unit and integration tests  
+── tests/                                   ### Unit and integration tests  
     ──── test_data_ingestion.py  
     ──── test_quiz.py  
     
-── notebooks/                      # Experimental Jupyter notebooks  
-    ──── prototype_testing.ipynb     # Early-stage concept validation  
+── notebooks/                               ### Experimental Jupyter notebooks  
+    ──── prototype_testing.ipynb            ### Early-stage concept validation  
   
-── scripts/                        # Utility scripts (e.g., backups)  
+── scripts/                                 ### Utility scripts (e.g., backups)  
     ──── backup_data.sh  
   
-── logs/                           # Log files (errors, API calls)  
+── logs/                                    ### Log files (errors, API calls)  
     ──── app.log  
   
-── backups/                        # Backups generated by backup_data.sh  
+── backups/                                 ### Backups generated by backup_data.sh  
