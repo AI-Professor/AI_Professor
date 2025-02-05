@@ -111,7 +111,7 @@ Our backend API will be running on localhost:5001 and our frontend API will be r
 ── .gitignore                      # Excludes secrets, logs, virtualenv  
     
 ── data/                           # Raw and processed data   
-    ──── raw/                        # Original input files (PDFs, EPUBs, videos)  
+    * raw/                        # Original input files (PDFs, EPUBs, videos)  
         ────── book_chapter.pdf  
         ────── scrum.epub  
         ────── python_tutorial.mp4       
@@ -123,8 +123,8 @@ Our backend API will be running on localhost:5001 and our frontend API will be r
         ────── quiz_data/              # Quiz database  
             ──────── quiz_data.db  
         ────── knowledge_graph/        # Vector database (FAISS)  
-            ─────── index.faiss  
-            ─────── index.pkl  
+            ──────── index.faiss  
+            ──────── index.pkl  
   
 ──src/                            # Source code  
     ──── data_ingestion/             # Text processing scripts  
