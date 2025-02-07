@@ -1,9 +1,0 @@
-"Good day everyone, today we're going to dive into the world of Agile project management, specifically focusing on sprint meetings, data gathering during sprints, and work estimation. Agile allows teams to be more adaptive and efficient, making it a vital tool in today's fast-paced work environment. Let's start with sprint meetings. These meetings are a crucial part of Agile, they allow teams to plan and reflect on their work. The length of these meetings can be adjusted over time as you find what works best for your team. 
-
-Now, onto data gathering. During a sprint, it's essential to keep track of what's happening. Simple exercises like creating a timeline of events during the sprint can help keep the team's thoughts fresh and the discussion on-topic. Team artifacts like burn up and down charts, story cards, lists of bugs, customer comments, and more can serve as useful memory refreshers. 
-
-Let's talk about a practical example of Agile in action. Imagine you're asked how long it would take to travel from one point to another on a map, but you don't know the mode of transport or the distance. Sounds tricky, right? But when we do this in our workshops, it helps participants understand the concept of story sizes in Agile and the importance of having all the necessary information before making an estimate. 
-
-Now, let's have an interactive question. If you were to adjust the length of your team's sprint meetings, what factors would you consider? Think about it and jot down your thoughts. 
-
-To wrap up, agile project management is all about adaptability and efficiency. Sprint meetings, effective data gathering, and accurate work estimation are all key parts of this. Remember, the key to success in Agile is constant reflection and adjustment. See you all next time!"
