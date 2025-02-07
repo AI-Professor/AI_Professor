@@ -16,6 +16,8 @@ api_key = os.getenv("DID_API_KEY")
 #This function will return two strings. The audio path for where it is stored and the audio url on D-ID
 def text_to_speech(text: str):
     """Convert text to speech using Kokoro"""
+    AUDIO_DIR = "data/processed/audio"
+    os.makedirs(AUDIO_DIR, exist_ok=True)
     audio_dir = Path(__file__).parent.parent.parent / "data" / "processed" / "audio"
 
     filename = f"lecture_{int(time.time())}.mp3"
