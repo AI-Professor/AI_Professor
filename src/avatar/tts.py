@@ -1,5 +1,5 @@
 import numpy as np
-from local_model.kokoro.kokoro.pipeline import KPipeline
+from local_model.kokoro_model.kokoro.pipeline import KPipeline
 import os
 from dotenv import load_dotenv
 from pathlib import Path
