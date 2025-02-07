@@ -11,11 +11,8 @@ load_dotenv()
 def create_talking_avatar(audio_url: str) -> str:
     """Robust D-ID API integration with proper error handling"""
     api_key = os.getenv("DID_API_KEY")
-    elevenlabs_key = os.getenv("ELEVENLABS_API_KEY")
     if not api_key:
         raise ValueError("DID_API_KEY missing from .env")
-    if not elevenlabs_key:
-        raise ValueError("ELEVENLABS_API_KEY missing from .env")
     
     video_dir = Path(__file__).parent.parent.parent / "assets" / "videos"
 

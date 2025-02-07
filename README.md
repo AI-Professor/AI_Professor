@@ -16,7 +16,7 @@ pip install -r requirements.txt
 - Step 4: Install all node modules:  
 npm install  
 
-- Step 5: Register accounts for OPENAI, ELEVENLABS, and D-ID. Get the API keys from the website after registration. Create a ".env" file at the root folder. Setup key as "OPENAI_API_KEY="your key"" form.  
+- Step 5: Register accounts for OPENAI and D-ID. Get the API keys from the website after registration. Create a ".env" file at the root folder. Setup key as "OPENAI_API_KEY="your key"" form.  
 
 - Step 6: Create a file at the root folder called "api.json" and put the following script in there:  
 {  
@@ -32,7 +32,7 @@ npm install
 
 - Step 3: If you have any question about any of the function used in main.py or app.js, you can follow the Folder Directions below to see the detail of the implementations of each function. 
 
-- Step 4: After all of the steps above is done, you can now go on and try the project out. You need to open two different terminal windows. Go to our root directory in both windows. One of them you want to run source venv/bin/activate for macOS/Linux or venv\Scripts\activate for Windows, then do python main.py, now our backend server start working. Then you want to do npm run dev or npm start in the other window, now our frontend server start working. Finally, open any browser in your computer and go to localhost:3000/agents and enjoy it!
+- Step 4: After all of the steps above is done, you can now go on and try the project out. You need to open two different terminal windows. Go to our root directory in both windows. One of them you want to run source venv/bin/activate for macOS/Linux or venv\Scripts\activate for Windows, then do python main.py, now our backend server start working. Then you want to do npm run dev or npm start in the other window, now our frontend server start working. Finally, open any browser in your computer and go to localhost:3000 and enjoy it!
 Our backend API will be running on localhost:5001 and our frontend API will be running on localhost:3000.
 
 # Key commands
