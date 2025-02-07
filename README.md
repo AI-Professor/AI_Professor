@@ -150,7 +150,7 @@ Our backend API will be running on localhost:5001 and our frontend API will be r
 ── *README.md*                              ### Project overview, setup instructions  
 ── *main.py*                                ### Primary entry point  
 ── *app.js*                                 ### New Express server (for D-ID web interface)  
-── *.env*                                   ### Store API keys (OpenAI,ElevenLabs,D-ID) for backend *check setup step 5*  
+── *.env*                                   ### Store API keys (OpenAI,D-ID) for backend *check setup step 5*  
 ── *api.json*                               ### Store API keys (D-ID) for frontend *check setup step 6*  
 ── venv                                     ### Python virtual environment *appear after setup step 2*  
 ── requirements.txt                         ### Python dependencies *for setup step 3*  
@@ -203,6 +203,9 @@ Our backend API will be running on localhost:5001 and our frontend API will be r
     ──── scripts/  
         ────── voice-ui.js                  ### Voice recognition  
         ────── agents-client-api.js         ### Frontend Agent  
+
+── local_model/                             ### Frontend files     
+    ──── kokoro_model                             ### Free text to speech model    
   
 ── tests/                                   ### Unit and integration tests  
     ──── test_data_ingestion.py  
