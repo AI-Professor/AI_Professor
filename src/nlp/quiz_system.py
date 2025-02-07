@@ -21,6 +21,8 @@ class BasicQuizEngine:
             openai_api_key=openai_api_key,
             temperature=0.7
         ) #initialze large learning model for quiz construction, we use GPT-4 here.
+        QUIZ_DIR = "data/processed/quiz_data"
+        os.makedirs(QUIZ_DIR, exist_ok=True)
         self.conn = sqlite3.connect('data/processed/quiz_data/quiz_data.db') #initialize sqlite3 model for generating and accessing database
         self._init_db()
 

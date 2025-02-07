@@ -16,6 +16,8 @@ if not openai_api_key:
 def initialize_qa_system(text_chunks: list) -> FAISS:  
     # Initialize embeddings with explicit API key
     embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
+    DB_DIR = "data/processed/knowledge_graph"
+    os.makedirs(DB_DIR, exist_ok=True)
     
     # Create FAISS index with error handling
     try:

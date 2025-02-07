@@ -120,9 +120,7 @@ async def upload_file(files: List[UploadFile] = File(...)):
         chunks = split_text(text)
         global_db = initialize_qa_system(chunks)
 
-        lesson_script = generate_lesson_script(global_db, "TEACHING", 5)
-        with open("data/processed/lesson_script/lesson_script.txt", "w") as f:
-            f.write(lesson_script)
+        generate_lesson_script(global_db, "TEACHING", 5)
         
         logger.info("File processed successfully: %s", file.filename)
         return {"status": "success", "message": f"Processed {file.filename}"}
@@ -205,9 +203,7 @@ def main():
 
         #Generate lesson script from knowledge graph
         print("📝 Generating lesson script...")
-        lesson_script = generate_lesson_script(db, "TEACHING", 5)
-        with open("data/processed/lesson_script/lesson_script.txt", "w") as f:
-            f.write(lesson_script)
+        generate_lesson_script(db, "TEACHING", 5)
         print("✅ Lecture script prepared successfully!\n")
 
         #Generate lecture audio from lesson script

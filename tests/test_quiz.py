@@ -25,8 +25,6 @@ print('EPUB Index created at data/processed/knowledge_graph')
 #Detailed implementation can be found in src/avatar/script_generator.py
 print("📝 Generating lesson script...")
 lesson_script = generate_lesson_script(epub_db, "TEACHING",5)
-with open("data/processed/lesson_script/lesson_script.txt", "w") as f:
-    f.write(lesson_script)
 print("✅ Lecture script prepared successfully!")
 
 #Initialize BasicQuizEngine object base on the knowledge graph we generated above.

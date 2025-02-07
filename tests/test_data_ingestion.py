@@ -52,9 +52,7 @@ print('Video Index created at data/processed/knowledge_graph')
 
 #Check lecture script generation
 #Detailed implementation can be found in src/avatar/script_generator
-lesson_script = generate_lesson_script(epub_db,"TEACHING",5)
-with open("data/processed/lesson_script/lesson_script.txt", "w") as f:
-    f.write(lesson_script)
+generate_lesson_script(epub_db,"TEACHING",5)
 lecture = open("data/processed/lesson_script/lesson_script.txt").read()
 print(lecture)
 

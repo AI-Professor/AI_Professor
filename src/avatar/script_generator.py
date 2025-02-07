@@ -1,3 +1,4 @@
+import os
 from src.nlp.qa_system import answer_question
 from pathlib import Path
 
@@ -48,4 +49,12 @@ def generate_lesson_script(db, template, length):
 
     prompt = templates[template]  
     
-    return answer_question(prompt, db)['text']
+    lesson_script = answer_question(prompt, db)['text']
+
+    LESSON_DIR = "data/processed/lesson_script"
+    os.makedirs(LESSON_DIR, exist_ok=True)
+
+    with open(f"{LESSON_DIR}/lesson_script.txt", "w") as f:
+        f.write(lesson_script)
+
+    return lesson_script
