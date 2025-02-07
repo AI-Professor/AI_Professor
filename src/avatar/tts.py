@@ -37,7 +37,6 @@ def text_to_speech(text: str):
 
     sf.write(audio_path, audio_stream, 24000)
 
-    """
     upload_audio_response = requests.post(
             "https://api.d-id.com/audios",
             headers={
@@ -52,6 +51,5 @@ def text_to_speech(text: str):
     if upload_audio_response.status_code != 201:
             raise Exception(f"Audio upload failed: {upload_audio_response.text}")
     audio_url = upload_audio_response.json()["url"]
-    """
     
-    return str(audio_path)#, str(audio_url)
+    return str(audio_path), str(audio_url)
