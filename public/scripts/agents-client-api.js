@@ -47,7 +47,7 @@ const streamEventLabel = document.getElementById('stream-event-label');
 
 const presenterInputByService = {
   talks: {
-    source_url: 's3://d-id-images-prod/google-oauth2|104334720993388125263/img_5_-gi0ikEP3s0-OwtZNrw/avatar.jpg',
+    source_url: 'https://i.ibb.co/h1D26ggv/avatar.png',
   },
   clips: {
     presenter_id: 'v2_public_alex@qcvo4gupoy',
@@ -76,7 +76,7 @@ connectButton.onclick = async () => {
       Authorization: `Basic ${DID_API.key}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ ...presenterInputByService[DID_API.service], stream_warmup,source_url: "s3://d-id-images-prod/google-oauth2|104334720993388125263/img_5_-gi0ikEP3s0-OwtZNrw/avatar.jpg" }),
+    body: JSON.stringify({ ...presenterInputByService[DID_API.service], stream_warmup,source_url: "https://i.ibb.co/h1D26ggv/avatar.png" }),
   });
 
   const { id: newStreamId, offer, ice_servers: iceServers, session_id: newSessionId } = await sessionResponse.json();
@@ -485,8 +485,6 @@ quizButton.onclick = async () => {
     if (!response.ok) throw new Error('Failed to fetch quiz');
     
     currentQuiz = await response.json();
-    console.log(typeof(currentQuiz))
-    console.log(currentQuiz)
     
     if (!currentQuiz?.length) {
       showStatusMessage('No questions available!', true);
