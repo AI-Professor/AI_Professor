@@ -25,7 +25,7 @@ def create_talking_avatar(audio_url: str) -> str:
                 "authorization": f"Basic {api_key}"
             }, 
             json={
-                "source_url": "s3://d-id-images-prod/google-oauth2|104334720993388125263/img_dA-Rhe522l1ZtWP8BO3HH/avatar.jpg",
+                "source_url": "s3://d-id-images-prod/google-oauth2|104334720993388125263/img_5_-gi0ikEP3s0-OwtZNrw/avatar.jpg",
                 "script": {
                     "type": "audio",
                     "audio_url" : f"{audio_url}"
