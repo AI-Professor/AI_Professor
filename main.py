@@ -1,11 +1,13 @@
+from datetime import timedelta
 import json , os, sys, shutil, warnings, argparse, uvicorn, logging
 from typing import Dict, List
-from fastapi.responses import JSONResponse
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
+from fastapi.responses import JSONResponse
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+
 
 from src.data_ingestion.pdf_parser import extract_text_from_pdf 
 from src.data_ingestion.epub_parser import extract_text_from_epub
@@ -16,6 +18,11 @@ from src.avatar.tts import text_to_speech
 from src.avatar.lip_sync import create_talking_avatar
 from src.avatar.script_generator import generate_lesson_script
 from src.nlp.quiz_system import BasicQuizEngine
+
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy.orm import Session
+from app import models, schemas, crud, auth
+from app.database import SessionLocal, engine
 
 warnings.filterwarnings("ignore")
 
@@ -51,6 +58,37 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Users
+def get_userdb():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@app.post("/register", response_model=schemas.UserResponse)
+def register_user(user: schemas.UserCreate, db: Session = Depends(get_userdb)):
+    db_user = crud.get_user_by_email(db, email=user.email)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    return crud.create_user(db=db, user=user)
+
+@app.post("/token")
+async def login_for_access_token(email: str, password: str, db: Session = Depends(get_userdb)):
+    user = crud.get_user_by_email(db, email)
+
+    if not user or not auth.verify_password(password, user.password):
+        raise HTTPException(status_code=400, detail="Incorrect email or password")
+    
+    access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = auth.create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+
+    return {"access_token": access_token, "token_type": "bearer"}
+    
+    
 
 #Check if our smart AI is initialized. global_db refers to the knowledge graph we generated from materials
 @app.get("/health")

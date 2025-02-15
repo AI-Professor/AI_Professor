@@ -1,8 +1,12 @@
 'use strict';
+console.log('agents-client-api.js loaded'); // Log when the script is loaded
+
 //This is the javascript files for our index-agents.html frontend UI
 
 //We will fetch our D-ID API key from frontend environment file api.json
 const DID_API = await (await fetch("/api.json")).json();
+console.log('DID_API loaded', DID_API); // Log when the API key is loaded
+
 const API_BASE = `${DID_API.url}/talks/streams`;
 import { initializeVoiceRecognition } from "./voice-ui.js";
 
@@ -56,54 +60,68 @@ const presenterInputByService = {
 };
 
 //The following section of functions will serve connect button clicked event. These functions are meant to create a live stream, establish a WebRTC connection with the platform, and submit network information to initialize connection. These steps are crucial to our implementation to Real-Time Q&A feature. Detailed explanation can be find on "https://docs.d-id.com/reference/talks-streams-overview".
-const connectButton = document.getElementById('connect-button');
-connectButton.onclick = async () => {
-  if (peerConnection && peerConnection.connectionState === 'connected') {
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOM fully loaded and parsed'); // Log when the DOM is fully loaded
+
+  const connectButton = document.getElementById('connect-button');
+  if (!connectButton) {
+    console.error('Connect button not found');
     return;
   }
 
-  stopAllStreams();
-  closePC();
+  connectButton.onclick = async () => {
+    console.log('Connect button clicked'); // Log when the connect button is clicked
 
-  /**
-   * Set 'stream_warmup' to 'true' in the payload to initiate idle streaming at the beginning of the connection, addressing jittering issues.
-   * The idle streaming process is transparent to the user and is concealed by triggering a 'stream/ready' event on the data channel,
-   * indicating that idle streaming has concluded and the stream channel is ready for use.
-   */
-  const sessionResponse = await fetchWithRetry(`${DID_API.url}/${DID_API.service}/streams`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${DID_API.key}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ ...presenterInputByService[DID_API.service], stream_warmup,source_url: "https://i.ibb.co/h1D26ggv/avatar.png" }),
-  });
+    if (peerConnection && peerConnection.connectionState === 'connected') {
+      console.log('Already connected');
+      return;
+    }
 
-  const { id: newStreamId, offer, ice_servers: iceServers, session_id: newSessionId } = await sessionResponse.json();
-  streamId = newStreamId;
-  sessionId = newSessionId;
-
-  try {
-    sessionClientAnswer = await createPeerConnection(offer, iceServers);
-  } catch (e) {
-    console.log('error during streaming setup', e);
+    console.log('Stopping all streams and closing peer connection');
     stopAllStreams();
     closePC();
-    return;
-  }
 
-  const sdpResponse = await fetch(`${DID_API.url}/${DID_API.service}/streams/${streamId}/sdp`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${DID_API.key}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      answer: sessionClientAnswer,
-      session_id: sessionId,
-    }),
-  });
-};
+    console.log('Creating new session');
+    try {
+      const sessionResponse = await fetchWithRetry(`${DID_API.url}/${DID_API.service}/streams`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${DID_API.key}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ...presenterInputByService[DID_API.service], stream_warmup, source_url: "https://i.ibb.co/h1D26ggv/avatar.png" }),
+      });
+
+      console.log('Session response received');
+      const { id: newStreamId, offer, ice_servers: iceServers, session_id: newSessionId } = await sessionResponse.json();
+      streamId = newStreamId;
+      sessionId = newSessionId;
+
+      console.log('Creating peer connection');
+      sessionClientAnswer = await createPeerConnection(offer, iceServers);
+      console.log('Peer connection created');
+
+      console.log('Sending SDP response');
+      const sdpResponse = await fetch(`${DID_API.url}/${DID_API.service}/streams/${streamId}/sdp`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${DID_API.key}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          answer: sessionClientAnswer,
+          session_id: sessionId,
+        }),
+      });
+
+      console.log('SDP response sent');
+    } catch (e) {
+      console.log('Error during streaming setup', e);
+      stopAllStreams();
+      closePC();
+    }
+  };
+});
 function onIceGatheringStateChange() {
   iceGatheringStatusLabel.innerText = peerConnection.iceGatheringState;
   iceGatheringStatusLabel.className = 'iceGatheringState-' + peerConnection.iceGatheringState;
