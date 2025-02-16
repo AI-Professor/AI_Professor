@@ -1,13 +1,16 @@
 from datetime import timedelta
+import datetime
 import json , os, sys, shutil, warnings, argparse, uvicorn, logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from fastapi.responses import JSONResponse
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import JWTError, jwt
+from pydantic import BaseModel
 
 from src.data_ingestion.pdf_parser import extract_text_from_pdf 
 from src.data_ingestion.epub_parser import extract_text_from_epub
@@ -24,7 +27,34 @@ from sqlalchemy.orm import Session
 from app import models, schemas, crud, auth
 from app.database import SessionLocal, engine
 
+from dotenv import load_dotenv
+
+
+load_dotenv
 warnings.filterwarnings("ignore")
+
+SECRET_KEY = os.environ["ENCRYPTION_KEY"]
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# # Define a Pydantic model for the token response
+# class Token(BaseModel):
+#     access_token: str
+#     token_type: str
+
+# # Define a Pydantic model for the token data
+# class TokenData(BaseModel):
+#     email: str  # Ensure email is always present
+
+# Define the OAuth2 password bearer scheme
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# Function to create a JWT token
+def create_access_token(data: dict, expires_delta: timedelta):
+    to_encode = data.copy()
+    expire = datetime.datetime.utcnow() + expires_delta
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm="HS256")
+    return encoded_jwt
 
 #Initialize log functions to create system logs whenever APIs are called
 LOG_DIR = "logs"
@@ -74,15 +104,15 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(get_userdb)):
         raise HTTPException(status_code=400, detail="Email already registered")
     return crud.create_user(db=db, user=user)
 
-@app.post("/token")
-async def login_for_access_token(email: str, password: str, db: Session = Depends(get_userdb)):
-    user = crud.get_user_by_email(db, email)
+@app.post("/token", response_model=schemas.Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_userdb)):
+    user = crud.get_user_by_email(db, email=form_data.username)
 
-    if not user or not auth.verify_password(password, user.password):
+    if not user or not auth.verify_password(form_data.password, user.password):
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     
-    access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = auth.create_access_token(
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
 

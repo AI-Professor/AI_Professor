@@ -59,6 +59,47 @@ const presenterInputByService = {
   },
 };
 
+// Handle registration form submission
+document.getElementById('register-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('register-email').value;
+  const password = document.getElementById('register-password').value;
+  try {
+    const response = await fetch('http://localhost:5001/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await response.json();
+    document.getElementById('register-message').textContent = 'Registration successful!';
+  } catch (error) {
+    document.getElementById('register-message').textContent = 'Registration failed: ' + error.message;
+  }
+});
+
+// Handle login form submission
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('login-email').value;
+  const password = document.getElementById('login-password').value;
+  try {
+    const response = await fetch('http://localhost:5001/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ username: email, password }),
+    });
+    const data = await response.json();
+    document.getElementById('login-message').textContent = 'Login successful!';
+    console.log('Access Token:', data.access_token);
+  } catch (error) {
+    document.getElementById('login-message').textContent = 'Login failed: ' + error.message;
+  }
+});
+
 //The following section of functions will serve connect button clicked event. These functions are meant to create a live stream, establish a WebRTC connection with the platform, and submit network information to initialize connection. These steps are crucial to our implementation to Real-Time Q&A feature. Detailed explanation can be find on "https://docs.d-id.com/reference/talks-streams-overview".
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM fully loaded and parsed'); // Log when the DOM is fully loaded

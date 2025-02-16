@@ -11,7 +11,7 @@
   </head>
 
   <body>
-    <!-- adde "id=content" -->
+    <!-- added "id=content" -->
     <div id="content">
       <!-- added "id=video-wrapper" -->
       <div id="video-wrapper">
@@ -54,6 +54,33 @@
         Signaling status: <label id="signaling-status-label"></label><br />
         Last stream event: <label id="stream-event-label"></label><br />
         Streaming status: <label id="streaming-status-label"></label><br />
+      </div>
+
+      <!-- added div#auth-section -->
+      <div id="auth-section">
+        <h2>Authentication</h2>
+        <div id="register-section">
+          <h3>Register</h3>
+          <form id="register-form">
+            <label for="register-email">Email:</label>
+            <input type="email" id="register-email" required>
+            <label for="register-password">Password:</label>
+            <input type="password" id="register-password" required>
+            <button type="submit">Register</button>
+          </form>
+          <div id="register-message"></div>
+        </div>
+        <div id="login-section">
+          <h3>Login</h3>
+          <form id="login-form">
+            <label for="login-email">Email:</label>
+            <input type="email" id="login-email" required>
+            <label for="login-password">Password:</label>
+            <input type="password" id="login-password" required>
+            <button type="submit">Login</button>
+          </form>
+          <div id="login-message"></div>
+        </div>
       </div>
     </div>
 
