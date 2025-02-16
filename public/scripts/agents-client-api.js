@@ -59,6 +59,8 @@ const presenterInputByService = {
   },
 };
 
+let accessToken = '';
+
 // Handle registration form submission
 document.getElementById('register-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -93,10 +95,27 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
       body: new URLSearchParams({ username: email, password }),
     });
     const data = await response.json();
+    accessToken = data.access_token;
     document.getElementById('login-message').textContent = 'Login successful!';
-    console.log('Access Token:', data.access_token);
+    console.log('Access Token:', accessToken);
   } catch (error) {
     document.getElementById('login-message').textContent = 'Login failed: ' + error.message;
+  }
+});
+
+// Fetch user-specific information
+document.getElementById('fetch-user-info').addEventListener('click', async () => {
+  try {
+    const response = await fetch('http://localhost:5001/user-info', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+    const data = await response.json();
+    document.getElementById('user-info').textContent = JSON.stringify(data, null, 2);
+  } catch (error) {
+    document.getElementById('user-info').textContent = 'Failed to fetch user info: ' + error.message;
   }
 });
 

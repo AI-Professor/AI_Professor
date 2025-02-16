@@ -22,28 +22,26 @@ from src.avatar.lip_sync import create_talking_avatar
 from src.avatar.script_generator import generate_lesson_script
 from src.nlp.quiz_system import BasicQuizEngine
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app import models, schemas, crud, auth
 from app.database import SessionLocal, engine
 
 from dotenv import load_dotenv
 
-
-load_dotenv
+load_dotenv()
 warnings.filterwarnings("ignore")
 
 SECRET_KEY = os.environ["ENCRYPTION_KEY"]
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-# # Define a Pydantic model for the token response
-# class Token(BaseModel):
-#     access_token: str
-#     token_type: str
-
-# # Define a Pydantic model for the token data
-# class TokenData(BaseModel):
-#     email: str  # Ensure email is always present
+# Users
+def get_userdb():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # Define the OAuth2 password bearer scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -55,6 +53,26 @@ def create_access_token(data: dict, expires_delta: timedelta):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm="HS256")
     return encoded_jwt
+
+# Function to get the current user from the token
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_userdb)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+        token_data = schemas.TokenData(email=email)
+    except JWTError:
+        raise credentials_exception
+    user = crud.get_user_by_email(db, email=token_data.email)
+    if user is None:
+        raise credentials_exception
+    return user
 
 #Initialize log functions to create system logs whenever APIs are called
 LOG_DIR = "logs"
@@ -118,7 +136,9 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 
     return {"access_token": access_token, "token_type": "bearer"}
     
-    
+@app.get("/user-info", response_model=schemas.UserResponse)
+async def read_user_info(current_user: schemas.UserResponse = Depends(get_current_user)):
+    return current_user    
 
 #Check if our smart AI is initialized. global_db refers to the knowledge graph we generated from materials
 @app.get("/health")
