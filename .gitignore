@@ -174,3 +174,5 @@ cython_debug/
 api.json
 
 data/processed
+
+node_modules
