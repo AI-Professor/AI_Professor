@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>D-ID Streaming POC</title>
+    <title>AI Professor</title>
     <!-- added google fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -25,7 +25,12 @@
       <!-- added div#buttons -->
       <div id="buttons">
         <button id="connect-button" type="button">Connect</button>
-        <button id="destroy-button" type="button">Destroy</button>
+        <button id="destroy-button" type="button" class="danger">Destroy</button>
+      </div>
+      <div id="lecture-section">
+        <h2>Lecture</h2>
+        <input type="text" id="topic-input" placeholder="Enter a topic you'd like to learn about">
+        <button id="lecture-button" type="button">Learn a short lesson</button>
       </div>
       <div id="quiz-section">
         <h2>Lecture Quiz</h2>
@@ -44,18 +49,6 @@
         <button id="upload-button">Upload & Process</button>
         <div id="uploadStatus"></div>
       </div>
-
-      <!-- added div#status -->
-      <div id="status">
-        <!-- removed the wrapping <div> tags -->
-        ICE gathering status: <label id="ice-gathering-status-label"></label><br />
-        ICE status: <label id="ice-status-label"></label><br />
-        Peer connection status: <label id="peer-status-label"></label><br />
-        Signaling status: <label id="signaling-status-label"></label><br />
-        Last stream event: <label id="stream-event-label"></label><br />
-        Streaming status: <label id="streaming-status-label"></label><br />
-      </div>
-    </div>
 
     <script type="module" src="/public/scripts/agents-client-api.js"></script>
   </body>

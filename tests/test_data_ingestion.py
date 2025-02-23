@@ -7,6 +7,8 @@ from src.data_ingestion.text_splitter import split_text;
 from src.nlp.qa_system import initialize_qa_system;
 import warnings
 warnings.filterwarnings("ignore")
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 
 #Test text extration from pdf
@@ -52,7 +54,8 @@ print('Video Index created at data/processed/knowledge_graph')
 
 #Check lecture script generation
 #Detailed implementation can be found in src/avatar/script_generator
-generate_lesson_script(epub_db,"TEACHING",5)
-lecture = open("data/processed/lesson_script/lesson_script.txt").read()
+topic = "scrum_planning"
+generate_lesson_script(epub_db,"TEACHING",5,topic)
+lecture = open(f"data/processed/lesson_script/{topic}_lesson_script.txt").read()
 print(lecture)
 

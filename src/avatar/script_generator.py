@@ -1,9 +1,14 @@
 import os
-from src.nlp.qa_system import answer_question
-from pathlib import Path
+from dotenv import load_dotenv
+from langchain_community.chat_models import ChatOpenAI
+
+load_dotenv(override=True) 
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if not openai_api_key:
+    raise ValueError("OPENAI_API_KEY not found in environment variables")
 
 #This function will generate lesson script through GPT-4 model identified in answer_question function in src/nlp/qa_system.py. The content is based on the template we defined here and give to GPT-4.
-def generate_lesson_script(db, template, length):
+def generate_lesson_script(db, template, length, topic):
     """Auto-generates lesson script using GPT-4"""
 
     templates = {
@@ -19,17 +24,19 @@ def generate_lesson_script(db, template, length):
 
         Write ONLY the spoken content, no timestamps or section titles. Maintain this flow naturally.""",
 
-        "TEACHING": f"""Create a {length}-minute structured teaching lesson from this course material. Use this template structure 
-        BUT DO NOT INCLUDE SECTION HEADERS IN THE FINAL SCRIPT TEXT. Keep the flow conversational:
+        "TEACHING": f"""You are an experienced university professor and lecturer. 
+        Create a {length}-minute structured teaching lesson on the topic of {topic}. 
+        DO NOT INCLUDE SECTION HEADERS LIKE 'Introduction to Topic', 'Explanation of Key Concepts', etc., in the final script. 
+        Use this structure but only write the content as a flowing lecture:
 
-        TEACHING STRUCTURE:
-        1. Introduction to Topic ({length/5}m)
-        2. Explanation of Key Concepts ({length/5}m)
-        3. Practical Examples ({length/5}m)
-        4. Interactive Question/Engagement ({length/5}m)
-        5. Summary & Takeaways ({length/5}m)
-
-        Write as if you are delivering a spoken lecture. Make it engaging and clear.""",
+            TEACHING STRUCTURE (Write it naturally without section headers):
+            1. Introduction to Topic ({length/5}m)
+            2. Explanation of Key Concepts ({length/5}m)
+            3. Practical Examples ({length/5}m)
+            4. Interactive Question/Engagement ({length/5}m)
+            5. Summary & Takeaways ({length/5}m)
+            
+        Write a continuous, engaging spoken lesson without timestamps or section titles.""",
 
         "DISCUSSION": f"""Generate a {length}-minute discussion-driven lesson from this course material. Use this template structure 
         BUT DO NOT INCLUDE SECTION HEADERS IN THE FINAL SCRIPT TEXT. Keep the flow conversational:
@@ -46,15 +53,33 @@ def generate_lesson_script(db, template, length):
     
     if template not in templates:
         raise ValueError(f"Invalid template type. Choose one of: {list(templates.keys())}")
-
-    prompt = templates[template]  
     
-    lesson_script = answer_question(prompt, db)['text']
+    query = f"Provide course material related to {topic}"  # Adjust based on user input or template
+    relevant_text = db.similarity_search(query, k=20)  # Fetch top 5 most relevant passages
 
-    LESSON_DIR = "data/processed/lesson_script"
-    os.makedirs(LESSON_DIR, exist_ok=True)
+    # Concatenate the relevant content to form the context for GPT-4
+    relevant_text_content = "\n\n".join([doc.page_content for doc in relevant_text])
 
-    with open(f"{LESSON_DIR}/lesson_script.txt", "w") as f:
-        f.write(lesson_script)
+    # Use the relevant content in the prompt for GPT-4
+    prompt = templates[template].replace("this course material", relevant_text_content)
+    
+    try:
+        # Request GPT-4 to generate the lesson script
+        llm = ChatOpenAI(
+            model="gpt-4",
+            openai_api_key=openai_api_key,
+            temperature=0
+        )
+        lesson_script = llm.predict(prompt)
 
-    return lesson_script
+        LESSON_DIR = "data/processed/lesson_script"
+        os.makedirs(LESSON_DIR, exist_ok=True)
+
+        with open(f"{LESSON_DIR}/{topic}_lesson_script.txt", "w") as f:
+            f.write(lesson_script)
+
+        return lesson_script
+    
+    except Exception as e:
+        print(f"Error generating lesson script: {e}")
+        return None

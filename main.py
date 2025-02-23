@@ -1,21 +1,37 @@
+from dotenv import load_dotenv
+import numpy as np
+import pygame
+import torch
 import json , os, sys, shutil, warnings, argparse, uvicorn, logging
 from typing import Dict, List
 from fastapi.responses import JSONResponse
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from threading import Event, Thread
+from queue import Queue, Empty
+import atexit
+import glob
 
+from local_model.NeuroSync.NeuroSync_Local_API.utils.model.model import load_model
 from src.data_ingestion.pdf_parser import extract_text_from_pdf 
 from src.data_ingestion.epub_parser import extract_text_from_epub
 from src.data_ingestion.video_parser import extract_text_from_video 
 from src.data_ingestion.text_splitter import split_text  
-from src.nlp.qa_system import initialize_qa_system, answer_question  
-from src.avatar.tts import text_to_speech
-from src.avatar.lip_sync import create_talking_avatar
+from src.nlp.qa_system import initialize_qa_system
 from src.avatar.script_generator import generate_lesson_script
 from src.nlp.quiz_system import BasicQuizEngine
+
+from local_model.NeuroSync.NeuroSync_Player.livelink.connect.livelink_init import create_socket_connection, initialize_py_face
+from local_model.NeuroSync.NeuroSync_Player.livelink.animations.default_animation import default_animation_loop
+from local_model.NeuroSync.NeuroSync_Player.utils.chat_utils import load_chat_history, save_chat_log
+from local_model.NeuroSync.NeuroSync_Player.utils.audio_workers import tts_worker, audio_queue_worker
+from local_model.NeuroSync.NeuroSync_Player.utils.llm_utils import stream_llm_chunks
+from local_model.NeuroSync.NeuroSync_Local_API.utils.generate_face_shapes import generate_facial_data_from_bytes
+from local_model.NeuroSync.NeuroSync_Local_API.utils.config import config
+from local_model.kokoro_model.kokoro.pipeline import KPipeline
 
 warnings.filterwarnings("ignore")
 
@@ -56,7 +72,115 @@ app.add_middleware(
 @app.get("/health")
 async def health_check():
     logger.info("Health check endpoint accessed.")
-    return {"status": "ok", "initialized": bool(global_db)}
+    return {"status": "ok", "initialized": "True"}#bool(global_db)
+
+@app.post("/api/connect")
+async def connect():
+    try: 
+        global device, model_path, blendshape_model
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model_path = 'C:/Users/Henry/Desktop/AI_Professor/local_model/NeuroSync/NeuroSync_Local_API/utils/model/model.pth'
+        blendshape_model = load_model(model_path, config, device)
+        py_face = initialize_py_face()
+        global socket_connection
+        socket_connection = create_socket_connection()
+        global chat_history
+        chat_history = load_chat_history()
+        pipeline = KPipeline(lang_code='a')
+        global stop_default_animation, default_animation_thread
+        stop_default_animation = Event()
+
+        default_animation_thread = Thread(target=default_animation_loop, args=(py_face,stop_default_animation))
+        default_animation_thread.start()
+
+        # Create queues:
+        # 1. chunk_queue for text chunks to be processed by TTS.
+        # 2. audio_queue for the resulting audio/facial-data pairs.
+        global chunk_queue, audio_queue
+        chunk_queue = Queue()
+        audio_queue = Queue()
+
+        global tts_worker_thread, audio_worker_thread
+        # Start the TTS worker (processes text chunks into audio)
+        tts_worker_thread = Thread(target=tts_worker, args=(chunk_queue, audio_queue, pipeline))
+        tts_worker_thread.start()
+
+        # Start the audio worker (plays audio sequentially)
+        audio_worker_thread = Thread(target=audio_queue_worker, args=(audio_queue, py_face, socket_connection, default_animation_thread, stop_default_animation))
+        audio_worker_thread.start()
+
+        return {"status": "Connected", "message": "Model loaded and workers started"}
+    
+    except Exception as e:
+        logger.error("Error in /api/connect: %s", str(e))
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+@app.delete("/api/disconnect")
+async def disconnect():
+    try:
+        # Wait until all text chunks have been processed
+        chunk_queue.join()
+        # Signal the TTS worker to exit
+        chunk_queue.put(None)
+        tts_worker_thread.join()
+        
+        # Wait until all audio items have been played
+        audio_queue.join()
+        # Signal the audio worker to exit
+        audio_queue.put(None)
+        audio_worker_thread.join()
+        
+        stop_default_animation.set()
+        default_animation_thread.join()
+        pygame.quit()
+        socket_connection.close()
+        cleanup_audio_files()
+
+        return {"status": "Disonnected", "message": "Model and workers ended"}
+
+    except Exception as e:
+        logger.error("Error in /api/disconnect: %s", str(e))
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+@app.post("/api/lecture")
+async def lecture(topic: dict):
+    try:
+        logger.info("Generating lesson scripts...")
+        if not global_db:
+            raise HTTPException(status_code=503, detail="System not initialized")
+
+        flush_queue(chunk_queue)
+        flush_queue(audio_queue)
+        # Stop any current audio playback. Adjust if you have a custom stop mechanism.
+        if pygame.mixer.get_init():
+            pygame.mixer.stop()
+        
+        topic = topic['topic']
+        topic = topic.lower().replace(" ", "_")
+        
+        if os.path.exists(f"data/processed/lesson_script/{topic}_lesson_script.txt"):
+            with open(f"data/processed/lesson_script/{topic}_lesson_script.txt", "r") as file:
+                lesson_script = file.read()
+            print("Loaded lesson script successfully!")
+        else:
+            lesson_script = generate_lesson_script(global_db, "TEACHING", 1, topic)
+            print("Generated lesson script successfully!")
+        
+        stream_llm_chunks(lesson_script, chat_history, chunk_queue, db=global_db, is_lesson=True)
+        return {"status": "Success", "message": "Lesson scripts generated successfully"}
+    except Exception as e:
+        logger.error("Error in /api/lecture: %s", str(e))
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
 
 #This function will handle the question asked by a user in the frontend and send back the answer generated by our model. Check *answer_question* function in src/nlp/qa_system.py for detailed implementation
 @app.post("/api/answer")
@@ -65,9 +189,16 @@ async def answer_endpoint(question_data: dict):
         logger.info("Received question: %s", question_data["question"])
         if not global_db:
             raise HTTPException(status_code=503, detail="System not initialized")
-            
-        response = answer_question(question_data["question"], global_db)
-        return {"text": response['text']}
+
+        flush_queue(chunk_queue)
+        flush_queue(audio_queue)
+        # Stop any current audio playback. Adjust if you have a custom stop mechanism.
+        if pygame.mixer.get_init():
+            pygame.mixer.stop()    
+        full_response = stream_llm_chunks(question_data["question"], chat_history, chunk_queue, db=global_db)
+        chat_history.append({"input": question_data["question"], "response": full_response})
+        save_chat_log(chat_history)
+        return {"text": full_response}
         
     except Exception as e:
         logger.error("Error in /api/answer: %s", str(e))
@@ -81,8 +212,8 @@ async def answer_endpoint(question_data: dict):
 async def audio_answer(text_data: dict):
     try:
         logger.info("Generating audio for text: %s", text_data["text"])
-        audio_path, audio_url = text_to_speech(text=text_data["text"])
-        return {"audio_url": audio_url}
+        #audio_path, audio_url = text_to_speech(text=text_data["text"])
+        return {"audio_url": 1}
     
     except Exception as e:
         logger.error("Error in /api/audio-answer: %s", str(e))
@@ -119,8 +250,6 @@ async def upload_file(files: List[UploadFile] = File(...)):
         global global_db
         chunks = split_text(text)
         global_db = initialize_qa_system(chunks)
-
-        generate_lesson_script(global_db, "TEACHING", 5)
         
         logger.info("File processed successfully: %s", file.filename)
         return {"status": "success", "message": f"Processed {file.filename}"}
@@ -184,8 +313,57 @@ async def clear_quiz():
             content={"error": f"Failed to clear quiz: {str(e)}"}
         )
 
+@app.post('/api/audio_to_blendshapes')
+async def audio_to_blendshapes_route(request: Request):
+    audio_bytes = await request.body()
+    generated_facial_data = generate_facial_data_from_bytes(audio_bytes, blendshape_model, device, config)
+    generated_facial_data_list = generated_facial_data.tolist() if isinstance(generated_facial_data, np.ndarray) else generated_facial_data
+
+    return {'blendshapes': generated_facial_data_list}
+
+def flush_queue(q):
+    try:
+        while True:
+            q.get_nowait()
+    except Empty:
+        pass
+
+def cleanup_audio_files():
+    audio_dir = Path("local_model/NeuroSync/NeuroSync_Player/data/audio")
+    for file_path in glob.glob(str(audio_dir / "*.wav")):
+        try:
+            os.remove(file_path)
+            print(f"Deleted: {file_path}")
+        except Exception as e:
+            print(f"Error deleting {file_path}: {e}")
+        
+atexit.register(cleanup_audio_files)
+
 #This is a backend complete testing function. Nothing will happen at the frontend, we can test our implementations and functions here. All of the output will be shown in your terminal for testing purposes. 
 def main():  
+    py_face = initialize_py_face()
+    socket_connection = create_socket_connection()
+    chat_history = load_chat_history()
+    pipeline = KPipeline(lang_code='a')
+    stop_default_animation = Event()
+
+    default_animation_thread = Thread(target=default_animation_loop, args=(py_face,stop_default_animation))
+    default_animation_thread.start()
+
+    # Create queues:
+    # 1. chunk_queue for text chunks to be processed by TTS.
+    # 2. audio_queue for the resulting audio/facial-data pairs.
+    chunk_queue = Queue()
+    audio_queue = Queue()
+
+    # Start the TTS worker (processes text chunks into audio)
+    tts_worker_thread = Thread(target=tts_worker, args=(chunk_queue, audio_queue, pipeline))
+    tts_worker_thread.start()
+
+    # Start the audio worker (plays audio sequentially)
+    audio_worker_thread = Thread(target=audio_queue_worker, args=(audio_queue, py_face, socket_connection, default_animation_thread, stop_default_animation))
+    audio_worker_thread.start()
+
     file = Path("data/raw/scrum.epub")
     text = ""
     try:
@@ -202,9 +380,9 @@ def main():
         print("✅ Course material loaded successfully!\n")
 
         #Generate lesson script from knowledge graph
-        print("📝 Generating lesson script...")
-        generate_lesson_script(db, "TEACHING", 5)
-        print("✅ Lecture script prepared successfully!\n")
+        #print("📝 Generating lesson script...")
+        #generate_lesson_script(db, "TEACHING", 5)
+        #print("✅ Lecture script prepared successfully!\n")
 
         #Generate lecture audio from lesson script
         #print("🔊 Rendering lecture audio...")
@@ -224,31 +402,47 @@ def main():
 
     # Interactive Q&A loop  
     print("👩🏫 AI Professor is ready! Ask a question (type 'exit' to quit):")  
-    while True:  
-        try:
-            question = input("\nYou: ")  
-            if question.lower() == "exit":  
+    try:
+        while True:  
+            user_input = input("\nYou: ")  
+            if user_input.lower() == "exit":  
                 break
+
+            # Interrupt current playback:
+            flush_queue(chunk_queue)
+            flush_queue(audio_queue)
+            # Stop any current audio playback. Adjust if you have a custom stop mechanism.
+            if pygame.mixer.get_init():
+                pygame.mixer.stop()
                 
             print("\n💭 Thinking...", end="\r")
             
             # Get answer with avatar components
-            response = answer_question(question, db)
-            answer_text = response['text']
-            print(f"\n👩🏫 AI Professor: {answer_text}")
-            """
-            audio_path, audio_url = text_to_speech(text=answer_text)
-            print(f"🔊 Audio generated: {audio_path}")
-            video_path = create_talking_avatar(audio_url=audio_url)
-            print(f"🎥 Video generated: {video_path}")
+            full_response = stream_llm_chunks(user_input, chat_history, chunk_queue, db=db)
+            print(f"\n👩🏫 AI Professor: {full_response}")
+            chat_history.append({"input": user_input, "response": full_response})
+            save_chat_log(chat_history)
 
-            os.system(f'open {video_path}')
-            """
-        except KeyboardInterrupt:
-            print("\n👋 Goodbye!")
-            break
-        except Exception as e:
-            print(f"\n⚠️ Error: {str(e)}")
+    except KeyboardInterrupt:
+        print("\n👋 Goodbye!")
+        
+    finally:
+        # Wait until all text chunks have been processed
+        chunk_queue.join()
+        # Signal the TTS worker to exit
+        chunk_queue.put(None)
+        tts_worker_thread.join()
+        
+        # Wait until all audio items have been played
+        audio_queue.join()
+        # Signal the audio worker to exit
+        audio_queue.put(None)
+        audio_worker_thread.join()
+        
+        stop_default_animation.set()
+        default_animation_thread.join()
+        pygame.quit()
+        socket_connection.close()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -262,4 +456,4 @@ if __name__ == "__main__":
     else:
         #This will start our backend API and connect with frontend functions. Run this command whenever you want to see backend API calls and frontend reactions: python main.py
         logger.info("Starting API server on port 5001.")
-        uvicorn.run(app, host="0.0.0.0", port=5001)
+        uvicorn.run(app, host="127.0.0.1", port=5001)

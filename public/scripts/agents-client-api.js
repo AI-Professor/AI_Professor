@@ -58,6 +58,36 @@ const presenterInputByService = {
 //The following section of functions will serve connect button clicked event. These functions are meant to create a live stream, establish a WebRTC connection with the platform, and submit network information to initialize connection. These steps are crucial to our implementation to Real-Time Q&A feature. Detailed explanation can be find on "https://docs.d-id.com/reference/talks-streams-overview".
 const connectButton = document.getElementById('connect-button');
 connectButton.onclick = async () => {
+  try {
+    // Disable the button to prevent multiple clicks
+    connectButton.disabled = true;
+
+    // Send a POST request to the /api/connect endpoint
+    const response = await fetch('http://localhost:5001/api/connect', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Check if the request was successful
+    if (!response.ok) {
+      throw new Error('Failed to connect');
+    }
+
+    const data = await response.json();
+    console.log('Connection successful:', data);
+
+    // Optionally, enable the button again or update UI
+    connectButton.disabled = false;
+    alert('Connection successful!');
+  } catch (error) {
+    console.error('Error connecting:', error);
+    alert('Connection failed!');
+    connectButton.disabled = false;
+  }
+};
+/*connectButton.onclick = async () => {
   if (peerConnection && peerConnection.connectionState === 'connected') {
     return;
   }
@@ -65,11 +95,11 @@ connectButton.onclick = async () => {
   stopAllStreams();
   closePC();
 
-  /**
-   * Set 'stream_warmup' to 'true' in the payload to initiate idle streaming at the beginning of the connection, addressing jittering issues.
-   * The idle streaming process is transparent to the user and is concealed by triggering a 'stream/ready' event on the data channel,
-   * indicating that idle streaming has concluded and the stream channel is ready for use.
-   */
+  
+  //Set 'stream_warmup' to 'true' in the payload to initiate idle streaming at the beginning of the connection, addressing jittering issues.
+  //The idle streaming process is transparent to the user and is concealed by triggering a 'stream/ready' event on the data channel,
+  //indicating that idle streaming has concluded and the stream channel is ready for use.
+
   const sessionResponse = await fetchWithRetry(`${DID_API.url}/${DID_API.service}/streams`, {
     method: 'POST',
     headers: {
@@ -154,10 +184,10 @@ function onConnectionStateChange() {
   peerStatusLabel.className = 'peerConnectionState-' + peerConnection.connectionState;
   if (peerConnection.connectionState === 'connected') {
     playIdleVideo()
-    /**
-     * A fallback mechanism: if the 'stream/ready' event isn't received within 5 seconds after asking for stream warmup,
-     * it updates the UI to indicate that the system is ready to start streaming data.
-     */
+    //
+     //A fallback mechanism: if the 'stream/ready' event isn't received within 5 seconds after asking for stream warmup,
+     //it updates the UI to indicate that the system is ready to start streaming data.
+     //
     setTimeout(() => {
       if (!isStreamReady) {
         console.log('forcing stream/ready');
@@ -191,13 +221,13 @@ function onVideoStatusChange(videoIsPlaying, stream) {
   streamingStatusLabel.className = 'streamingState-' + status;
 }
 function onStreamEvent(message) {
-  /**
-   * This function handles stream events received on the data channel.
-   * The 'stream/ready' event received on the data channel signals the end of the 2sec idle streaming.
-   * Upon receiving the 'ready' event, we can display the streamed video if one is available on the stream channel.
-   * Until the 'ready' event is received, we hide any streamed video.
-   * Additionally, this function processes events for stream start, completion, and errors. Other data events are disregarded.
-   */
+  
+  //This function handles stream events received on the data channel.
+  // The 'stream/ready' event received on the data channel signals the end of the 2sec idle streaming.
+  // Upon receiving the 'ready' event, we can display the streamed video if one is available on the stream channel.
+  // Until the 'ready' event is received, we hide any streamed video.
+  // Additionally, this function processes events for stream start, completion, and errors. Other data events are disregarded.
+  
 
   if (pcDataChannel.readyState === 'open') {
     let status;
@@ -237,15 +267,15 @@ function onStreamEvent(message) {
   }
 }
 function onTrack(event) {
-  /**
-   * The following code is designed to provide information about wether currently there is data
-   * that's being streamed - It does so by periodically looking for changes in total stream data size
-   *
-   * This information in our case is used in order to show idle video while no video is streaming.
-   * To create this idle video use the POST https://api.d-id.com/talks (or clips) endpoint with a silent audio file or a text script with only ssml breaks
-   * https://docs.aws.amazon.com/polly/latest/dg/supportedtags.html#break-tag
-   * for seamless results use `config.fluent: true` and provide the same configuration as the streaming video
-   */
+  
+   //The following code is designed to provide information about wether currently there is data
+   //that's being streamed - It does so by periodically looking for changes in total stream data size
+   
+   //This information in our case is used in order to show idle video while no video is streaming.
+   //To create this idle video use the POST https://api.d-id.com/talks (or clips) endpoint with a silent audio file or a text script with only ssml breaks
+   //https://docs.aws.amazon.com/polly/latest/dg/supportedtags.html#break-tag
+   //for seamless results use `config.fluent: true` and provide the same configuration as the streaming video
+   
 
   if (!event.track) return;
 
@@ -305,7 +335,40 @@ function setStreamVideoElement(stream) {
 }
 function playIdleVideo() {
   idleVideoElement.src = DID_API.service == 'clips' ? '/public/assets/idle/Henry_Idle_Video.mp4' : '/public/assets/idle/Henry_Idle_Video.mp4';
-}
+};*/
+
+const lectureButton = document.getElementById('lecture-button');
+const topicInput = document.getElementById('topic-input');
+lectureButton.onclick = async () => {
+  try {
+    lectureButton.disabled = true;
+    const topic = topicInput.value.trim();
+    if (!topic) {
+      alert('Please enter a topic.');
+      lectureButton.disabled = false;
+      return;
+    }
+
+    const response = await fetch('http://localhost:5001/api/lecture', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ topic: topic })
+    });
+
+    if (!response.ok) throw new Error('Failed to generate lesson!');
+
+    const data = await response.json();
+    console.log('Lesson generated successfully:', data);
+    alert('Lesson generated successfully!');
+    lectureButton.disabled = false;
+  } catch (error) {
+    showStatusMessage(`Lecture Error: ${error.message}`, true);
+    alert('Lesson generation failed!');
+    lectureButton.disabled = false;
+  }
+};
 
 //The following section of functions will serve to record an user's voice input, send it to backend through API calls in main.py to process, and get our GPT-4 model's answer back from backend and create a stream talk that can be seen and listend on our frontend Real-Time interaction.
 const startButton = document.getElementById('start-button');
@@ -327,15 +390,15 @@ startButton.onclick = async () => {
         throw new Error(`API Error ${response.status}: ${errorText}`);
       }
       
-      const { text, audio } = await backendResponse.json();
+      const {text}= await backendResponse.json();
       addChatMessage(`AI: ${text}`, 'ai');
       
-      await handleUserInput("apple");
+      //await handleUserInput("apple");
   } catch (error) {
       showStatusMessage(`❌ Processing error: ${error.message}`, true);
   }
 };
-async function handleUserInput(text) {
+/*async function handleUserInput(text) {
   // Generate audio from TTS service
   try {
       const backendResponse = await fetch('http://localhost:5001/api/audio-answer', {
@@ -377,7 +440,7 @@ async function handleUserInput(text) {
   } catch (error) {
     showStatusMessage(`❌ Processing error: ${error.message}`, true);
 }
-}
+}*/
 function addChatMessage(text, sender) {
   const msgDiv = document.createElement('div');
   msgDiv.className = `chat-msg ${sender}`;
@@ -388,6 +451,36 @@ function addChatMessage(text, sender) {
 //The following section of functions will serve destroy button clicked. It will destroy the live stream we created and cut off peer connection
 const destroyButton = document.getElementById('destroy-button');
 destroyButton.onclick = async () => {
+  try {
+    // Disable the button to prevent multiple clicks
+    destroyButton.disabled = true;
+
+    // Send a POST request to the /api/connect endpoint
+    const response = await fetch('http://localhost:5001/api/disconnect', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Check if the request was successful
+    if (!response.ok) {
+      throw new Error('Failed to disconnect');
+    }
+
+    const data = await response.json();
+    console.log('Disconnected successfully:', data);
+
+    // Optionally, enable the button again or update UI
+    destroyButton.disabled = false;
+    alert('Disconnected successfully!');
+  } catch (error) {
+    console.error('Error connecting:', error);
+    alert('Disconnect failed!');
+    destroyButton.disabled = false;
+  }
+};
+/*destroyButton.onclick = async () => {
   await fetch(`${DID_API.url}/${DID_API.service}/streams/${streamId}`, {
     method: 'DELETE',
     headers: {
@@ -432,7 +525,7 @@ function closePC(pc = peerConnection) {
   if (pc === peerConnection) {
     peerConnection = null;
   }
-}
+}*/
 
 //The following section of functions will serve upload function. It will take required form of input files and send it to our backend through API calls in main.py to process. It will initialize our knowledge graph based on given input
 const uploadButton = document.getElementById('upload-button');
@@ -569,7 +662,7 @@ function showStatusMessage(message, isError = false) {
   statusDiv.textContent = message;
   document.getElementById('msgHistory').prepend(statusDiv);
 }
-async function fetchWithRetry(url, options, retries = 3) {
+/*async function fetchWithRetry(url, options, retries = 3) {
   try {
       const response = await fetch(url, options);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -581,14 +674,14 @@ async function fetchWithRetry(url, options, retries = 3) {
       }
       throw error;
   }
-}
+}*/
 
 //Final clean up after everything is done.
-window.addEventListener('beforeunload', async () => {
+/*window.addEventListener('beforeunload', async () => {
   if (currentStreamId) {
       await fetch(`${API_BASE}/${currentStreamId}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Basic ${DID_CONFIG.key}` }
       });
   }
-});
+});*/
