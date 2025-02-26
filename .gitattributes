@@ -2,3 +2,4 @@
 Windows/AI_Professor/Samples/PixelStreaming2/WebServers/SignallingWebServer/platform_scripts/cmd/node/node.exe filter=lfs diff=lfs merge=lfs -text
 Windows/AI_Professor/Binaries/Win64/AI_Professor-Win64-Shipping.exe filter=lfs diff=lfs merge=lfs -text
 Windows/AI_Professor/Content/Paks/AI_Professor-Windows.ucas filter=lfs diff=lfs merge=lfs -text
+local_model/NeuroSync/NeuroSync_Local_API/utils/model/model.pth filter=lfs diff=lfs merge=lfs -text

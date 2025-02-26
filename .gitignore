@@ -176,5 +176,3 @@ api.json
 data/processed
 
 node_modules
-
-local_model/NeuroSync/NeuroSync_Local_API/utils/model/model.pth
