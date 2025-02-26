@@ -2,10 +2,15 @@
 # For individuals and businesses earning **under $1M per year**, this software is licensed under the **MIT License**
 # Businesses or organizations with **annual revenue of $1,000,000 or more** must obtain permission to use this software commercially.
 
+import os
 import requests
 import json
+from dotenv import load_dotenv
+load_dotenv()
+host_name = os.getenv('HOST_NAME')
+back_port = os.getenv('BACKEND_PORT')
 
-LOCAL_URL = "http://127.0.0.1:5001/api/audio_to_blendshapes"  # Local URL
+LOCAL_URL = f"{host_name}:{back_port}/api/audio_to_blendshapes"  # Local URL
 
 def send_audio_to_neurosync(audio_bytes):
     try:

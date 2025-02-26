@@ -32,7 +32,7 @@ print("✅ Lecture script prepared successfully!")
 bqe = BasicQuizEngine(db=epub_db)
 print("Start generating quiz from script...")
 #Generate quiz questions and choices from the lecture script we generated above.
-bqe.generate_quiz_from_script(script_path="data/processed/lesson_script/lesson_script.txt",num_questions=3)
+bqe.generate_quiz_from_script(script_path="data/processed/lesson_script/lesson_script.txt")
 print("Quiz generated successfully!")
 #Show the questions we generated from last step
 bqe.print_all_questions()

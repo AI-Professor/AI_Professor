@@ -8,7 +8,7 @@ if not openai_api_key:
     raise ValueError("OPENAI_API_KEY not found in environment variables")
 
 #This function will generate lesson script through GPT-4 model identified in answer_question function in src/nlp/qa_system.py. The content is based on the template we defined here and give to GPT-4.
-def generate_lesson_script(db, template, length, topic):
+def generate_lesson_script(db, template, length, topic, topic_path):
     """Auto-generates lesson script using GPT-4"""
 
     templates = {
@@ -54,8 +54,7 @@ def generate_lesson_script(db, template, length, topic):
     if template not in templates:
         raise ValueError(f"Invalid template type. Choose one of: {list(templates.keys())}")
     
-    query = f"Provide course material related to {topic}"  # Adjust based on user input or template
-    relevant_text = db.similarity_search(query, k=20)  # Fetch top 5 most relevant passages
+    relevant_text = db.similarity_search(topic, k=20)  # Fetch top 5 most relevant passages
 
     # Concatenate the relevant content to form the context for GPT-4
     relevant_text_content = "\n\n".join([doc.page_content for doc in relevant_text])
@@ -75,7 +74,7 @@ def generate_lesson_script(db, template, length, topic):
         LESSON_DIR = "data/processed/lesson_script"
         os.makedirs(LESSON_DIR, exist_ok=True)
 
-        with open(f"{LESSON_DIR}/{topic}_lesson_script.txt", "w") as f:
+        with open(f"{LESSON_DIR}/{topic_path}_lesson_script.txt", "w") as f:
             f.write(lesson_script)
 
         return lesson_script

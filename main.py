@@ -14,6 +14,9 @@ from threading import Event, Thread
 from queue import Queue, Empty
 import atexit
 import glob
+from subprocess import Popen, PIPE
+import psutil  
+
 
 from local_model.NeuroSync.NeuroSync_Local_API.utils.model.model import load_model
 from src.data_ingestion.pdf_parser import extract_text_from_pdf 
@@ -34,6 +37,38 @@ from local_model.NeuroSync.NeuroSync_Local_API.utils.config import config
 from local_model.kokoro_model.kokoro.pipeline import KPipeline
 
 warnings.filterwarnings("ignore")
+load_dotenv()
+host_name = os.getenv('HOST_NAME')
+front_port = os.getenv('FRONTEND_PORT')
+back_port = os.getenv('BACKEND_PORT')
+
+def start_UE():
+    global UE
+    UE = True
+    exe_path = os.path.join(os.path.dirname(__file__), 'Windows', 'AI_Professor.exe')
+    args = [
+        '-PixelStreamingURL=ws://127.0.0.1:8888',
+        '-AllowPixelStreamingCommands',
+        '-RenderOffScreen'
+    ]
+
+    # Start the game as a detached process
+    game_process = Popen([exe_path] + args, shell=True)
+    print(f"Game started with PID: {game_process.pid}")
+
+def terminate_UE(name):
+    UE = False
+    for proc in psutil.process_iter(['pid', 'name']):
+        # Check if the process name matches
+        if proc.info['name'] == name:
+            print(f"Terminating process {name} with PID {proc.info['pid']}")
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+                print(f"Process {name} terminated successfully.")
+            except psutil.TimeoutExpired:
+                print("Process did not terminate in time. Forcing termination...")
+                proc.kill()
 
 #Initialize log functions to create system logs whenever APIs are called
 LOG_DIR = "logs"
@@ -62,7 +97,7 @@ app.mount("/audio", StaticFiles(directory=AUDIO_DIR), name="audio")
 #Our backend API will be running on localhost:5001, our frontend API will be running on localhost:3000
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5001"],
+    allow_origins=[f"{host_name}:{front_port}", f"{host_name}:{back_port}", f'{host_name}'],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -73,6 +108,42 @@ app.add_middleware(
 async def health_check():
     logger.info("Health check endpoint accessed.")
     return {"status": "ok", "initialized": "True"}#bool(global_db)
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    logger.info("Shutting down Unreal Engine...")
+    terminate_UE('AI_Professor-Win64-Shipping.exe')
+    logger.info("Unreal Engine terminated successfully.")
+    
+    if 'quiz_engine' in globals():
+        logger.info("Clearing quiz database...")
+        quiz_engine.clear_all_questions()
+        logger.info("Quiz database cleared successfully.")
+    else:
+        print("Quiz Engine is not initialized!")
+
+    logger.info("Cleaning audio files...")
+    cleanup_audio_files()
+    logger.info("Audio files cleaned successfully.")
+
+    logger.info("Clearing chat history...")
+    clear_chatlog()
+    logger.info("Chat history cleaned successfully.")
+
+def cleanup_audio_files():
+    audio_dir = Path("local_model/NeuroSync/NeuroSync_Player/data/audio")
+    for file_path in glob.glob(str(audio_dir / "*.wav")):
+        try:
+            os.remove(file_path)
+            print(f"Deleted: {file_path}")
+        except Exception as e:
+            print(f"Error deleting {file_path}: {e}")
+
+def clear_chatlog():
+    chat_path = "local_model/NeuroSync/NeuroSync_Player/chat_logs/chat_history.json"
+    with open(chat_path, 'w', encoding='utf-8') as f:
+        json.dump([], f, indent=4)
+    print(f"Chat log in {chat_path} has been cleared.")
 
 @app.post("/api/connect")
 async def connect():
@@ -137,7 +208,6 @@ async def disconnect():
         default_animation_thread.join()
         pygame.quit()
         socket_connection.close()
-        cleanup_audio_files()
 
         return {"status": "Disonnected", "message": "Model and workers ended"}
 
@@ -162,14 +232,17 @@ async def lecture(topic: dict):
             pygame.mixer.stop()
         
         topic = topic['topic']
-        topic = topic.lower().replace(" ", "_")
+        topic_path = topic.lower().replace(" ", "_")
         
-        if os.path.exists(f"data/processed/lesson_script/{topic}_lesson_script.txt"):
-            with open(f"data/processed/lesson_script/{topic}_lesson_script.txt", "r") as file:
+        global lesson_path
+        lesson_path = f"data/processed/lesson_script/{topic_path}_lesson_script.txt"
+
+        if os.path.exists(lesson_path):
+            with open(lesson_path, "r") as file:
                 lesson_script = file.read()
             print("Loaded lesson script successfully!")
         else:
-            lesson_script = generate_lesson_script(global_db, "TEACHING", 1, topic)
+            lesson_script = generate_lesson_script(global_db, "TEACHING", 1, topic, topic_path)
             print("Generated lesson script successfully!")
         
         stream_llm_chunks(lesson_script, chat_history, chunk_queue, db=global_db, is_lesson=True)
@@ -180,7 +253,6 @@ async def lecture(topic: dict):
             status_code=500,
             content={"error": str(e)}
         )
-
 
 #This function will handle the question asked by a user in the frontend and send back the answer generated by our model. Check *answer_question* function in src/nlp/qa_system.py for detailed implementation
 @app.post("/api/answer")
@@ -202,21 +274,6 @@ async def answer_endpoint(question_data: dict):
         
     except Exception as e:
         logger.error("Error in /api/answer: %s", str(e))
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(e)}
-        )
-
-#This function will take in the answer we generated through last function and send back an audio url for avatar realtime streaming response. Check *text_to_speech* function in src/avatar/tts.py for detailed implementation
-@app.post("/api/audio-answer")
-async def audio_answer(text_data: dict):
-    try:
-        logger.info("Generating audio for text: %s", text_data["text"])
-        #audio_path, audio_url = text_to_speech(text=text_data["text"])
-        return {"audio_url": 1}
-    
-    except Exception as e:
-        logger.error("Error in /api/audio-answer: %s", str(e))
         return JSONResponse(
             status_code=500,
             content={"error": str(e)}
@@ -271,7 +328,7 @@ async def generate_quiz():
         logger.info("Generating quiz.")
         global quiz_engine
         quiz_engine = BasicQuizEngine(global_db)
-        quiz_engine.generate_quiz_from_script("data/processed/lesson_script/lesson_script.txt", num_questions=3)
+        quiz_engine.generate_quiz_from_script(lesson_path)
         
         # Retrieve all questions
         cursor = quiz_engine.conn.cursor()
@@ -294,25 +351,6 @@ async def generate_quiz():
             content={"error": f"Quiz generation failed: {str(e)}"}
         )
 
-#This function utilizes the same BasicQuizEngine object generated from last function. It will clear question database on the backend after the frontend button is clicked.
-@app.delete("/api/clear-quiz")
-async def clear_quiz():
-    try:
-        logger.info("Clearing quiz database")
-        quiz_engine.clear_all_questions()
-        
-        return JSONResponse(
-            status_code=200,
-            content={"message": "Quiz database cleared successfully"}
-        )
-        
-    except Exception as e:
-        logger.info("Quiz database clearance failed: %s", str(e))
-        return JSONResponse(
-            status_code=500,
-            content={"error": f"Failed to clear quiz: {str(e)}"}
-        )
-
 @app.post('/api/audio_to_blendshapes')
 async def audio_to_blendshapes_route(request: Request):
     audio_bytes = await request.body()
@@ -327,16 +365,7 @@ def flush_queue(q):
             q.get_nowait()
     except Empty:
         pass
-
-def cleanup_audio_files():
-    audio_dir = Path("local_model/NeuroSync/NeuroSync_Player/data/audio")
-    for file_path in glob.glob(str(audio_dir / "*.wav")):
-        try:
-            os.remove(file_path)
-            print(f"Deleted: {file_path}")
-        except Exception as e:
-            print(f"Error deleting {file_path}: {e}")
-        
+      
 atexit.register(cleanup_audio_files)
 
 #This is a backend complete testing function. Nothing will happen at the frontend, we can test our implementations and functions here. All of the output will be shown in your terminal for testing purposes. 
@@ -455,5 +484,6 @@ if __name__ == "__main__":
         main()
     else:
         #This will start our backend API and connect with frontend functions. Run this command whenever you want to see backend API calls and frontend reactions: python main.py
-        logger.info("Starting API server on port 5001.")
-        uvicorn.run(app, host="127.0.0.1", port=5001)
+        logger.info(f"Starting API server on port {back_port}.")
+        start_UE()
+        uvicorn.run(app, host="127.0.0.1", port=int(back_port))
