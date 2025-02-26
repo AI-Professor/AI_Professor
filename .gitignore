@@ -179,3 +179,5 @@ data/processed
 # Node
 node_modules/
 logs/
+
+.idea

@@ -1,19 +1,18 @@
 <!--This is our main frontend HTML file-->
-
-
 <!DOCTYPE html>
 <html>
   <head>
-    <title>D-ID Streaming POC</title>
+    <title>Virtual Lecturer</title>
     <!-- added google fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@300;400;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/public/styles/style-agents.css"/>
+    <!-- added favicon link -->
+    <link rel="icon" href="/public/assets/favicon.ico" type="image/x-icon" />
   </head>
 
   <body>
-  <script type="module" src="/public/scripts/agents-client-api.js"></script>
     <!-- added "id=content" -->
     <div id="content">
       <!-- added "id=video-wrapper" -->
@@ -40,6 +39,9 @@
         <h3>Voice Interaction</h3>
         <button id="start-button">Start Speaking</button>
         <div id="msgHistory" style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;"></div>
+        <!-- replaced input with textarea -->
+        <textarea id="text-input" placeholder="Type your question here"></textarea>
+        <button id="text-submit-button">Submit</button>
       </div>
       <div class="file-upload-section">
         <h3>Upload Course Materials</h3>
@@ -62,88 +64,33 @@
       <!-- added div#auth-section -->
       <div id="auth-section">
         <h2>Authentication</h2>
-      <div id="register-section">
-        <h3>Register</h3>
-        <form id="register-form">
-          <div class="form-group">
+        <div id="register-section">
+          <h3>Register</h3>
+          <form id="register-form">
             <label for="register-email">Email:</label>
             <input type="email" id="register-email" required>
-          </div>
-          <div class="form-group">
             <label for="register-password">Password:</label>
             <input type="password" id="register-password" required>
-          </div>
-          <div class="form-group">
-            <label>Verification code:</label>
-            <div class="captcha-box">
-              <input type="text" id="register-captcha" required>
-              <img id="register-captcha-img" class="captcha-img"
-                   onclick="refreshCaptcha('register')">
-            </div>
-          </div>
-          <button type="submit">Register</button>
-        </form>
-        <div id="register-message"></div>
-      </div>
-
+            <button type="button" id="register-button">Register</button>
+          </form>
+          <div id="register-message"></div>
+        </div>
         <div id="login-section">
-        <h3>Login</h3>
-        <form id="login-form">
-          <div class="form-group">
+          <h3>Login</h3>
+          <form id="login-form">
             <label for="login-email">Email:</label>
             <input type="email" id="login-email" required>
-          </div>
-          <div class="form-group">
             <label for="login-password">Password:</label>
             <input type="password" id="login-password" required>
-          </div>
-          <div class="form-group">
-            <label>Verification code:</label>
-            <div class="captcha-box">
-              <input type="text" id="login-captcha" required>
-              <img id="login-captcha-img" class="captcha-img"
-                   onclick="refreshCaptcha('login')">
-            </div>
-          </div>
-          <button type="submit">Login</button>
-        </form>
-        <div id="login-message"></div>
+            <button type="submit">Login</button>
+          </form>
+          <div id="login-message"></div>
+        </div>
       </div>
+      <button id="fetch-user-info">Fetch User Info</button>
+      <div id="user-info"></div>
     </div>
-  </div>
 
-
-
- <script>
-
-async function loadCaptcha(type) {
-    try {
-        const response = await fetch(`http://localhost:5001/api/captcha?type=${type}`);
-        const data = await response.json();
-        document.getElementById(`${type}-captcha-img`).src = data.image;
-        window.captchaData[type].id = data.captcha_id;
-    } catch (error) {
-        console.error('error:', error);
-    }
-}
-
-function refreshCaptcha(type) {
-    loadCaptcha(type);
-    document.getElementById(`${type}-captcha`).value = '';
-}
-
-
-document.addEventListener('DOMContentLoaded', () => {
-    ['register', 'login'].forEach(type => {
-        loadCaptcha(type);
-    });
-});
-</script>
-
-
-
-</body>
+    <script type="module" src="/public/scripts/agents-client-api.js" defer></script>
+  </body>
 </html>
-
-
-

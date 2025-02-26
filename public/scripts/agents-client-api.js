@@ -1,8 +1,3 @@
-window.captchaData = {
-    register: { id: '', text: '' },
-    login: { id: '', text: '' }
-};
-
 'use strict';
 console.log('agents-client-api.js loaded'); // Log when the script is loaded
 
@@ -38,13 +33,10 @@ let streamVideoOpacity = 0;
 let currentQuiz = [];
 let currentQuestionIndex = 0;
 let score = 0;
+
 const stream_warmup = true;
 let isStreamReady = !stream_warmup;
 
-let captchaData = {
-    register: { id: '', text: '' },
-    login: { id: '', text: '' }
-};
 //Initialize interactive global variables from frontend HTML
 const idleVideoElement = document.getElementById('idle-video-element');
 const streamVideoElement = document.getElementById('stream-video-element');
@@ -68,143 +60,14 @@ const presenterInputByService = {
 };
 
 let accessToken = '';
+let currentStreamId = null; // Define currentStreamId
 
-// Handle registration form submission
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('DOM fully loaded and parsed');// Log when the DOM is fully loaded
-    initCaptcha('register');
-    initCaptcha('login');
-  document.getElementById('register-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('register-email').value;
-    const password = document.getElementById('register-password').value;
-    try {
-      const response = await fetch('http://localhost:5001/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await response.json();
-      document.getElementById('register-message').textContent = 'Registration successful!';
-    } catch (error) {
-      document.getElementById('register-message').textContent = 'Registration failed: ' + error.message;
-    }
-    const payload = {
-        email: document.getElementById('register-email').value,
-        password: document.getElementById('register-password').value,
-        captcha_id: captchaData.register.id,
-        captcha_text: document.getElementById('register-captcha').value
-    };
-  });
-
-  // Handle login form submission
-  document.getElementById('login-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
-    try {
-      const response = await fetch('http://localhost:5001/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({ username: email, password }),
-      });
-      const data = await response.json();
-      accessToken = data.access_token;
-      document.getElementById('login-message').textContent = 'Login successful!';
-      console.log('Access Token:', accessToken);
-    } catch (error) {
-      document.getElementById('login-message').textContent = 'Login failed: ' + error.message;
-    }
-    const payload = {
-        username: document.getElementById('login-email').value,
-        password: document.getElementById('login-password').value,
-        captcha_id: captchaData.login.id,
-        captcha_text: document.getElementById('login-captcha').value
-    };
-  });
-
-  // Fetch user-specific information
-  document.getElementById('fetch-user-info').addEventListener('click', async () => {
-    try {
-      const response = await fetch('http://localhost:5001/user-info', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      });
-      const data = await response.json();
-      document.getElementById('user-info').textContent = JSON.stringify(data, null, 2);
-    } catch (error) {
-      document.getElementById('user-info').textContent = 'Failed to fetch user info: ' + error.message;
-    }
-  });
-
-  const connectButton = document.getElementById('connect-button');
-  if (!connectButton) {
-    console.error('Connect button not found');
-  }
-
-  connectButton.onclick = async () => {
-    console.log('Connect button clicked'); // Log when the connect button is clicked
-
-    if (peerConnection && peerConnection.connectionState === 'connected') {
-      console.log('Already connected');
-      return;
-    }
-
-    console.log('Stopping all streams and closing peer connection');
-    stopAllStreams();
-    closePC();
-
-    console.log('Creating new session');
-    try {
-      const sessionResponse = await fetchWithRetry(`${DID_API.url}/${DID_API.service}/streams`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${DID_API.key}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ ...presenterInputByService[DID_API.service], stream_warmup, source_url: "https://i.ibb.co/h1D26ggv/avatar.png" }),
-      });
-
-      console.log('Session response received');
-      const { id: newStreamId, offer, ice_servers: iceServers, session_id: newSessionId } = await sessionResponse.json();
-      streamId = newStreamId;
-      sessionId = newSessionId;
-
-      console.log('Creating peer connection');
-      sessionClientAnswer = await createPeerConnection(offer, iceServers);
-      console.log('Peer connection created');
-
-      console.log('Sending SDP response');
-      const sdpResponse = await fetch(`${DID_API.url}/${DID_API.service}/streams/${streamId}/sdp`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${DID_API.key}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          answer: sessionClientAnswer,
-          session_id: sessionId,
-        }),
-      });
-
-      console.log('SDP response sent');
-    } catch (e) {
-      console.log('Error during streaming setup', e);
-      stopAllStreams();
-      closePC();
-    }
-  };
-});
 function onIceGatheringStateChange() {
   iceGatheringStatusLabel.innerText = peerConnection.iceGatheringState;
   iceGatheringStatusLabel.className = 'iceGatheringState-' + peerConnection.iceGatheringState;
 }
+
+
 function onIceCandidate(event) {
   console.log('onIceCandidate', event);
   if (event.candidate) {
@@ -410,7 +273,7 @@ startButton.onclick = async () => {
   try {
       const userQuestion = await initializeVoiceRecognition();
       addChatMessage(`You: ${userQuestion}`, 'user');
-
+      
       const backendResponse = await fetch('http://localhost:5001/api/answer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -418,15 +281,15 @@ startButton.onclick = async () => {
       }).catch(error => {
         throw new Error(`Network error: ${error.message}`);
       });
-
+      
       if (!backendResponse.ok) {
         const errorText = await response.text();
         throw new Error(`API Error ${response.status}: ${errorText}`);
       }
-
+      
       const { text, audio } = await backendResponse.json();
       addChatMessage(`AI: ${text}`, 'ai');
-
+      
       await handleUserInput("apple");
   } catch (error) {
       showStatusMessage(`❌ Processing error: ${error.message}`, true);
@@ -475,11 +338,19 @@ async function handleUserInput(text) {
     showStatusMessage(`❌ Processing error: ${error.message}`, true);
 }
 }
+const MAX_MESSAGES = 1; // Maximum number of messages to display in the chat history
+
 function addChatMessage(text, sender) {
   const msgDiv = document.createElement('div');
   msgDiv.className = `chat-msg ${sender}`;
   msgDiv.textContent = text;
-  document.getElementById('msgHistory').appendChild(msgDiv);
+  const msgHistory = document.getElementById('msgHistory');
+  msgHistory.appendChild(msgDiv);
+
+  // Remove oldest messages if the number of messages exceeds the limit
+  while (msgHistory.children.length > MAX_MESSAGES) {
+    msgHistory.removeChild(msgHistory.firstChild);
+  }
 }
 
 //The following section of functions will serve destroy button clicked. It will destroy the live stream we created and cut off peer connection
@@ -536,7 +407,7 @@ const uploadButton = document.getElementById('upload-button');
 uploadButton.onclick = async () => {
   const fileInput = document.getElementById('fileInput');
   const files = Array.from(fileInput.files);
-
+  
   if (files.length === 0) {
       showStatusMessage('Please select files first', true);
       return;
@@ -554,10 +425,10 @@ uploadButton.onclick = async () => {
 
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Upload failed');
-
+      
       showStatusMessage(result.message);
       await checkSystemStatus();
-
+      
   } catch (error) {
       showStatusMessage(`Upload failed: ${error.message}`, true);
   }
@@ -580,18 +451,18 @@ quizButton.onclick = async () => {
   try {
     const response = await fetch('http://localhost:5001/api/generate-quiz');
     if (!response.ok) throw new Error('Failed to fetch quiz');
-
+    
     currentQuiz = await response.json();
-
+    
     if (!currentQuiz?.length) {
       showStatusMessage('No questions available!', true);
       return;
     }
-
+    
     currentQuestionIndex = 0;
     score = 0
     showQuestion(currentQuiz[currentQuestionIndex]);
-
+    
   } catch (error) {
     showStatusMessage(`Quiz Error: ${error.message}`, true);
   }
@@ -612,13 +483,13 @@ function showQuestion(question) {
 }
 async function handleAnswer(selectedIndex) {
   const correct = selectedIndex === currentQuiz[currentQuestionIndex].answer;
-
+  
   // Show result
   showStatusMessage(correct ? "Correct! 🎉" : "Incorrect ❌", !correct);
   if (correct){
     score += 1
   }
-
+  
   // Next question
   currentQuestionIndex++;
   if(currentQuestionIndex < currentQuiz.length) {
@@ -640,7 +511,7 @@ const clearQuizButton = document.getElementById('clear-quiz-btn');
 clearQuizButton.onclick = async () => {
   try {
     showStatusMessage('Clearing quiz database...');
-
+    
     const response = await fetch('http://localhost:5001/api/clear-quiz', {
       method: 'DELETE'
     });
@@ -653,7 +524,7 @@ clearQuizButton.onclick = async () => {
     const result = await response.json();
     showStatusMessage(result.message);
     currentQuiz = []; // Reset current quiz
-
+    
   } catch (error) {
     showStatusMessage(`Clear Error: ${error.message}`, true);
   }
@@ -688,34 +559,147 @@ window.addEventListener('beforeunload', async () => {
           headers: { 'Authorization': `Basic ${DID_CONFIG.key}` }
       });
   }
+  // Clear the access token from localStorage
+  localStorage.removeItem('accessToken');
 });
 
+// document.addEventListener('DOMContentLoaded', () => {
+  // console.log('DOM fully loaded and parsed'); // Log when the DOM is fully loaded
 
-//Initialize verification code
-async function initCaptcha(type) {
-    const imgElement = document.getElementById(`${type}-captcha-img`);
-    imgElement.style.background = "#f0f0f0";
-    imgElement.innerHTML = '<div class="loading">Loading...</div>';
+  // Handle registration form submission
+  document.getElementById('register-button').addEventListener('click', async () => {
+    console.log("Register button clicked"); // Log when the register button is clicked
+    const email = document.getElementById('register-email').value;
+    const password = document.getElementById('register-password').value;
+
+    if (!email || !password) {
+      document.getElementById('register-message').textContent = 'Please fill in all fields.';
+      return;
+    }
 
     try {
-        const response = await fetch(`http://localhost:5001/api/captcha?type=${type}`);
-        const data = await response.json();
-        imgElement.style.background = "";
-        imgElement.innerHTML = "";
-        imgElement.src = data.image;
-        captchaData[type].id = data.captcha_id;
+      const response = await fetch('http://localhost:5001/api/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API Error ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      document.getElementById('register-message').textContent = 'Registration successful!';
     } catch (error) {
-        imgElement.innerHTML = '<div class="error">Load Failed</div>';
-        console.error('error:', error);
+      document.getElementById('register-message').textContent = 'Registration failed: ' + error.message;
     }
-}
+  });
 
+  // Handle login form submission
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
 
-// Refresh function code
-async function refreshCaptcha(type) {
-    const img = document.getElementById(`${type}-captcha-img`);
-    img.src = '';  // 清空当前图片
-    await initCaptcha(type);
-}
+    if (!email || !password) {
+      document.getElementById('login-message').textContent = 'Please fill in all fields.';
+      return;
+    }
 
+    try {
+      const response = await fetch('http://localhost:5001/api/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ username: email, password }),
+      });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API Error ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      accessToken = data.access_token;
+      localStorage.setItem('accessToken', accessToken); // Store token in localStorage
+      document.getElementById('login-message').textContent = 'Login successful!';
+      console.log('Access Token:', accessToken);
+    } catch (error) {
+      // Clear the access token from localStorage if login fails
+      localStorage.removeItem('accessToken');
+      document.getElementById('login-message').textContent = 'Login failed: ' + error.message;
+    }
+  });
+
+  // Fetch user-specific information
+  document.getElementById('fetch-user-info').addEventListener('click', async () => {
+    const token = localStorage.getItem('accessToken'); // Retrieve token from localStorage
+    if (!token) {
+      document.getElementById('user-info').textContent = 'No access token found. Please log in.';
+      return;
+    }
+    try {
+      const response = await fetch('http://localhost:5001/user-info', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API Error ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      document.getElementById('user-info').textContent = JSON.stringify(data, null, 2);
+    } catch (error) {
+      document.getElementById('user-info').textContent = 'Failed to fetch user info: ' + error.message;
+    }
+  });
+
+  document.getElementById('text-input').addEventListener('input', function() {
+    this.style.height = 'auto'; // Reset the height
+    this.style.height = (this.scrollHeight) + 'px'; // Set the height to the scroll height
+  });
+
+  document.getElementById('text-submit-button').addEventListener('click', async () => {
+    const question = document.getElementById('text-input').value;
+    if (!question) {
+      showStatusMessage('Please enter a question.', true);
+      return;
+    }
+  
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        showStatusMessage('No access token found. Please log in.', true);
+        return;
+      }
+  
+      const response = await fetch('http://localhost:5001/api/question', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ question })
+      });
+  
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API Error ${response.status}: ${errorText}`);
+      }
+  
+      const data = await response.json();
+      addChatMessage(`AI: ${data.answer}`, 'ai');
+    } catch (error) {
+      showStatusMessage(`❌ Processing error: ${error.message}`, true);
+    }
+  });
+  
+// });
