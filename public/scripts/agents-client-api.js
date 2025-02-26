@@ -1,3 +1,8 @@
+window.captchaData = {
+    register: { id: '', text: '' },
+    login: { id: '', text: '' }
+};
+
 'use strict';
 console.log('agents-client-api.js loaded'); // Log when the script is loaded
 
@@ -33,10 +38,13 @@ let streamVideoOpacity = 0;
 let currentQuiz = [];
 let currentQuestionIndex = 0;
 let score = 0;
-
 const stream_warmup = true;
 let isStreamReady = !stream_warmup;
 
+let captchaData = {
+    register: { id: '', text: '' },
+    login: { id: '', text: '' }
+};
 //Initialize interactive global variables from frontend HTML
 const idleVideoElement = document.getElementById('idle-video-element');
 const streamVideoElement = document.getElementById('stream-video-element');
@@ -63,8 +71,9 @@ let accessToken = '';
 
 // Handle registration form submission
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('DOM fully loaded and parsed'); // Log when the DOM is fully loaded
-
+  console.log('DOM fully loaded and parsed');// Log when the DOM is fully loaded
+    initCaptcha('register');
+    initCaptcha('login');
   document.getElementById('register-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('register-email').value;
@@ -82,6 +91,12 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       document.getElementById('register-message').textContent = 'Registration failed: ' + error.message;
     }
+    const payload = {
+        email: document.getElementById('register-email').value,
+        password: document.getElementById('register-password').value,
+        captcha_id: captchaData.register.id,
+        captcha_text: document.getElementById('register-captcha').value
+    };
   });
 
   // Handle login form submission
@@ -104,6 +119,12 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
       document.getElementById('login-message').textContent = 'Login failed: ' + error.message;
     }
+    const payload = {
+        username: document.getElementById('login-email').value,
+        password: document.getElementById('login-password').value,
+        captcha_id: captchaData.login.id,
+        captcha_text: document.getElementById('login-captcha').value
+    };
   });
 
   // Fetch user-specific information
@@ -389,7 +410,7 @@ startButton.onclick = async () => {
   try {
       const userQuestion = await initializeVoiceRecognition();
       addChatMessage(`You: ${userQuestion}`, 'user');
-      
+
       const backendResponse = await fetch('http://localhost:5001/api/answer', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -397,15 +418,15 @@ startButton.onclick = async () => {
       }).catch(error => {
         throw new Error(`Network error: ${error.message}`);
       });
-      
+
       if (!backendResponse.ok) {
         const errorText = await response.text();
         throw new Error(`API Error ${response.status}: ${errorText}`);
       }
-      
+
       const { text, audio } = await backendResponse.json();
       addChatMessage(`AI: ${text}`, 'ai');
-      
+
       await handleUserInput("apple");
   } catch (error) {
       showStatusMessage(`❌ Processing error: ${error.message}`, true);
@@ -515,7 +536,7 @@ const uploadButton = document.getElementById('upload-button');
 uploadButton.onclick = async () => {
   const fileInput = document.getElementById('fileInput');
   const files = Array.from(fileInput.files);
-  
+
   if (files.length === 0) {
       showStatusMessage('Please select files first', true);
       return;
@@ -533,10 +554,10 @@ uploadButton.onclick = async () => {
 
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Upload failed');
-      
+
       showStatusMessage(result.message);
       await checkSystemStatus();
-      
+
   } catch (error) {
       showStatusMessage(`Upload failed: ${error.message}`, true);
   }
@@ -559,18 +580,18 @@ quizButton.onclick = async () => {
   try {
     const response = await fetch('http://localhost:5001/api/generate-quiz');
     if (!response.ok) throw new Error('Failed to fetch quiz');
-    
+
     currentQuiz = await response.json();
-    
+
     if (!currentQuiz?.length) {
       showStatusMessage('No questions available!', true);
       return;
     }
-    
+
     currentQuestionIndex = 0;
     score = 0
     showQuestion(currentQuiz[currentQuestionIndex]);
-    
+
   } catch (error) {
     showStatusMessage(`Quiz Error: ${error.message}`, true);
   }
@@ -591,13 +612,13 @@ function showQuestion(question) {
 }
 async function handleAnswer(selectedIndex) {
   const correct = selectedIndex === currentQuiz[currentQuestionIndex].answer;
-  
+
   // Show result
   showStatusMessage(correct ? "Correct! 🎉" : "Incorrect ❌", !correct);
   if (correct){
     score += 1
   }
-  
+
   // Next question
   currentQuestionIndex++;
   if(currentQuestionIndex < currentQuiz.length) {
@@ -619,7 +640,7 @@ const clearQuizButton = document.getElementById('clear-quiz-btn');
 clearQuizButton.onclick = async () => {
   try {
     showStatusMessage('Clearing quiz database...');
-    
+
     const response = await fetch('http://localhost:5001/api/clear-quiz', {
       method: 'DELETE'
     });
@@ -632,7 +653,7 @@ clearQuizButton.onclick = async () => {
     const result = await response.json();
     showStatusMessage(result.message);
     currentQuiz = []; // Reset current quiz
-    
+
   } catch (error) {
     showStatusMessage(`Clear Error: ${error.message}`, true);
   }
@@ -668,3 +689,33 @@ window.addEventListener('beforeunload', async () => {
       });
   }
 });
+
+
+//Initialize verification code
+async function initCaptcha(type) {
+    const imgElement = document.getElementById(`${type}-captcha-img`);
+    imgElement.style.background = "#f0f0f0";
+    imgElement.innerHTML = '<div class="loading">Loading...</div>';
+
+    try {
+        const response = await fetch(`http://localhost:5001/api/captcha?type=${type}`);
+        const data = await response.json();
+        imgElement.style.background = "";
+        imgElement.innerHTML = "";
+        imgElement.src = data.image;
+        captchaData[type].id = data.captcha_id;
+    } catch (error) {
+        imgElement.innerHTML = '<div class="error">Load Failed</div>';
+        console.error('error:', error);
+    }
+}
+
+
+// Refresh function code
+async function refreshCaptcha(type) {
+    const img = document.getElementById(`${type}-captcha-img`);
+    img.src = '';  // 清空当前图片
+    await initCaptcha(type);
+}
+
+

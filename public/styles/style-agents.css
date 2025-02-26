@@ -246,3 +246,44 @@ video {
 #auth-section div {
   margin-top: 10px;
 }
+
+.captcha-box {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin: 10px 0;
+}
+
+.captcha-img {
+    height: 40px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: opacity 0.3s;
+}
+
+.captcha-img:hover {
+    opacity: 0.8;
+}
+
+#register-captcha, #login-captcha {
+    width: 150px;
+    padding: 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+}
+.form-group { margin-bottom: 1rem; }
+
+/* 添加加载状态 */
+.captcha-img[src=""] {
+    background: #f0f0f0;
+    position: relative;
+}
+.captcha-img[src=""]::after {
+    content: "loading";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    color: #666;
+}

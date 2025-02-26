@@ -1,4 +1,6 @@
 <!--This is our main frontend HTML file-->
+
+
 <!DOCTYPE html>
 <html>
   <head>
@@ -11,6 +13,7 @@
   </head>
 
   <body>
+  <script type="module" src="/public/scripts/agents-client-api.js"></script>
     <!-- added "id=content" -->
     <div id="content">
       <!-- added "id=video-wrapper" -->
@@ -59,31 +62,88 @@
       <!-- added div#auth-section -->
       <div id="auth-section">
         <h2>Authentication</h2>
-        <div id="register-section">
-          <h3>Register</h3>
-          <form id="register-form">
+      <div id="register-section">
+        <h3>Register</h3>
+        <form id="register-form">
+          <div class="form-group">
             <label for="register-email">Email:</label>
             <input type="email" id="register-email" required>
+          </div>
+          <div class="form-group">
             <label for="register-password">Password:</label>
             <input type="password" id="register-password" required>
-            <button type="submit">Register</button>
-          </form>
-          <div id="register-message"></div>
-        </div>
+          </div>
+          <div class="form-group">
+            <label>Verification code:</label>
+            <div class="captcha-box">
+              <input type="text" id="register-captcha" required>
+              <img id="register-captcha-img" class="captcha-img"
+                   onclick="refreshCaptcha('register')">
+            </div>
+          </div>
+          <button type="submit">Register</button>
+        </form>
+        <div id="register-message"></div>
+      </div>
+
         <div id="login-section">
-          <h3>Login</h3>
-          <form id="login-form">
+        <h3>Login</h3>
+        <form id="login-form">
+          <div class="form-group">
             <label for="login-email">Email:</label>
             <input type="email" id="login-email" required>
+          </div>
+          <div class="form-group">
             <label for="login-password">Password:</label>
             <input type="password" id="login-password" required>
-            <button type="submit">Login</button>
-          </form>
-          <div id="login-message"></div>
-        </div>
+          </div>
+          <div class="form-group">
+            <label>Verification code:</label>
+            <div class="captcha-box">
+              <input type="text" id="login-captcha" required>
+              <img id="login-captcha-img" class="captcha-img"
+                   onclick="refreshCaptcha('login')">
+            </div>
+          </div>
+          <button type="submit">Login</button>
+        </form>
+        <div id="login-message"></div>
       </div>
     </div>
+  </div>
 
-    <script type="module" src="/public/scripts/agents-client-api.js"></script>
-  </body>
+
+
+ <script>
+
+async function loadCaptcha(type) {
+    try {
+        const response = await fetch(`http://localhost:5001/api/captcha?type=${type}`);
+        const data = await response.json();
+        document.getElementById(`${type}-captcha-img`).src = data.image;
+        window.captchaData[type].id = data.captcha_id;
+    } catch (error) {
+        console.error('error:', error);
+    }
+}
+
+function refreshCaptcha(type) {
+    loadCaptcha(type);
+    document.getElementById(`${type}-captcha`).value = '';
+}
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    ['register', 'login'].forEach(type => {
+        loadCaptcha(type);
+    });
+});
+</script>
+
+
+
+</body>
 </html>
+
+
+

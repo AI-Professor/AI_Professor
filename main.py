@@ -1,22 +1,26 @@
 from datetime import timedelta
 import datetime
-import json , os, sys, shutil, warnings, argparse, uvicorn, logging
+import json, os, sys, shutil, warnings, argparse, uvicorn, logging
 from typing import Dict, List, Optional
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from fastapi.responses import JSONResponse
-from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from pydantic import BaseModel
+from app.captcha import captcha_store, get_captcha
+import base64
+from PIL import Image
+from io import BytesIO
 
-from src.data_ingestion.pdf_parser import extract_text_from_pdf 
+from src.data_ingestion.pdf_parser import extract_text_from_pdf
 from src.data_ingestion.epub_parser import extract_text_from_epub
-from src.data_ingestion.video_parser import extract_text_from_video 
-from src.data_ingestion.text_splitter import split_text  
-from src.nlp.qa_system import initialize_qa_system, answer_question  
+from src.data_ingestion.video_parser import extract_text_from_video
+from src.data_ingestion.text_splitter import split_text
+from src.nlp.qa_system import initialize_qa_system, answer_question
 from src.avatar.tts import text_to_speech
 from src.avatar.lip_sync import create_talking_avatar
 from src.avatar.script_generator import generate_lesson_script
@@ -28,12 +32,15 @@ from app import models, schemas, crud, auth
 from app.database import SessionLocal, engine
 
 from dotenv import load_dotenv
+import os
 
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 load_dotenv()
 warnings.filterwarnings("ignore")
 
 SECRET_KEY = os.environ["ENCRYPTION_KEY"]
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
 
 # Users
 def get_userdb():
@@ -43,8 +50,10 @@ def get_userdb():
     finally:
         db.close()
 
+
 # Define the OAuth2 password bearer scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
 
 # Function to create a JWT token
 def create_access_token(data: dict, expires_delta: timedelta):
@@ -53,6 +62,7 @@ def create_access_token(data: dict, expires_delta: timedelta):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm="HS256")
     return encoded_jwt
+
 
 # Function to get the current user from the token
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_userdb)):
@@ -74,6 +84,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_exception
     return user
 
+
 #Initialize log functions to create system logs whenever APIs are called
 LOG_DIR = "logs"
 os.makedirs(LOG_DIR, exist_ok=True)
@@ -83,7 +94,7 @@ logging.basicConfig(
     handlers=[
         RotatingFileHandler(
             filename=os.path.join(LOG_DIR, 'app.log'),
-            maxBytes=1024*1024*5,  # 5MB per log file
+            maxBytes=1024 * 1024 * 5,  # 5MB per log file
             backupCount=5
         ),
         logging.StreamHandler()
@@ -107,6 +118,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 # Users
 def get_userdb():
     db = SessionLocal()
@@ -115,30 +127,69 @@ def get_userdb():
     finally:
         db.close()
 
+
+# @app.post("/register", response_model=schemas.UserResponse)
+# def register_user(user: schemas.UserCreate, db: Session = Depends(get_userdb)):
+#     db_user = crud.get_user_by_email(db, email=user.email)
+#     if db_user:
+#         raise HTTPException(status_code=400, detail="Email already registered")
+#     return crud.create_user(db=db, user=user)
+
+
 @app.post("/register", response_model=schemas.UserResponse)
-def register_user(user: schemas.UserCreate, db: Session = Depends(get_userdb)):
+def register_user(user: schemas.UserCreateWithCaptcha, db: Session = Depends(get_userdb)):
+    # 验证码校验
+    stored_text = captcha_store.get(user.captcha_id)
+    if not stored_text or stored_text != user.captcha_text.lower():
+        raise HTTPException(status_code=400, detail="Verification code error")
+    captcha_store.pop(user.captcha_id, None)
+
+    # 原有业务逻辑
     db_user = crud.get_user_by_email(db, email=user.email)
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     return crud.create_user(db=db, user=user)
 
+
+# @app.post("/token", response_model=schemas.Token)
+# async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_userdb)):
+#     user = crud.get_user_by_email(db, email=form_data.username)
+#
+#     if not user or not auth.verify_password(form_data.password, user.password):
+#         raise HTTPException(status_code=400, detail="Incorrect email or password")
+#
+#     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+#     access_token = create_access_token(
+#         data={"sub": user.email}, expires_delta=access_token_expires
+#     )
+#
+#     return {"access_token": access_token, "token_type": "bearer"}
+
 @app.post("/token", response_model=schemas.Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_userdb)):
-    user = crud.get_user_by_email(db, email=form_data.username)
+async def login_for_access_token(login_data: schemas.LoginRequest, db: Session = Depends(get_userdb)):
+    # 验证码校验
+    stored_text = captcha_store.get(login_data.captcha_id)
+    if not stored_text or stored_text != login_data.captcha_text.lower():
+        raise HTTPException(status_code=400, detail="Verification code error")
+    captcha_store.pop(login_data.captcha_id, None)
 
-    if not user or not auth.verify_password(form_data.password, user.password):
+    # 原有业务逻辑
+    user = crud.get_user_by_email(db, email=login_data.username)
+    if not user or not auth.verify_password(login_data.password, user.password):
         raise HTTPException(status_code=400, detail="Incorrect email or password")
-    
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
-    )
 
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = auth.create_access_token(
+        data={"sub": user.email},
+        expires_delta=access_token_expires
+    )
     return {"access_token": access_token, "token_type": "bearer"}
-    
+
+
 @app.get("/user-info", response_model=schemas.UserResponse)
 async def read_user_info(current_user: schemas.UserResponse = Depends(get_current_user)):
-    return current_user    
+    return current_user
+
 
 #Check if our smart AI is initialized. global_db refers to the knowledge graph we generated from materials
 @app.get("/health")
@@ -146,23 +197,40 @@ async def health_check():
     logger.info("Health check endpoint accessed.")
     return {"status": "ok", "initialized": bool(global_db)}
 
+
 #This function will handle the question asked by a user in the frontend and send back the answer generated by our model. Check *answer_question* function in src/nlp/qa_system.py for detailed implementation
+
+
+@app.get("/api/captcha")
+async def generate_captcha(type: str = Query(...)):
+    captcha_data = get_captcha()
+    base64_str = base64.b64encode(captcha_data["image"]).decode()
+    return {
+        "captcha_id": captcha_data["captcha_id"],
+        "image": f"data:image/png;base64,{base64_str}"  # 确保包含完整前缀
+    }
+
+
+#Generate verification code data(machine translation)
+
+
 @app.post("/api/answer")
 async def answer_endpoint(question_data: dict):
     try:
         logger.info("Received question: %s", question_data["question"])
         if not global_db:
             raise HTTPException(status_code=503, detail="System not initialized")
-            
+
         response = answer_question(question_data["question"], global_db)
         return {"text": response['text']}
-        
+
     except Exception as e:
         logger.error("Error in /api/answer: %s", str(e))
         return JSONResponse(
             status_code=500,
             content={"error": str(e)}
         )
+
 
 #This function will take in the answer we generated through last function and send back an audio url for avatar realtime streaming response. Check *text_to_speech* function in src/avatar/tts.py for detailed implementation
 @app.post("/api/audio-answer")
@@ -171,13 +239,14 @@ async def audio_answer(text_data: dict):
         logger.info("Generating audio for text: %s", text_data["text"])
         audio_path, audio_url = text_to_speech(text=text_data["text"])
         return {"audio_url": audio_url}
-    
+
     except Exception as e:
         logger.error("Error in /api/audio-answer: %s", str(e))
         return JSONResponse(
             status_code=500,
             content={"error": str(e)}
         )
+
 
 #This function will take in the files uploaded from frontend and store them inside data/raw folder. Then they will be processed through extract functions for different forms of input. Detailed implementation can be found in src/data_ingestion folder. After they are processed, they will be splitted by split_text function in src/data_ingestion/text_splitter.py and create our knowledge graph by initialize_qa_system function in src/nlp/qa_system.py. Finally, a lesson script of length based on your choice will be generated and stored in data/processed/lesson_script folder in .txt form. Detailed implementation of generate_lesson_script function can be found in src/avatar/script_generator.py.
 @app.post("/api/upload")
@@ -187,14 +256,14 @@ async def upload_file(files: List[UploadFile] = File(...)):
         logger.info(f"Uploading {len(files)} file/s!")
         UPLOAD_DIR = "data/raw/"
         os.makedirs(UPLOAD_DIR, exist_ok=True)
-        
+
         text = ""
         # Save file
         for file in files:
             file_path = os.path.join(UPLOAD_DIR, file.filename)
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
-            
+
             # Process file
             if file.filename.lower().endswith('.pdf'):
                 text += extract_text_from_pdf(file_path)
@@ -202,17 +271,17 @@ async def upload_file(files: List[UploadFile] = File(...)):
                 text += extract_text_from_epub(file_path)
             elif file.filename.lower().split('.')[-1] in ['mp4', 'mov', 'avi']:
                 text += extract_text_from_video(file_path)
-        
+
         # Initialize QA system with new content
         global global_db
         chunks = split_text(text)
         global_db = initialize_qa_system(chunks)
 
         generate_lesson_script(global_db, "TEACHING", 5)
-        
+
         logger.info("File processed successfully: %s", file.filename)
         return {"status": "success", "message": f"Processed {file.filename}"}
-    
+
     except Exception as e:
         logger.error("File processing failed: %s", str(e))
         return JSONResponse(
@@ -223,6 +292,7 @@ async def upload_file(files: List[UploadFile] = File(...)):
         if 'file' in locals():
             file.file.close()
 
+
 #This function will handle "start quiz" button clicked from frontend. It will create a BasicQuizEngine object defined in src/nlp/quiz_system.py. This object has the ability to generate quiz questions and choices based on the number for questions you provided and the lecture script. This function send generated questions back to frontend for users to do.
 @app.get("/api/generate-quiz")
 async def generate_quiz():
@@ -231,7 +301,7 @@ async def generate_quiz():
         global quiz_engine
         quiz_engine = BasicQuizEngine(global_db)
         quiz_engine.generate_quiz_from_script("data/processed/lesson_script/lesson_script.txt", num_questions=3)
-        
+
         # Retrieve all questions
         cursor = quiz_engine.conn.cursor()
         cursor.execute("SELECT * FROM questions ORDER BY RANDOM() LIMIT 10")
@@ -253,18 +323,19 @@ async def generate_quiz():
             content={"error": f"Quiz generation failed: {str(e)}"}
         )
 
+
 #This function utilizes the same BasicQuizEngine object generated from last function. It will clear question database on the backend after the frontend button is clicked.
 @app.delete("/api/clear-quiz")
 async def clear_quiz():
     try:
         logger.info("Clearing quiz database")
         quiz_engine.clear_all_questions()
-        
+
         return JSONResponse(
             status_code=200,
             content={"message": "Quiz database cleared successfully"}
         )
-        
+
     except Exception as e:
         logger.info("Quiz database clearance failed: %s", str(e))
         return JSONResponse(
@@ -272,20 +343,21 @@ async def clear_quiz():
             content={"error": f"Failed to clear quiz: {str(e)}"}
         )
 
-#This is a backend complete testing function. Nothing will happen at the frontend, we can test our implementations and functions here. All of the output will be shown in your terminal for testing purposes. 
-def main():  
+
+#This is a backend complete testing function. Nothing will happen at the frontend, we can test our implementations and functions here. All of the output will be shown in your terminal for testing purposes.
+def main():
     file = Path("data/raw/scrum.epub")
     text = ""
     try:
         #Ingest pdf textbook and build knowledge graph
-        print("📖 Loading course material...") 
+        print("📖 Loading course material...")
         if file.suffix.lower() == '.pdf':
             text += extract_text_from_pdf(str(file))
         elif file.suffix.lower() == '.epub':
             text += extract_text_from_epub(str(file))
         elif file.suffix.lower() in ['.mp4', '.mov', '.avi']:
             text += extract_text_from_video(str(file))
-        chunks = split_text(text)  
+        chunks = split_text(text)
         db = initialize_qa_system(chunks)
         print("✅ Course material loaded successfully!\n")
 
@@ -305,21 +377,21 @@ def main():
         #lecture_video = create_talking_avatar(audio_url=audio_url)
         #print(f"🎥 Full lecture video ready: {lecture_video}")
         #os.system(f'open {lecture_video}')  
-            
+
     except Exception as e:
         print(f"❌ Failed to load course material: {str(e)}")
         return
 
     # Interactive Q&A loop  
-    print("👩🏫 AI Professor is ready! Ask a question (type 'exit' to quit):")  
-    while True:  
+    print("👩🏫 AI Professor is ready! Ask a question (type 'exit' to quit):")
+    while True:
         try:
-            question = input("\nYou: ")  
-            if question.lower() == "exit":  
+            question = input("\nYou: ")
+            if question.lower() == "exit":
                 break
-                
+
             print("\n💭 Thinking...", end="\r")
-            
+
             # Get answer with avatar components
             response = answer_question(question, db)
             answer_text = response['text']
@@ -337,6 +409,7 @@ def main():
             break
         except Exception as e:
             print(f"\n⚠️ Error: {str(e)}")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

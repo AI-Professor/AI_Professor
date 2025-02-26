@@ -20,3 +20,19 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: str  # Ensure email is always present
+
+
+class CaptchaBase(BaseModel):
+    captcha_id: str
+    captcha_text: str
+
+
+class UserCreateWithCaptcha(UserCreate, CaptchaBase):
+    pass
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+    captcha_id: str
+    captcha_text: str
