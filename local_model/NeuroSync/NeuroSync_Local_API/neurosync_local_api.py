@@ -11,7 +11,7 @@ app = flask.Flask(__name__)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-model_path = 'C:/Users/Henry/Desktop/AI_Professor/local_model/NeuroSync/NeuroSync_Local_API/utils/model/model.pth'
+model_path = 'local_model/NeuroSync/NeuroSync_Local_API/utils/model/model.pth'
 blendshape_model = load_model(model_path, config, device)
 
 @app.route('/audio_to_blendshapes', methods=['POST'])

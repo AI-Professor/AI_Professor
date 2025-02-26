@@ -16,6 +16,7 @@ import atexit
 import glob
 from subprocess import Popen, PIPE
 import psutil  
+import platform
 
 
 from local_model.NeuroSync.NeuroSync_Local_API.utils.model.model import load_model
@@ -111,9 +112,13 @@ async def health_check():
 
 @app.on_event("shutdown")
 async def on_shutdown():
-    logger.info("Shutting down Unreal Engine...")
-    terminate_UE('AI_Professor-Win64-Shipping.exe')
-    logger.info("Unreal Engine terminated successfully.")
+    if platform.system() == "Darwin":
+        print("Shutting down on macOS...")
+    elif platform.system() == "Windows":
+        print("Shutting down on Windows...")
+        logger.info("Shutting down Unreal Engine...")
+        terminate_UE('AI_Professor-Win64-Shipping.exe')
+        logger.info("Unreal Engine terminated successfully.")
     
     if 'quiz_engine' in globals():
         logger.info("Clearing quiz database...")
@@ -150,8 +155,8 @@ async def connect():
     try: 
         global device, model_path, blendshape_model
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model_path = 'C:/Users/Henry/Desktop/AI_Professor/local_model/NeuroSync/NeuroSync_Local_API/utils/model/model.pth'
-        blendshape_model = load_model(model_path, config, device)
+        model_path = 'local_model/NeuroSync/NeuroSync_Local_API/utils/model/model.pth'
+        blendshape_model = load_model(model_path, config, device, use_half_precision=False)
         py_face = initialize_py_face()
         global socket_connection
         socket_connection = create_socket_connection()
@@ -485,5 +490,9 @@ if __name__ == "__main__":
     else:
         #This will start our backend API and connect with frontend functions. Run this command whenever you want to see backend API calls and frontend reactions: python main.py
         logger.info(f"Starting API server on port {back_port}.")
-        start_UE()
+        if platform.system() == "Darwin":
+            print("Running on macOS...")
+        elif platform.system() == "Windows":
+            print("Running on Windows...")
+            start_UE()
         uvicorn.run(app, host="127.0.0.1", port=int(back_port))

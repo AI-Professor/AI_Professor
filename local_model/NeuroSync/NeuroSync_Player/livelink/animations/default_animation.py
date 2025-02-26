@@ -10,7 +10,7 @@ from threading import Event
 
 from livelink.connect.livelink_init import FaceBlendShape, UDP_IP, UDP_PORT
 
-ground_truth_path = r"C:/Users/Henry/Desktop/AI_Professor/local_model/NeuroSync/NeuroSync_Player/livelink/animations/default_anim/default.csv"
+ground_truth_path = r"local_model/NeuroSync/NeuroSync_Player/livelink/animations/default_anim/default.csv"
 columns_to_drop = [
     'TongueOut', 'HeadYaw', 'HeadPitch', 'HeadRoll',
     'LeftEyeYaw', 'LeftEyePitch', 'LeftEyeRoll',

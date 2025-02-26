@@ -176,3 +176,8 @@ api.json
 data/processed
 
 node_modules
+
+.DS_Store
+
+**/.DS_Store
+

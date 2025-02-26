@@ -2,7 +2,7 @@
 import os
 import json
 
-CHAT_LOGS_DIR = "C:/Users/Henry/Desktop/AI_Professor/local_model/NeuroSync/NeuroSync_Player/chat_logs"
+CHAT_LOGS_DIR = "local_model/NeuroSync/NeuroSync_Player/chat_logs"
 MAX_CONTEXT_LENGTH = 5000
 
 # Ensure the directory exists

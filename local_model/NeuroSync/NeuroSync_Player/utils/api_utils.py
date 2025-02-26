@@ -19,7 +19,7 @@ from utils.csv.save_csv import save_generated_data_as_csv
 from utils.audio.play_audio import play_audio_bytes
 from utils.audio.save_audio import save_audio_file
 
-GENERATED_DIR = 'C:/Users/Henry/Desktop/AI_Professor/local_model/NeuroSync/NeuroSync_Player/generated'
+GENERATED_DIR = 'local_model/NeuroSync/NeuroSync_Player/generated'
 queue_lock = Lock()
 
 def initialize_directories():

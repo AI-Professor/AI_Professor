@@ -11,7 +11,7 @@ from livelink.send_to_unreal import pre_encode_facial_data, send_pre_encoded_dat
 from livelink.animations.default_animation import default_animation_loop
 from livelink.connect.livelink_init import initialize_py_face 
 
-GENERATED_DIR = 'C:/Users/Henry/Desktop/AI_Professor/local_model/NeuroSync/NeuroSync_Player/generated'
+GENERATED_DIR = 'local_model/NeuroSync/NeuroSync_Player/generated'
 queue_lock = Lock()
 
 def list_generated_files():
