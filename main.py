@@ -114,6 +114,8 @@ async def health_check():
 async def on_shutdown():
     if platform.system() == "Darwin":
         print("Shutting down on macOS...")
+    elif platform.system() == "Linux":
+        print("Shutting down on Linux...")
     elif platform.system() == "Windows":
         print("Shutting down on Windows...")
         logger.info("Shutting down Unreal Engine...")
@@ -492,7 +494,9 @@ if __name__ == "__main__":
         logger.info(f"Starting API server on port {back_port}.")
         if platform.system() == "Darwin":
             print("Running on macOS...")
+        elif platform.system() == "Linux":
+            print("Running on Linux...")
         elif platform.system() == "Windows":
             print("Running on Windows...")
             start_UE()
-        uvicorn.run(app, host="127.0.0.1", port=int(back_port))
+        uvicorn.run(app, host=host_name, port=int(back_port))
