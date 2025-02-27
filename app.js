@@ -13,7 +13,7 @@ const frontendUrl = `${hostName}:${frontPort}`
 const backendUrl = `${hostName}:${backendPort}`
 
 app.use(cors({
-    origin: [frontendUrl, backendUrl, `${hostName}`],
+    origin: [frontendUrl, backendUrl, `${hostName}`, "http://localhost:8080", "http://localhost:9999"],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -80,5 +80,5 @@ app.get('/', (req, res) => res.sendFile(__dirname + '/public/index-agents.html')
 
 const server = http.createServer(app);
 server.listen(parseInt(frontPort), () => {
-  console.log(`Server running on ${frontendUrl}`);
+  console.log(`Server running on http://${frontendUrl}`);
 });

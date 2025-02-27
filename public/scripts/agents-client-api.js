@@ -3,8 +3,8 @@ const FRONT_ENV = await (await fetch("/api.json")).json();
 const hostName = FRONT_ENV.HOST_NAME
 const frontPort = FRONT_ENV.FRONTEND_PORT
 const backendPort = FRONT_ENV.BACKEND_PORT
-const frontendUrl = `${hostName}:${frontPort}`
-const backendUrl = `${hostName}:${backendPort}`
+const frontendUrl = `http://${hostName}:${frontPort}`
+const backendUrl = `http://${hostName}:${backendPort}`
 
 let currentQuiz = [];
 let currentQuestionIndex = 0;

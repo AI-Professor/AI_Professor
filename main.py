@@ -98,7 +98,7 @@ app.mount("/audio", StaticFiles(directory=AUDIO_DIR), name="audio")
 #Our backend API will be running on localhost:5001, our frontend API will be running on localhost:3000
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[f"{host_name}:{front_port}", f"{host_name}:{back_port}", f'{host_name}'],
+    allow_origins=[f"{host_name}:{front_port}", f"{host_name}:{back_port}", f'{host_name}', "http://localhost:8080", "http://localhost:9999"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
