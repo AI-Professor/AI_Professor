@@ -39,9 +39,21 @@ from local_model.kokoro_model.kokoro.pipeline import KPipeline
 
 warnings.filterwarnings("ignore")
 load_dotenv()
-host_name = os.getenv('HOST_NAME')
-front_port = os.getenv('FRONTEND_PORT')
-back_port = os.getenv('BACKEND_PORT')
+server_host_name = os.getenv('SERVER_HOST_NAME')
+server_front_port = os.getenv('SERVER_FRONTEND_PORT')
+server_back_port = os.getenv('SERVER_BACKEND_PORT')
+server_ue_port = os.getenv('SERVER_UE_PORT')
+server_front_url = f"http://{server_host_name}:{server_front_port}"
+server_back_url = f"http://{server_host_name}:{server_back_port}"
+server_ue_url = f"ws://{server_host_name}:{server_ue_port}"
+local_host_name = os.getenv('LOCAL_HOST_NAME')
+local_front_port = os.getenv('LOCAL_FRONTEND_PORT')
+local_back_port = os.getenv('LOCAL_BACKEND_PORT')
+local_ue_port = os.getenv('LOCAL_UE_PORT')
+local_front_url = f"http://{local_host_name}:{local_front_port}"
+local_back_url = f"http://{local_host_name}:{local_back_port}"
+local_ue_url = f"ws://{local_host_name}:{local_ue_port}"
+
 
 def start_UE():
     global UE
@@ -98,7 +110,7 @@ app.mount("/audio", StaticFiles(directory=AUDIO_DIR), name="audio")
 #Our backend API will be running on localhost:5001, our frontend API will be running on localhost:3000
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[f"{host_name}:{front_port}", f"{host_name}:{back_port}", f'{host_name}', "http://localhost:8080", "http://localhost:9999"],
+    allow_origins=[server_front_url, server_back_url, server_ue_url, local_front_url, local_back_url, local_ue_url],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -158,7 +170,7 @@ async def connect():
         global device, model_path, blendshape_model
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model_path = 'local_model/NeuroSync/NeuroSync_Local_API/utils/model/model.pth'
-        blendshape_model = load_model(model_path, config, device, use_half_precision=False)
+        blendshape_model = load_model(model_path, config, device, use_half_precision=True)
         py_face = initialize_py_face()
         global socket_connection
         socket_connection = create_socket_connection()
@@ -491,7 +503,7 @@ if __name__ == "__main__":
         main()
     else:
         #This will start our backend API and connect with frontend functions. Run this command whenever you want to see backend API calls and frontend reactions: python main.py
-        logger.info(f"Starting API server on port {back_port}.")
+        logger.info(f"Starting API server on port {server_back_port}.")
         if platform.system() == "Darwin":
             print("Running on macOS...")
         elif platform.system() == "Linux":
@@ -499,4 +511,4 @@ if __name__ == "__main__":
         elif platform.system() == "Windows":
             print("Running on Windows...")
             start_UE()
-        uvicorn.run(app, host=host_name, port=int(back_port))
+        uvicorn.run(app, host=server_host_name, port=int(server_back_port))

@@ -1,10 +1,19 @@
 import { initializeVoiceRecognition } from "./voice-ui.js";
-const FRONT_ENV = await (await fetch("/api.json")).json();
-const hostName = FRONT_ENV.HOST_NAME
-const frontPort = FRONT_ENV.FRONTEND_PORT
-const backendPort = FRONT_ENV.BACKEND_PORT
-const frontendUrl = `http://${hostName}:${frontPort}`
-const backendUrl = `http://${hostName}:${backendPort}`
+const ENV = await (await fetch("/api.json")).json();
+const serverHostName = ENV.SERVER_HOST_NAME
+const serverFrontendPort = ENV.SERVER_FRONTEND_PORT
+const serverBackendPort = ENV.SERVER_BACKEND_PORT
+const serverUePort = ENV.SERVER_UE_PORT
+const serverFrontendUrl = `http://${serverHostName}:${serverFrontendPort}`
+const serverBackendUrl = `http://${serverHostName}:${serverBackendPort}`
+const serverUeUrl = `ws://${serverHostName}:${serverUePort}`
+const localHostName = ENV.LOCAL_HOST_NAME
+const localFrontPort = ENV.LOCAL_FRONTEND_PORT
+const localBackendPort = ENV.LOCAL_BACKEND_PORT
+const localUePort = ENV.LOCAL_UE_PORT
+const localFrontendUrl = `http://${localHostName}:${localFrontPort}`
+const localBackendUrl = `http://${localHostName}:${localBackendPort}`
+const localUeUrl = `ws://${localHostName}:${localUePort}`
 
 let currentQuiz = [];
 let currentQuestionIndex = 0;
@@ -21,7 +30,7 @@ connectButton.onclick = async () => {
     connectButton.disabled = true;
 
     // Send a POST request to the /api/connect endpoint
-    const response = await fetch(`${backendUrl}/api/connect`, {
+    const response = await fetch(`${localBackendUrl}/api/connect`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -113,7 +122,7 @@ lectureButton.onclick = async () => {
       return;
     }
 
-    const response = await fetch(`${backendUrl}/api/lecture`, {
+    const response = await fetch(`${localBackendUrl}/api/lecture`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -142,7 +151,7 @@ startButton.onclick = async () => {
       const userQuestion = await initializeVoiceRecognition();
       addChatMessage(`You: ${userQuestion}`, 'user');
       
-      const backendResponse = await fetch(`${backendUrl}/api/answer`, {
+      const backendResponse = await fetch(`${localBackendUrl}/api/answer`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ question: userQuestion })
@@ -180,7 +189,7 @@ disconnectButton.onclick = async () => {
     disconnectButton.disabled = true;
     
     // Send a POST request to the /api/connect endpoint
-    const response = await fetch(`${backendUrl}/api/disconnect`, {
+    const response = await fetch(`${localBackendUrl}/api/disconnect`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -226,7 +235,7 @@ uploadButton.onclick = async () => {
 
   try {
       showStatusMessage('Uploading files...');
-      const response = await fetch(`${backendUrl}/api/upload`, {
+      const response = await fetch(`${localBackendUrl}/api/upload`, {
           method: 'POST',
           body: formData
       });
@@ -246,7 +255,7 @@ uploadButton.onclick = async () => {
 };
 async function checkSystemStatus() {
   try {
-      const response = await fetch(`${backendUrl}/health`);
+      const response = await fetch(`${localBackendUrl}/health`);
       const status = await response.json();
       if (status.initialized) {
           showStatusMessage('System ready with latest content');
@@ -262,7 +271,7 @@ quizButton.onclick = async () => {
   try {
     quizButton.disabled = true;
 
-    const response = await fetch(`${backendUrl}/api/generate-quiz`);
+    const response = await fetch(`${localBackendUrl}/api/generate-quiz`);
     if (!response.ok) throw new Error('Failed to fetch quiz');
     
     currentQuiz = await response.json();

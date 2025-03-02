@@ -6,14 +6,25 @@ const FormData = require('form-data');
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 require('dotenv').config()
-const hostName = process.env.HOST_NAME
-const frontPort = process.env.FRONTEND_PORT
-const backendPort = process.env.BACKEND_PORT
-const frontendUrl = `${hostName}:${frontPort}`
-const backendUrl = `${hostName}:${backendPort}`
+const serverHostName = process.env.SERVER_HOST_NAME
+const serverFrontendPort = process.env.SERVER_FRONTEND_PORT
+const serverBackendPort = process.env.SERVER_BACKEND_PORT
+const serverUePort = process.env.SERVER_UE_PORT
+const serverFrontendUrl = `http://${serverHostName}:${serverFrontendPort}`
+const serverBackendUrl = `http://${serverHostName}:${serverBackendPort}`
+const serverUeUrl = `ws://${serverHostName}:${serverUePort}`
+const localHostName = process.env.LOCAL_HOST_NAME
+const localFrontPort = process.env.LOCAL_FRONTEND_PORT
+const localBackendPort = process.env.LOCAL_BACKEND_PORT
+const localUePort = process.env.LOCAL_UE_PORT
+const localFrontendUrl = `http://${localHostName}:${localFrontPort}`
+const localBackendUrl = `http://${localHostName}:${localBackendPort}`
+const localUeUrl = `ws://${localHostName}:${localUePort}`
+
+
 
 app.use(cors({
-    origin: [frontendUrl, backendUrl, `${hostName}`, "http://localhost:8080", "http://localhost:9999"],
+    origin: [serverFrontendUrl, serverBackendUrl, serverUeUrl, localFrontendUrl, localBackendUrl,localUeUrl],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -29,7 +40,7 @@ app.use('/', express.static(__dirname));
 // Add Python API proxy endpoint
 app.post('/python-api/process-question', async (req, res) => {
     try {
-      const pythonResponse = await fetch(`${backendUrl}/api/answer`, {
+      const pythonResponse = await fetch(`${serverBackendUrl}/api/answer`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -56,7 +67,7 @@ app.post('/python-api/upload-files', upload.any(), async (req, res) => {
     });
 
     // Forward to Python backend
-    const response = await fetch(`${backendUrl}/api/upload`, {
+    const response = await fetch(`${serverBackendUrl}/api/upload`, {
         method: 'POST',
         body: form
     });
@@ -79,6 +90,6 @@ app.post('/python-api/upload-files', upload.any(), async (req, res) => {
 app.get('/', (req, res) => res.sendFile(__dirname + '/public/index-agents.html'));
 
 const server = http.createServer(app);
-server.listen(parseInt(frontPort), () => {
-  console.log(`Server running on http://${frontendUrl}`);
+server.listen(parseInt(serverFrontendPort), () => {
+  console.log(`Server running on ${serverFrontendUrl}`);
 });

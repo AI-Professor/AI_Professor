@@ -2,7 +2,7 @@ import time
 import numpy as np
 from typing import List
 
-from livelink.connect.livelink_init import create_socket_connection, FaceBlendShape
+from livelink.connect.livelink_init import create_socket_connection, FaceBlendShape, UDP_IP, UDP_PORT
 from livelink.animations.default_animation import default_animation_data
 from livelink.animations.blending_anims import blend_in, blend_out  
 
@@ -66,10 +66,12 @@ def send_pre_encoded_data_to_unreal(encoded_facial_data: List[bytes], start_even
             elif elapsed_time > expected_time + frame_duration:
                 continue
 
-            socket_connection.sendall(frame_data)  # Send the frame
+            socket_connection.sendto(frame_data, (UDP_IP, UDP_PORT))  # Send the frame
 
     except KeyboardInterrupt:
         pass
     finally:
         if own_socket:
             socket_connection.close()
+
+

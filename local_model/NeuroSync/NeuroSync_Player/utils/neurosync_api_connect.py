@@ -10,7 +10,7 @@ load_dotenv()
 host_name = os.getenv('HOST_NAME')
 back_port = os.getenv('BACKEND_PORT')
 
-LOCAL_URL = f"{host_name}:{back_port}/api/audio_to_blendshapes"  # Local URL
+LOCAL_URL = f"http://{host_name}:{back_port}/api/audio_to_blendshapes"  # Local URL
 
 def send_audio_to_neurosync(audio_bytes):
     try:

@@ -6,6 +6,7 @@
 
 import sys
 import os
+from dotenv import load_dotenv
 
 # Add the parent directory (NeuroSync's parent) to sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
@@ -13,13 +14,12 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 import socket
 from livelink.connect.pylivelinkface import PyLiveLinkFace, FaceBlendShape
 
-
-UDP_IP = "0.0.0.0"
-UDP_PORT = 11111
+load_dotenv()
+UDP_IP = os.getenv('SERVER_HOST_NAME')
+UDP_PORT = int(os.getenv('UDP_PORT'))
 
 def create_socket_connection():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect((UDP_IP, UDP_PORT))
     return s
 
 def initialize_py_face():
