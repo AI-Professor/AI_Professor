@@ -19,7 +19,6 @@ UDP_PORT = 11111
 
 def create_socket_connection():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect((UDP_IP, UDP_PORT))
     return s
 
 def initialize_py_face():

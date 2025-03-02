@@ -1,7 +1,7 @@
 # utils/audio_workers.py
-from utils.generated_utils import run_audio_animation_from_bytes
-from utils.neurosync_api_connect import send_audio_to_neurosync, read_audio_file_as_bytes
-from utils.local_tts import call_local_tts 
+from local_model.NeuroSync.NeuroSync_Player.utils.generated_utils import run_audio_animation_from_bytes
+from local_model.NeuroSync.NeuroSync_Player.utils.neurosync_api_connect import send_audio_to_neurosync, read_audio_file_as_bytes
+from local_model.NeuroSync.NeuroSync_Player.utils.local_tts import call_local_tts
 
 def tts_worker(chunk_queue, audio_queue, pipeline):
     """

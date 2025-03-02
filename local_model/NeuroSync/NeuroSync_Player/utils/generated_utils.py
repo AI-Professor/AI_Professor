@@ -6,7 +6,7 @@ import os
 import pandas as pd
 from threading import Thread, Event, Lock
 
-from utils.audio.play_audio import play_audio_from_path, play_audio_from_memory
+from local_model.NeuroSync.NeuroSync_Player.utils.audio.play_audio import play_audio_from_path, play_audio_from_memory
 from livelink.send_to_unreal import pre_encode_facial_data, send_pre_encoded_data_to_unreal
 from livelink.animations.default_animation import default_animation_loop
 from livelink.connect.livelink_init import initialize_py_face 

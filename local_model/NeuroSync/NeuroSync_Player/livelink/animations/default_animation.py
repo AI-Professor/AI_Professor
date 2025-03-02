@@ -41,7 +41,6 @@ blended_animation_data = blend_animation(default_animation_data, blend_frames=30
 
 def default_animation_loop(py_face, stop_default_animation):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-        s.connect((UDP_IP, UDP_PORT))
         while not stop_default_animation.is_set():
             for frame in blended_animation_data:
                 # Check before processing each frame
@@ -55,7 +54,7 @@ def default_animation_loop(py_face, stop_default_animation):
                 # Send the frame
                 try:
                     s.settimeout(1.0)
-                    s.sendall(py_face.encode())
+                    s.sendto(py_face.encode(), (UDP_IP, UDP_PORT))
                 except Exception as e:
                     print(f"Error in default animation sending: {e}")
                 

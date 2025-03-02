@@ -21,6 +21,7 @@ import platform
 
 from local_model.NeuroSync.NeuroSync_Local_API.utils.model.model import load_model
 from src.data_ingestion.pdf_parser import extract_text_from_pdf 
+from src.data_ingestion.pdf_parser_MinerU import process_pdf 
 from src.data_ingestion.epub_parser import extract_text_from_epub
 from src.data_ingestion.video_parser import extract_text_from_video 
 from src.data_ingestion.text_splitter import split_text  
@@ -98,7 +99,8 @@ app.mount("/audio", StaticFiles(directory=AUDIO_DIR), name="audio")
 #Our backend API will be running on localhost:5001, our frontend API will be running on localhost:3000
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[f"{host_name}:{front_port}", f"{host_name}:{back_port}", f'{host_name}'],
+    allow_origins=[f"{host_name}:{front_port}", f"{host_name}:{back_port}", f'{host_name}', "http://localhost:8080",
+			"http://localhost:9999"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -304,7 +306,7 @@ async def upload_file(files: List[UploadFile] = File(...)):
             
             # Process file
             if file.filename.lower().endswith('.pdf'):
-                text += extract_text_from_pdf(file_path)
+                text += process_pdf(file_path)
             elif file.filename.lower().endswith('.epub'):
                 text += extract_text_from_epub(file_path)
             elif file.filename.lower().split('.')[-1] in ['mp4', 'mov', 'avi']:
@@ -313,7 +315,7 @@ async def upload_file(files: List[UploadFile] = File(...)):
         # Initialize QA system with new content
         global global_db
         chunks = split_text(text)
-        global_db = initialize_qa_system(chunks)
+        global_db = initialize_qa_system(chunks, files[0].filename)
         
         logger.info("File processed successfully: %s", file.filename)
         return {"status": "success", "message": f"Processed {file.filename}"}
@@ -406,13 +408,13 @@ def main():
         #Ingest pdf textbook and build knowledge graph
         print("📖 Loading course material...") 
         if file.suffix.lower() == '.pdf':
-            text += extract_text_from_pdf(str(file))
+            text += process_pdf(str(file))
         elif file.suffix.lower() == '.epub':
             text += extract_text_from_epub(str(file))
         elif file.suffix.lower() in ['.mp4', '.mov', '.avi']:
             text += extract_text_from_video(str(file))
         chunks = split_text(text)  
-        db = initialize_qa_system(chunks)
+        db = initialize_qa_system(chunks, 'scrum.epub')
         print("✅ Course material loaded successfully!\n")
 
         #Generate lesson script from knowledge graph
