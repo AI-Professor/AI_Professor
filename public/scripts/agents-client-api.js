@@ -20,6 +20,10 @@ let currentQuestionIndex = 0;
 let score = 0;
 window.pixelStreamingApp = null;
 
+let audioPollingInterval = null;
+let currentlyPlayingAudio = null;
+let isAudioSyncEnabled = true;
+
 const videoElement = document.getElementById('pixelStreamVideo');
 
 //The following section of functions will serve connect button clicked event. These functions are meant to create a live stream, establish a WebRTC connection with the platform, and submit network information to initialize connection. These steps are crucial to our implementation to Real-Time Q&A feature. Detailed explanation can be find on "https://docs.d-id.com/reference/talks-streams-overview".
@@ -28,6 +32,20 @@ connectButton.onclick = async () => {
   try {
     // Disable the button to prevent multiple clicks
     connectButton.disabled = true;
+
+    const statusDiv = document.createElement('div');
+    statusDiv.id = 'connection-status';
+    statusDiv.innerText = 'Establishing connection...';
+    statusDiv.style.position = 'absolute';
+    statusDiv.style.top = '50%';
+    statusDiv.style.left = '50%';
+    statusDiv.style.transform = 'translate(-50%, -50%)';
+    statusDiv.style.backgroundColor = 'rgba(0,0,0,0.7)';
+    statusDiv.style.color = 'white';
+    statusDiv.style.padding = '20px';
+    statusDiv.style.borderRadius = '5px';
+    statusDiv.style.zIndex = '1000';
+    document.body.appendChild(statusDiv);
 
     // Send a POST request to the /api/connect endpoint
     const response = await fetch(`${localBackendUrl}/api/connect`, {
@@ -46,18 +64,58 @@ connectButton.onclick = async () => {
     console.log('Connection successful:', data);
 
     initializePixelStreaming();
-    await window.pixelStreamingApp.connect();
+    const connectionTimeout = 20000; // 20 seconds
+    const connectionPromise = window.pixelStreamingApp.connect();
+
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Connection timeout')), connectionTimeout);
+    });
+
+    await Promise.race([connectionPromise, timeoutPromise]);
+    
+    // Add ICE connection state monitoring
+    monitorIceConnectionState();
+
+    statusDiv.innerText = 'Connection established!';
+    setTimeout(() => {
+      if (document.body.contains(statusDiv)) {
+        document.body.removeChild(statusDiv);
+      }
+    }, 1000);
 
     // Optionally, enable the button again or update UI
     connectButton.disabled = false;
     alert('Connection successful!');
-    setTimeout(() => {
-      forceVideoRefresh();
-    }, 3000);
+    forceVideoRefresh();
   } catch (error) {
     console.error('Error connecting:', error);
-    alert('Connection failed!');
-    connectButton.disabled = false;
+    
+    // Show more detailed error information
+    const statusDiv = document.getElementById('connection-status') || document.createElement('div');
+    statusDiv.id = 'connection-status';
+    statusDiv.innerText = `Connection failed: ${error.message}\nAttempting to reconnect...`;
+    statusDiv.style.position = 'absolute';
+    statusDiv.style.top = '50%';
+    statusDiv.style.left = '50%';
+    statusDiv.style.transform = 'translate(-50%, -50%)';
+    statusDiv.style.backgroundColor = 'rgba(255,0,0,0.7)';
+    statusDiv.style.color = 'white';
+    statusDiv.style.padding = '20px';
+    statusDiv.style.borderRadius = '5px';
+    statusDiv.style.zIndex = '1000';
+    if (!document.body.contains(statusDiv)) {
+      document.body.appendChild(statusDiv);
+    }
+    
+    // Try to reconnect after a delay
+    setTimeout(() => {
+      if (document.body.contains(statusDiv)) {
+        document.body.removeChild(statusDiv);
+      }
+      connectButton.disabled = false;
+      // Optional: Auto-retry connection
+      // connectButton.click();
+    }, 5000);
   }
 };
 function initializePixelStreaming() {
@@ -83,6 +141,57 @@ function initializePixelStreaming() {
   document.body.appendChild(app.rootElement);
 
 }
+function monitorIceConnectionState() {
+  if (!window.pixelStreamingApp || !window.pixelStreamingApp._webRtcController) {
+    console.error('PixelStreaming WebRTC controller not initialized');
+    return;
+  }
+  
+  const peerConnection = window.pixelStreamingApp._webRtcController.peerConnection;
+  if (!peerConnection) {
+    console.error('PeerConnection not found');
+    return;
+  }
+  
+  console.log('Initial ICE connection state:', peerConnection.iceConnectionState);
+  
+  peerConnection.addEventListener('iceconnectionstatechange', () => {
+    console.log('ICE connection state changed to:', peerConnection.iceConnectionState);
+    
+    switch (peerConnection.iceConnectionState) {
+      case 'connected':
+      case 'completed':
+        console.log('ICE connection established successfully');
+        break;
+      case 'failed':
+        console.error('ICE connection failed');
+        // You could implement a reconnection strategy here
+        alert('Connection failed. Please try reconnecting.');
+        break;
+      case 'disconnected':
+        console.warn('ICE connection disconnected');
+        break;
+      case 'closed':
+        console.log('ICE connection closed');
+        break;
+    }
+  });
+  
+  // Also monitor ICE gathering state
+  peerConnection.addEventListener('icegatheringstatechange', () => {
+    console.log('ICE gathering state changed to:', peerConnection.iceGatheringState);
+  });
+  
+  // Log all ICE candidates
+  peerConnection.addEventListener('icecandidate', (event) => {
+    if (event.candidate) {
+      console.log('New ICE candidate:', event.candidate.candidate);
+    } else {
+      console.log('All ICE candidates have been gathered');
+    }
+  });
+}
+
 // Attach Video Stream to Video Element
 function forceVideoRefresh() {
   console.log('Forcing video element refresh...');
@@ -109,12 +218,94 @@ function forceVideoRefresh() {
     };
   }, 500);
 }
+function startAudioPolling() {
+  if (audioPollingInterval) {
+    clearInterval(audioPollingInterval);
+  }
+  
+  audioPollingInterval = setInterval(async () => {
+    if (!isAudioSyncEnabled) return;
+    
+    try {
+      const response = await fetch(`${localBackendUrl}/api/check-audio`);
+      const data = await response.json();
+      console.log(data)
+      if (data.status === 'success' && data.audio_id) {
+        playAudioFromServer(data.audio_id);
+      }
+    } catch (error) {
+      console.error('Error polling for audio:', error);
+    }
+  }, 3000); // Check every 500ms
+}
+async function playAudioFromServer(audioId) {
+  try {
+    // Create audio element if it doesn't exist
+    let audioElement = document.getElementById('tts-audio');
+    if (!audioElement) {
+      audioElement = document.createElement('audio');
+      audioElement.id = 'tts-audio';
+      audioElement.style.display = 'none';
+      document.body.appendChild(audioElement);
+    }
+    
+    // Stop any currently playing audio
+    if (currentlyPlayingAudio) {
+      currentlyPlayingAudio.pause();
+      currentlyPlayingAudio.currentTime = 0;
+    }
+    
+    // Set the source and play
+    audioElement.src = `${localBackendUrl}/api/audio/${audioId}?t=${Date.now()}`; // Add timestamp to prevent caching
+    audioElement.onended = async () => {
+      try {
+          await fetch(`${localBackendUrl}/api/audio-completed`, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ id: audioId })
+          });
+      } catch (error) {
+          console.error('Error notifying audio completion:', error);
+      }
+  };
+    audioElement.oncanplaythrough = () => {
+      audioElement.play()
+        .then(() => {
+          console.log(`Playing audio: ${audioId}`);
+          currentlyPlayingAudio = audioElement;
+        })
+        .catch(error => {
+          console.error('Error playing audio:', error);
+        });
+    };
+    
+    audioElement.onerror = (e) => {
+      console.error('Error loading audio:', e);
+    };
+    
+  } catch (error) {
+    console.error('Error playing audio from server:', error);
+  }
+}
+// Add a function to toggle audio sync
+function toggleAudioSync(enabled) {
+  isAudioSyncEnabled = enabled;
+  if (enabled) {
+    startAudioPolling();
+  } else if (audioPollingInterval) {
+    clearInterval(audioPollingInterval);
+    audioPollingInterval = null;
+  }
+}
 
 const lectureButton = document.getElementById('lecture-button');
 const topicInput = document.getElementById('topic-input');
 lectureButton.onclick = async () => {
   try {
     lectureButton.disabled = true;
+    startAudioPolling();
     const topic = topicInput.value.trim();
     if (!topic) {
       alert('Please enter a topic.');
@@ -147,6 +338,8 @@ const startButton = document.getElementById('start-button');
 startButton.onclick = async () => {
   try {
       startButton.disabled = true;
+
+      startAudioPolling();
 
       const userQuestion = await initializeVoiceRecognition();
       addChatMessage(`You: ${userQuestion}`, 'user');
@@ -187,6 +380,17 @@ disconnectButton.onclick = async () => {
   try {
     // Disable the button to prevent multiple clicks
     disconnectButton.disabled = true;
+
+    if (audioPollingInterval) {
+      clearInterval(audioPollingInterval);
+      audioPollingInterval = null;
+    }
+    
+    // Stop any currently playing audio
+    if (currentlyPlayingAudio) {
+      currentlyPlayingAudio.pause();
+      currentlyPlayingAudio = null;
+    }
     
     // Send a POST request to the /api/connect endpoint
     const response = await fetch(`${localBackendUrl}/api/disconnect`, {
@@ -338,3 +542,9 @@ function showStatusMessage(message, isError = false) {
   statusDiv.textContent = message;
   document.getElementById('msgHistory').prepend(statusDiv);
 }
+
+document.getElementById('audio-sync-toggle').addEventListener('change', function(e) {
+  if (typeof toggleAudioSync === 'function') {
+    toggleAudioSync(e.target.checked);
+  }
+});

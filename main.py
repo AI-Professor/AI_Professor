@@ -10,6 +10,7 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from threading import Event, Thread
 from queue import Queue, Empty
 import atexit
@@ -17,6 +18,7 @@ import glob
 from subprocess import Popen, PIPE
 import psutil  
 import platform
+import base64
 
 
 from local_model.NeuroSync.NeuroSync_Local_API.utils.model.model import load_model
@@ -53,7 +55,6 @@ local_ue_port = os.getenv('LOCAL_UE_PORT')
 local_front_url = f"http://{local_host_name}:{local_front_port}"
 local_back_url = f"http://{local_host_name}:{local_back_port}"
 local_ue_url = f"ws://{local_host_name}:{local_ue_port}"
-
 
 def start_UE():
     global UE
@@ -101,10 +102,10 @@ logging.basicConfig(
 logger = logging.getLogger("AI_Professor")
 
 #Initialize backend APIs to connect with frontend calls
-AUDIO_DIR = "data/processed/audio"
-os.makedirs(AUDIO_DIR, exist_ok=True)
+AUDIO_STORAGE_DIR = "local_model/NeuroSync/NeuroSync_Player/data/audio"
+os.makedirs(AUDIO_STORAGE_DIR, exist_ok=True)
+
 app = FastAPI()
-app.mount("/audio", StaticFiles(directory=AUDIO_DIR), name="audio")
 
 #FastAPI middleware handles any request before it is processed by any path or functions
 #Our backend API will be running on localhost:5001, our frontend API will be running on localhost:3000
@@ -186,13 +187,15 @@ async def connect():
         # Create queues:
         # 1. chunk_queue for text chunks to be processed by TTS.
         # 2. audio_queue for the resulting audio/facial-data pairs.
-        global chunk_queue, audio_queue
+        global chunk_queue, audio_queue, audio_files_queue, current_audio_id
         chunk_queue = Queue()
         audio_queue = Queue()
+        audio_files_queue = Queue()
+        current_audio_id = None
 
         global tts_worker_thread, audio_worker_thread
         # Start the TTS worker (processes text chunks into audio)
-        tts_worker_thread = Thread(target=tts_worker, args=(chunk_queue, audio_queue, pipeline))
+        tts_worker_thread = Thread(target=tts_worker, args=(chunk_queue, audio_queue, audio_files_queue, pipeline))
         tts_worker_thread.start()
 
         # Start the audio worker (plays audio sequentially)
@@ -215,6 +218,9 @@ async def disconnect():
         chunk_queue.join()
         # Signal the TTS worker to exit
         chunk_queue.put(None)
+        audio_files_queue.join()
+        audio_files_queue.put(None)
+        current_audio_id = None
         tts_worker_thread.join()
         
         # Wait until all audio items have been played
@@ -377,6 +383,39 @@ async def audio_to_blendshapes_route(request: Request):
     generated_facial_data_list = generated_facial_data.tolist() if isinstance(generated_facial_data, np.ndarray) else generated_facial_data
 
     return {'blendshapes': generated_facial_data_list}
+
+@app.get("/api/audio/{file_id}")
+async def get_audio_file(file_id: str):
+    print(f"api/audio:{file_id}")
+    file_path = os.path.join(AUDIO_STORAGE_DIR, f"{file_id}.wav")
+    if os.path.exists(file_path):
+        return FileResponse(file_path, media_type="audio/wav")
+    raise HTTPException(status_code=404, detail="Audio file not found")
+
+@app.get("/api/check-audio")
+async def check_audio():
+    try:
+        global current_audio_id
+        if not audio_files_queue.empty() and current_audio_id is None:
+            current_audio_id = audio_files_queue.get()
+            return {"status": "success", "audio_id": current_audio_id}
+        return {"status": "no_audio"}
+    except Exception as e:
+        logger.error(f"Error checking audio queue: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
+@app.post("/api/audio-completed")
+async def audio_completed(audio_id: dict):
+    """Mark an audio file as completed and ready for the next one"""
+    try:
+        global current_audio_id
+        if current_audio_id == audio_id["id"]:
+            current_audio_id = None
+            return {"status": "success"}
+        return {"status": "invalid_id"}
+    except Exception as e:
+        logger.error(f"Error marking audio as completed: {str(e)}")
+        return {"status": "error", "message": str(e)}
 
 def flush_queue(q):
     try:

@@ -3306,7 +3306,7 @@
                 connect(e) {
                     l.Info(e);
                     try {
-                        return this.webSocket = new WebSocket('ws://127.0.0.1:8085/'),
+                        return this.webSocket = new WebSocket('ws://0.0.0.0:8085/'),
                         this.webSocket.onopen = e => this.handleOnOpen(),
                         this.webSocket.onerror = e => this.handleOnError(),
                         this.webSocket.onclose = e => this.handleOnClose(e),
