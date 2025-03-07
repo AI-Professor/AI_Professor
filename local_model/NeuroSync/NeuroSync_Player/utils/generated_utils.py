@@ -94,7 +94,7 @@ def run_audio_animation_from_bytes(audio_bytes, generated_facial_data, py_face, 
     data_thread = Thread(target=send_pre_encoded_data_to_unreal, args=(encoded_facial_data, start_event, 60, socket_connection))
 
     data_thread.start()
-    
+
     start_event.set()
     
     data_thread.join()

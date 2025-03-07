@@ -81,7 +81,7 @@ connectButton.onclick = async () => {
       if (document.body.contains(statusDiv)) {
         document.body.removeChild(statusDiv);
       }
-    }, 1000);
+    }, 2000);
 
     // Optionally, enable the button again or update UI
     connectButton.disabled = false;

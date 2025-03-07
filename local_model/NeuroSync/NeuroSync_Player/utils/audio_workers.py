@@ -1,5 +1,5 @@
 # utils/audio_workers.py
-from utils.neurosync_api_connect import send_audio_to_neurosync, read_audio_file_as_bytes
+from utils.neurosync_api_connect import send_audio_to_neurosync, read_audio_file_as_bytes, validate_audio_bytes
 from utils.local_tts import call_local_tts 
 from utils.generated_utils import run_audio_animation_from_bytes
 import os
@@ -21,9 +21,10 @@ def tts_worker(chunk_queue, audio_queue, audio_files_queue, pipeline):
             chunk_queue.task_done()
             return
         
-        if audio_bytes:
+        if validate_audio_bytes(audio_bytes):
             facial_data = send_audio_to_neurosync(audio_bytes)
             if facial_data:
+                # Create a synchronization event for this audio/animation pair
                 audio_queue.put((audio_bytes, facial_data, audio_id))
                 audio_files_queue.put(audio_id)
             else:
@@ -44,13 +45,8 @@ def audio_queue_worker(audio_queue, py_face, socket_connection, default_animatio
         if item is None:
             break
 
-        if len(item) == 3:
-            audio_bytes, facial_data, audio_id = item
-        else:
-            audio_bytes, facial_data = item
-            audio_id = None
+        audio_bytes, facial_data, audio_id = item
 
         run_audio_animation_from_bytes(audio_bytes, facial_data, py_face, socket_connection, default_animation_thread, stop_default_animation)
         audio_queue.task_done()
-
 
