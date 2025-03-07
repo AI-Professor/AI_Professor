@@ -1,6 +1,5 @@
 from dotenv import load_dotenv
 import numpy as np
-import pygame
 import torch
 import json , os, sys, shutil, warnings, argparse, uvicorn, logging
 from typing import Dict, List
@@ -231,7 +230,6 @@ async def disconnect():
         
         stop_default_animation.set()
         default_animation_thread.join()
-        pygame.quit()
         socket_connection.close()
 
         return {"status": "Disonnected", "message": "Model and workers ended"}
@@ -252,9 +250,6 @@ async def lecture(topic: dict):
 
         flush_queue(chunk_queue)
         flush_queue(audio_queue)
-        # Stop any current audio playback. Adjust if you have a custom stop mechanism.
-        if pygame.mixer.get_init():
-            pygame.mixer.stop()
         
         topic = topic['topic']
         topic_path = topic.lower().replace(" ", "_")
@@ -289,9 +284,7 @@ async def answer_endpoint(question_data: dict):
 
         flush_queue(chunk_queue)
         flush_queue(audio_queue)
-        # Stop any current audio playback. Adjust if you have a custom stop mechanism.
-        if pygame.mixer.get_init():
-            pygame.mixer.stop()    
+
         full_response = stream_llm_chunks(question_data["question"], chat_history, chunk_queue, db=global_db)
         chat_history.append({"input": question_data["question"], "response": full_response})
         save_chat_log(chat_history)
@@ -498,9 +491,6 @@ def main():
             # Interrupt current playback:
             flush_queue(chunk_queue)
             flush_queue(audio_queue)
-            # Stop any current audio playback. Adjust if you have a custom stop mechanism.
-            if pygame.mixer.get_init():
-                pygame.mixer.stop()
                 
             print("\n💭 Thinking...", end="\r")
             
@@ -528,7 +518,6 @@ def main():
         
         stop_default_animation.set()
         default_animation_thread.join()
-        pygame.quit()
         socket_connection.close()
 
 if __name__ == "__main__":
