@@ -31,8 +31,13 @@ echo "UE Engine started with PID $UE_PID"
 # Wait for UE to initialize
 sleep 5
 
+PUBLIC_IP=$(curl -s https://api.ipify.org)
+if [[ -z "$PUBLIC_IP" ]]; then
+    PUBLIC_IP="127.0.0.1"  # Fallback to localhost if detection fails
+fi
+
 # Start signalling server with output to signalling log
-./Linux/AI_Professor/Samples/PixelStreaming2/WebServers/SignallingWebServer/platform_scripts/bash/start_with_turn.sh --nosudo > "$SIGNAL_LOG" 2>&1 &
+./Linux/AI_Professor/Samples/PixelStreaming2/WebServers/SignallingWebServer/platform_scripts/bash/start.sh --nosudo> "$SIGNAL_LOG" 2>&1 &
 SIGNAL_PID=$!
 echo "Signalling server started with PID $SIGNAL_PID"
 
