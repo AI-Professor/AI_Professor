@@ -61,6 +61,59 @@ is_running() {
     return $?
 }
 
+# Cleanup function that properly shuts down the backend server
+cleanup() {
+    echo "Stopping all services..."
+    
+    # First, properly shut down the backend server with SIGINT to trigger the shutdown event
+    if is_running $BACKEND_PID; then
+        echo "Sending SIGINT to backend server to trigger proper shutdown..."
+        kill -SIGINT $BACKEND_PID
+        
+        # Wait for backend to clean up (max 30 seconds)
+        echo "Waiting for backend to clean up resources..."
+        for i in {1..30}; do
+            if ! is_running $BACKEND_PID; then
+                echo "Backend server shut down properly."
+                break
+            fi
+            sleep 1
+        done
+        
+        # Force kill if it's still running after timeout
+        if is_running $BACKEND_PID; then
+            echo "Backend server didn't shut down gracefully. Forcing termination."
+            kill -TERM $BACKEND_PID
+        fi
+    fi
+    
+    # Then stop other services
+    [[ -n $UE_PID ]] && is_running $UE_PID && kill -TERM $UE_PID 2>/dev/null
+    [[ -n $SIGNAL_PID ]] && is_running $SIGNAL_PID && kill -TERM $SIGNAL_PID 2>/dev/null
+    [[ -n $FRONTEND_PID ]] && is_running $FRONTEND_PID && kill -TERM $FRONTEND_PID 2>/dev/null
+    
+    # Wait for processes to terminate
+    wait
+    
+    echo "All services stopped"
+    
+    # Verify audio files were cleaned up
+    AUDIO_DIR="local_model/NeuroSync/NeuroSync_Player/data/audio"
+    if [ -d "$AUDIO_DIR" ]; then
+        AUDIO_COUNT=$(find "$AUDIO_DIR" -name "*.wav" | wc -l)
+        if [ "$AUDIO_COUNT" -gt 0 ]; then
+            echo "Warning: $AUDIO_COUNT audio files remain in $AUDIO_DIR"
+            echo "Manually cleaning up remaining audio files..."
+            find "$AUDIO_DIR" -name "*.wav" -delete
+        else
+            echo "Audio files successfully cleaned up"
+        fi
+    fi
+}
+
+# Register the cleanup function to be called on script exit
+trap cleanup EXIT INT TERM
+
 # Monitor all processes
 while is_running $UE_PID || is_running $SIGNAL_PID || is_running $BACKEND_PID || is_running $FRONTEND_PID; do
     echo "$(date) - Service status:"
@@ -73,22 +126,3 @@ while is_running $UE_PID || is_running $SIGNAL_PID || is_running $BACKEND_PID ||
 done
 
 echo "All services have exited. Job complete."
-
-# Cleanup function
-cleanup() {
-    echo "Stopping all services..."
-    
-    # Kill all processes
-    [[ -n $UE_PID ]] && kill -TERM $UE_PID 2>/dev/null
-    [[ -n $SIGNAL_PID ]] && kill -TERM $SIGNAL_PID 2>/dev/null
-    [[ -n $BACKEND_PID ]] && kill -TERM $BACKEND_PID 2>/dev/null
-    [[ -n $FRONTEND_PID ]] && kill -TERM $FRONTEND_PID 2>/dev/null
-    
-    # Wait for processes to terminate
-    wait
-    
-    echo "All services stopped"
-}
-
-# Register the cleanup function to be called on script exit
-trap cleanup EXIT INT TERM
