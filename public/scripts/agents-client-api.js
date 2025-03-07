@@ -89,33 +89,8 @@ connectButton.onclick = async () => {
     forceVideoRefresh();
   } catch (error) {
     console.error('Error connecting:', error);
-    
-    // Show more detailed error information
-    const statusDiv = document.getElementById('connection-status') || document.createElement('div');
-    statusDiv.id = 'connection-status';
-    statusDiv.innerText = `Connection failed: ${error.message}\nAttempting to reconnect...`;
-    statusDiv.style.position = 'absolute';
-    statusDiv.style.top = '50%';
-    statusDiv.style.left = '50%';
-    statusDiv.style.transform = 'translate(-50%, -50%)';
-    statusDiv.style.backgroundColor = 'rgba(255,0,0,0.7)';
-    statusDiv.style.color = 'white';
-    statusDiv.style.padding = '20px';
-    statusDiv.style.borderRadius = '5px';
-    statusDiv.style.zIndex = '1000';
-    if (!document.body.contains(statusDiv)) {
-      document.body.appendChild(statusDiv);
-    }
-    
-    // Try to reconnect after a delay
-    setTimeout(() => {
-      if (document.body.contains(statusDiv)) {
-        document.body.removeChild(statusDiv);
-      }
-      connectButton.disabled = false;
-      // Optional: Auto-retry connection
-      // connectButton.click();
-    }, 5000);
+    alert('Connection failed!');
+    connectButton.disabled = false;
   }
 };
 function initializePixelStreaming() {
@@ -125,9 +100,63 @@ function initializePixelStreaming() {
     return;
   }
 
-  console.log('Initializing PixelStreaming...');
-  const config = new epic.Config({ useUrlParams: true});
+  console.log('Initializing PixelStreaming with enhanced WebRTC config...');
+  
+  // Use the exact signaling server URL that works
+  const signalingUrl = `ws://${localHostName}:8085`;
+  console.log('Using signaling server URL:', signalingUrl);
+  
+  // Enhanced WebRTC configuration that matches the successful connection
+  const webRtcConfig = {
+    iceServers: [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { 
+        urls: 'turn:170.140.151.5:19303',
+        username: 'pixelstreaming',  // Add credentials if required
+        credential: 'pixelstreaming'
+      }
+    ],
+    iceTransportPolicy: 'all',
+    bundlePolicy: 'balanced',  // Changed from max-bundle to balanced
+    rtcpMuxPolicy: 'require',
+    iceCandidatePoolSize: 0    // Match the successful configuration
+  };
+
+  const config = new epic.Config({ 
+    useUrlParams: false,  // Disable URL params to ensure our settings are used
+    initialSettings: {
+      SignallingServerUrl: signalingUrl,
+      StreamerId: "DefaultStreamer",
+      PlayerConnectedResponse: "PixelStreamingPlayerId"
+    },
+    webRtcConfiguration: webRtcConfig
+  });
+
+  console.log('PixelStreaming config:', config);
   window.pixelStreamingApp = new epic.PixelStreaming(config);
+
+  // Add connection event listeners
+  window.pixelStreamingApp.addEventListener('webRtcConnecting', () => {
+    console.log('WebRTC connecting...');
+  });
+
+  window.pixelStreamingApp.addEventListener('webRtcConnected', () => {
+    console.log('WebRTC connected successfully');
+  });
+
+  window.pixelStreamingApp.addEventListener('webRtcFailed', (event) => {
+    console.error('WebRTC connection failed:', event);
+    // Try reconnecting with TURN only if regular connection fails
+    if (window.pixelStreamingApp._webRtcController && window.pixelStreamingApp._webRtcController.peerConnection) {
+      console.log('Attempting reconnection with TURN only...');
+      window.pixelStreamingApp._webRtcController.peerConnection.iceTransportPolicy = 'relay';
+      window.pixelStreamingApp.reconnect();
+    }
+  });
+
+  window.pixelStreamingApp.addEventListener('webRtcInitialized', () => {
+    console.log('WebRTC initialized');
+  });
 
   // Style and Application UI
   const style = new epic.PixelStreamingApplicationStyle();
@@ -139,60 +168,112 @@ function initializePixelStreaming() {
   });
 
   document.body.appendChild(app.rootElement);
-
 }
 function monitorIceConnectionState() {
-  if (!window.pixelStreamingApp || !window.pixelStreamingApp._webRtcController) {
-    console.error('PixelStreaming WebRTC controller not initialized');
+  if (!window.pixelStreamingApp) {
+    console.error('PixelStreaming not initialized');
     return;
   }
-  
-  const peerConnection = window.pixelStreamingApp._webRtcController.peerConnection;
-  if (!peerConnection) {
-    console.error('PeerConnection not found');
-    return;
-  }
-  
-  console.log('Initial ICE connection state:', peerConnection.iceConnectionState);
-  
-  peerConnection.addEventListener('iceconnectionstatechange', () => {
-    console.log('ICE connection state changed to:', peerConnection.iceConnectionState);
-    
-    switch (peerConnection.iceConnectionState) {
-      case 'connected':
-      case 'completed':
-        console.log('ICE connection established successfully');
-        break;
-      case 'failed':
-        console.error('ICE connection failed');
-        // You could implement a reconnection strategy here
-        alert('Connection failed. Please try reconnecting.');
-        break;
-      case 'disconnected':
-        console.warn('ICE connection disconnected');
-        break;
-      case 'closed':
-        console.log('ICE connection closed');
-        break;
-    }
-  });
-  
-  // Also monitor ICE gathering state
-  peerConnection.addEventListener('icegatheringstatechange', () => {
-    console.log('ICE gathering state changed to:', peerConnection.iceGatheringState);
-  });
-  
-  // Log all ICE candidates
-  peerConnection.addEventListener('icecandidate', (event) => {
-    if (event.candidate) {
-      console.log('New ICE candidate:', event.candidate.candidate);
-    } else {
-      console.log('All ICE candidates have been gathered');
-    }
-  });
-}
 
-// Attach Video Stream to Video Element
+  console.log('Starting ICE connection monitoring...');
+  
+  // Wait for WebRTC controller to be initialized
+  let attempts = 0;
+  const maxAttempts = 100; // 10 seconds total (100ms * 100)
+  
+  const checkController = setInterval(() => {
+    attempts++;
+    
+    if (attempts > maxAttempts) {
+      console.error('Timed out waiting for WebRTC controller');
+      clearInterval(checkController);
+      return;
+    }
+    
+    if (!window.pixelStreamingApp._webRtcController) {
+      if (attempts % 10 === 0) { // Log only every 10th attempt to reduce noise
+        console.log(`Waiting for WebRTC controller (attempt ${attempts}/${maxAttempts})...`);
+      }
+      return;
+    }
+    
+    clearInterval(checkController);
+    console.log('WebRTC controller found, checking peer connection...');
+    
+    // Give a little time for peer connection to be established
+    setTimeout(() => {
+      const peerConnection = window.pixelStreamingApp._webRtcController.peerConnection;
+      if (!peerConnection) {
+        console.error('PeerConnection not found - connection may have failed');
+        return;
+      }
+      
+      console.log('Initial ICE connection state:', peerConnection.iceConnectionState);
+      console.log('Initial connection state:', peerConnection.connectionState);
+      console.log('Initial signaling state:', peerConnection.signalingState);
+      
+      // Log all ICE candidates
+      console.log('Local ICE candidates:', window.pixelStreamingApp._webRtcController.localICECandidates);
+      
+      peerConnection.addEventListener('iceconnectionstatechange', () => {
+        console.log('ICE connection state changed to:', peerConnection.iceConnectionState);
+        
+        switch (peerConnection.iceConnectionState) {
+          case 'connected':
+          case 'completed':
+            console.log('ICE connection established successfully');
+            // Log the selected candidate pair
+            try {
+              peerConnection.getStats().then(stats => {
+                stats.forEach(report => {
+                  if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+                    console.log('Selected candidate pair:', report);
+                  }
+                });
+              });
+            } catch (e) {
+              console.error('Error getting stats:', e);
+            }
+            break;
+          case 'failed':
+            console.error('ICE connection failed - attempting reconnect');
+            window.pixelStreamingApp.reconnect();
+            break;
+          case 'disconnected':
+            console.warn('ICE connection disconnected - checking connection...');
+            setTimeout(() => {
+              if (peerConnection.iceConnectionState === 'disconnected') {
+                window.pixelStreamingApp.reconnect();
+              }
+            }, 5000);
+            break;
+        }
+      });
+      
+      // Monitor connection state changes
+      peerConnection.addEventListener('connectionstatechange', () => {
+        console.log('Connection state changed to:', peerConnection.connectionState);
+      });
+      
+      // Monitor ICE gathering
+      peerConnection.addEventListener('icegatheringstatechange', () => {
+        console.log('ICE gathering state:', peerConnection.iceGatheringState);
+      });
+      
+      // Log ICE candidates
+      peerConnection.addEventListener('icecandidate', (event) => {
+        if (event.candidate) {
+          console.log('New ICE candidate:', event.candidate.candidate);
+        }
+      });
+      
+      // Log ICE candidate errors
+      peerConnection.addEventListener('icecandidateerror', (event) => {
+        console.error('ICE candidate error:', event);
+      });
+    }, 1000);
+  }, 100);
+}
 function forceVideoRefresh() {
   console.log('Forcing video element refresh...');
 
@@ -236,7 +317,7 @@ function startAudioPolling() {
     } catch (error) {
       console.error('Error polling for audio:', error);
     }
-  }, 3000); // Check every 500ms
+  }, 1000); // Check every 500ms
 }
 async function playAudioFromServer(audioId) {
   try {

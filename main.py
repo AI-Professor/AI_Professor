@@ -47,14 +47,14 @@ server_back_port = os.getenv('SERVER_BACKEND_PORT')
 server_ue_port = os.getenv('SERVER_UE_PORT')
 server_front_url = f"http://{server_host_name}:{server_front_port}"
 server_back_url = f"http://{server_host_name}:{server_back_port}"
-server_ue_url = f"ws://{server_host_name}:{server_ue_port}"
+server_ue_url = f"http://{server_host_name}:{server_ue_port}"
 local_host_name = os.getenv('LOCAL_HOST_NAME')
 local_front_port = os.getenv('LOCAL_FRONTEND_PORT')
 local_back_port = os.getenv('LOCAL_BACKEND_PORT')
 local_ue_port = os.getenv('LOCAL_UE_PORT')
 local_front_url = f"http://{local_host_name}:{local_front_port}"
 local_back_url = f"http://{local_host_name}:{local_back_port}"
-local_ue_url = f"ws://{local_host_name}:{local_ue_port}"
+local_ue_url = f"http://{local_host_name}:{local_ue_port}"
 
 def start_UE():
     global UE
