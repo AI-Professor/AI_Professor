@@ -373,17 +373,6 @@ disconnectButton.onclick = async () => {
   try {
     // Disable the button to prevent multiple clicks
     disconnectButton.disabled = true;
-
-    if (audioPollingInterval) {
-      clearInterval(audioPollingInterval);
-      audioPollingInterval = null;
-    }
-    
-    // Stop any currently playing audio
-    if (currentlyPlayingAudio) {
-      currentlyPlayingAudio.pause();
-      currentlyPlayingAudio = null;
-    }
     
     // Send a POST request to the /api/connect endpoint
     const response = await fetch(`${localBackendUrl}/api/disconnect`, {

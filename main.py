@@ -60,7 +60,8 @@ def start_UE():
     args = [
         '-PixelStreamingURL=ws://127.0.0.1:8888',
         '-AllowPixelStreamingCommands',
-        '-RenderOffScreen'
+        '-RenderOffScreen',
+        '-AudioMixer'
     ]
 
     # Start the game as a detached process
@@ -129,7 +130,7 @@ async def on_shutdown():
     elif platform.system() == "Windows":
         print("Shutting down on Windows...")
         logger.info("Shutting down Unreal Engine...")
-        #terminate_UE('AI_Professor-Win64-Shipping.exe')
+        terminate_UE('AI_Professor-Win64-Shipping.exe')
         logger.info("Unreal Engine terminated successfully.")
     
     if 'quiz_engine' in globals():
@@ -501,5 +502,5 @@ if __name__ == "__main__":
             print("Running on Linux...")
         elif platform.system() == "Windows":
             print("Running on Windows...")
-            #start_UE()
+            start_UE()
         uvicorn.run(app, host=local_host_name, port=int(local_back_port))
