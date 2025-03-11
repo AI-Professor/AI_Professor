@@ -9,6 +9,9 @@ import numpy as np
 from local_model.NeuroSync.NeuroSync_Local_API.utils.audio.extraction.extract_features import extract_audio_features
 from local_model.NeuroSync.NeuroSync_Local_API.utils.audio.processing.audio_processing import process_audio_features
 
+#from utils.audio.extraction.extract_features import extract_audio_features
+#from utils.audio.processing.audio_processing import process_audio_features
+
 def generate_facial_data_from_bytes(audio_bytes, model, device, config):
     
     audio_features, y = extract_audio_features(audio_bytes, from_bytes=True)

@@ -31,7 +31,7 @@ def stream_llm_chunks(user_input, chat_history, chunk_queue, db:FAISS, is_lesson
     full_response = ""
     token_count = 0
     max_chunk_length = 500
-    flush_token_count = 50 
+    flush_token_count = 60 
 
     if not is_lesson:
         relevant_text = db.similarity_search(user_input, k=5)
@@ -89,7 +89,7 @@ def stream_llm_chunks(user_input, chat_history, chunk_queue, db:FAISS, is_lesson
 
     else:
         lesson_script_chunks = re.split(r'(?<=[.!?])\s+', user_input.strip())
-        grouped_chunk = group_sentences(lesson_script_chunks, 3)
+        grouped_chunk = group_sentences(lesson_script_chunks, 2)
         for chunk in grouped_chunk:
             chunk = chunk.strip()  # Ensure no leading/trailing whitespace
 

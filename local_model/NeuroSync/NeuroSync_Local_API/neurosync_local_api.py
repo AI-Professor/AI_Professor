@@ -12,7 +12,7 @@ app = flask.Flask(__name__)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 model_path = 'local_model/NeuroSync/NeuroSync_Local_API/utils/model/model.pth'
-blendshape_model = load_model(model_path, config, device)
+blendshape_model = load_model(model_path, config, device, use_half_precision=True)
 
 @app.route('/audio_to_blendshapes', methods=['POST'])
 def audio_to_blendshapes_route():
@@ -23,4 +23,4 @@ def audio_to_blendshapes_route():
     return jsonify({'blendshapes': generated_facial_data_list})
 
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5000)
+    app.run(host='localhost', port=9999)

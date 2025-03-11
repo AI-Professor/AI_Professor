@@ -2,14 +2,13 @@ from dotenv import load_dotenv
 import numpy as np
 import torch
 import json , os, sys, shutil, warnings, argparse, uvicorn, logging
+from pythonosc import udp_client
 from typing import Dict, List
 from fastapi.responses import JSONResponse
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, UploadFile, File, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from threading import Event, Thread
 from queue import Queue, Empty
 import atexit
@@ -17,10 +16,7 @@ import glob
 from subprocess import Popen, PIPE
 import psutil  
 import platform
-import base64
 
-
-from local_model.NeuroSync.NeuroSync_Local_API.utils.model.model import load_model
 from src.data_ingestion.pdf_parser import extract_text_from_pdf 
 from src.data_ingestion.epub_parser import extract_text_from_epub
 from src.data_ingestion.video_parser import extract_text_from_video 
@@ -34,6 +30,7 @@ from local_model.NeuroSync.NeuroSync_Player.livelink.animations.default_animatio
 from local_model.NeuroSync.NeuroSync_Player.utils.chat_utils import load_chat_history, save_chat_log
 from local_model.NeuroSync.NeuroSync_Player.utils.audio_workers import tts_worker, audio_queue_worker
 from local_model.NeuroSync.NeuroSync_Player.utils.llm_utils import stream_llm_chunks
+from local_model.NeuroSync.NeuroSync_Local_API.utils.model.model import load_model
 from local_model.NeuroSync.NeuroSync_Local_API.utils.generate_face_shapes import generate_facial_data_from_bytes
 from local_model.NeuroSync.NeuroSync_Local_API.utils.config import config
 from local_model.kokoro_model.kokoro.pipeline import KPipeline
@@ -54,6 +51,7 @@ local_ue_port = os.getenv('LOCAL_UE_PORT')
 local_front_url = f"http://{local_host_name}:{local_front_port}"
 local_back_url = f"http://{local_host_name}:{local_back_port}"
 local_ue_url = f"http://{local_host_name}:{local_ue_port}"
+audio_port = int(os.getenv('AUDIO_PORT'))
 
 def start_UE():
     global UE
@@ -131,7 +129,7 @@ async def on_shutdown():
     elif platform.system() == "Windows":
         print("Shutting down on Windows...")
         logger.info("Shutting down Unreal Engine...")
-        terminate_UE('AI_Professor-Win64-Shipping.exe')
+        #terminate_UE('AI_Professor-Win64-Shipping.exe')
         logger.info("Unreal Engine terminated successfully.")
     
     if 'quiz_engine' in globals():
@@ -172,8 +170,9 @@ async def connect():
         model_path = 'local_model/NeuroSync/NeuroSync_Local_API/utils/model/model.pth'
         blendshape_model = load_model(model_path, config, device, use_half_precision=True)
         py_face = initialize_py_face()
-        global socket_connection
+        global socket_connection, osc_sender
         socket_connection = create_socket_connection()
+        osc_sender = udp_client.SimpleUDPClient(local_host_name, audio_port)
         global chat_history
         chat_history = load_chat_history()
         pipeline = KPipeline(lang_code='a')
@@ -186,19 +185,17 @@ async def connect():
         # Create queues:
         # 1. chunk_queue for text chunks to be processed by TTS.
         # 2. audio_queue for the resulting audio/facial-data pairs.
-        global chunk_queue, audio_queue, audio_files_queue, current_audio_id
+        global chunk_queue, audio_queue
         chunk_queue = Queue()
         audio_queue = Queue()
-        audio_files_queue = Queue()
-        current_audio_id = None
 
         global tts_worker_thread, audio_worker_thread
         # Start the TTS worker (processes text chunks into audio)
-        tts_worker_thread = Thread(target=tts_worker, args=(chunk_queue, audio_queue, audio_files_queue, pipeline))
+        tts_worker_thread = Thread(target=tts_worker, args=(chunk_queue, audio_queue, pipeline))
         tts_worker_thread.start()
 
         # Start the audio worker (plays audio sequentially)
-        audio_worker_thread = Thread(target=audio_queue_worker, args=(audio_queue, py_face, socket_connection, default_animation_thread, stop_default_animation))
+        audio_worker_thread = Thread(target=audio_queue_worker, args=(audio_queue, osc_sender, py_face, socket_connection, default_animation_thread, stop_default_animation))
         audio_worker_thread.start()
 
         return {"status": "Connected", "message": "Model loaded and workers started"}
@@ -217,9 +214,6 @@ async def disconnect():
         chunk_queue.join()
         # Signal the TTS worker to exit
         chunk_queue.put(None)
-        audio_files_queue.join()
-        audio_files_queue.put(None)
-        current_audio_id = None
         tts_worker_thread.join()
         
         # Wait until all audio items have been played
@@ -377,39 +371,6 @@ async def audio_to_blendshapes_route(request: Request):
 
     return {'blendshapes': generated_facial_data_list}
 
-@app.get("/api/audio/{file_id}")
-async def get_audio_file(file_id: str):
-    print(f"api/audio:{file_id}")
-    file_path = os.path.join(AUDIO_STORAGE_DIR, f"{file_id}.wav")
-    if os.path.exists(file_path):
-        return FileResponse(file_path, media_type="audio/wav")
-    raise HTTPException(status_code=404, detail="Audio file not found")
-
-@app.get("/api/check-audio")
-async def check_audio():
-    try:
-        global current_audio_id
-        if not audio_files_queue.empty() and current_audio_id is None:
-            current_audio_id = audio_files_queue.get()
-            return {"status": "success", "audio_id": current_audio_id}
-        return {"status": "no_audio"}
-    except Exception as e:
-        logger.error(f"Error checking audio queue: {str(e)}")
-        return {"status": "error", "message": str(e)}
-
-@app.post("/api/audio-completed")
-async def audio_completed(audio_id: dict):
-    """Mark an audio file as completed and ready for the next one"""
-    try:
-        global current_audio_id
-        if current_audio_id == audio_id["id"]:
-            current_audio_id = None
-            return {"status": "success"}
-        return {"status": "invalid_id"}
-    except Exception as e:
-        logger.error(f"Error marking audio as completed: {str(e)}")
-        return {"status": "error", "message": str(e)}
-
 def flush_queue(q):
     try:
         while True:
@@ -418,11 +379,13 @@ def flush_queue(q):
         pass
       
 atexit.register(cleanup_audio_files)
+atexit.register(clear_chatlog)
 
 #This is a backend complete testing function. Nothing will happen at the frontend, we can test our implementations and functions here. All of the output will be shown in your terminal for testing purposes. 
 def main():  
     py_face = initialize_py_face()
     socket_connection = create_socket_connection()
+    osc_sender = udp_client.SimpleUDPClient(local_host_name, audio_port)
     chat_history = load_chat_history()
     pipeline = KPipeline(lang_code='a')
     stop_default_animation = Event()
@@ -441,7 +404,7 @@ def main():
     tts_worker_thread.start()
 
     # Start the audio worker (plays audio sequentially)
-    audio_worker_thread = Thread(target=audio_queue_worker, args=(audio_queue, py_face, socket_connection, default_animation_thread, stop_default_animation))
+    audio_worker_thread = Thread(target=audio_queue_worker, args=(audio_queue, osc_sender, py_face, socket_connection, default_animation_thread, stop_default_animation))
     audio_worker_thread.start()
 
     file = Path("data/raw/scrum.epub")
@@ -531,12 +494,12 @@ if __name__ == "__main__":
         main()
     else:
         #This will start our backend API and connect with frontend functions. Run this command whenever you want to see backend API calls and frontend reactions: python main.py
-        logger.info(f"Starting API server on port {server_back_port}.")
+        logger.info(f"Starting API server on port {local_back_port}.")
         if platform.system() == "Darwin":
             print("Running on macOS...")
         elif platform.system() == "Linux":
             print("Running on Linux...")
         elif platform.system() == "Windows":
             print("Running on Windows...")
-            start_UE()
-        uvicorn.run(app, host=server_host_name, port=int(server_back_port))
+            #start_UE()
+        uvicorn.run(app, host=local_host_name, port=int(local_back_port))

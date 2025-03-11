@@ -14,10 +14,10 @@ const serverFrontendUrl = `http://${serverHostName}:${serverFrontendPort}`
 const serverBackendUrl = `http://${serverHostName}:${serverBackendPort}`
 const serverUeUrl = `http://${serverHostName}:${serverUePort}`
 const localHostName = process.env.LOCAL_HOST_NAME
-const localFrontPort = process.env.LOCAL_FRONTEND_PORT
+const localFrontendPort = process.env.LOCAL_FRONTEND_PORT
 const localBackendPort = process.env.LOCAL_BACKEND_PORT
 const localUePort = process.env.LOCAL_UE_PORT
-const localFrontendUrl = `http://${localHostName}:${localFrontPort}`
+const localFrontendUrl = `http://${localHostName}:${localFrontendPort}`
 const localBackendUrl = `http://${localHostName}:${localBackendPort}`
 const localUeUrl = `http://${localHostName}:${localUePort}`
 
@@ -90,6 +90,6 @@ app.post('/python-api/upload-files', upload.any(), async (req, res) => {
 app.get('/', (req, res) => res.sendFile(__dirname + '/public/index-agents.html'));
 
 const server = http.createServer(app);
-server.listen(parseInt(serverFrontendPort), () => {
-  console.log(`Server running on ${serverFrontendUrl}`);
+server.listen(parseInt(localFrontendPort), () => {
+  console.log(`Server running on ${localFrontendUrl}`);
 });

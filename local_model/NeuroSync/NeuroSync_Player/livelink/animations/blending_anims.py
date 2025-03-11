@@ -8,13 +8,13 @@ import time
 import numpy as np
 
 from livelink.animations.default_animation import default_animation_data, FaceBlendShape
-from livelink.connect.livelink_init import UDP_IP, UDP_PORT
+from livelink.connect.livelink_init import UDP_IP, LIVELINK_PORT, AUDIO_PORT
 
 
 def play_full_animation(facial_data, fps, py_face, socket_connection, blend_in_frames, blend_out_frames):
     for blend_shape_data in facial_data[blend_in_frames:-blend_out_frames]:
         apply_blendshapes(blend_shape_data, 1.0, py_face)
-        socket_connection.sendto(py_face.encode(), (UDP_IP, UDP_PORT))
+        socket_connection.sendto(py_face.encode(), (UDP_IP, LIVELINK_PORT))
         time.sleep(1 / fps)
 
 def apply_blendshapes(frame_data: np.ndarray, weight: float, py_face):

@@ -7,8 +7,8 @@ import requests
 import json
 from dotenv import load_dotenv
 load_dotenv()
-host_name = os.getenv('SERVER_HOST_NAME')
-back_port = os.getenv('SERVER_BACKEND_PORT')
+host_name = os.getenv('LOCAL_HOST_NAME')
+back_port = os.getenv('LOCAL_BACKEND_PORT')
 
 LOCAL_URL = f"http://{host_name}:{back_port}/api/audio_to_blendshapes"  # Local URL
 

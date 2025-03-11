@@ -8,10 +8,10 @@ const serverFrontendUrl = `http://${serverHostName}:${serverFrontendPort}`
 const serverBackendUrl = `http://${serverHostName}:${serverBackendPort}`
 const serverUeUrl = `ws://${serverHostName}:${serverUePort}`
 const localHostName = ENV.LOCAL_HOST_NAME
-const localFrontPort = ENV.LOCAL_FRONTEND_PORT
+const localFrontendPort = ENV.LOCAL_FRONTEND_PORT
 const localBackendPort = ENV.LOCAL_BACKEND_PORT
 const localUePort = ENV.LOCAL_UE_PORT
-const localFrontendUrl = `http://${localHostName}:${localFrontPort}`
+const localFrontendUrl = `http://${localHostName}:${localFrontendPort}`
 const localBackendUrl = `http://${localHostName}:${localBackendPort}`
 const localUeUrl = `ws://${localHostName}:${localUePort}`
 
@@ -19,10 +19,6 @@ let currentQuiz = [];
 let currentQuestionIndex = 0;
 let score = 0;
 window.pixelStreamingApp = null;
-
-let audioPollingInterval = null;
-let currentlyPlayingAudio = null;
-let isAudioSyncEnabled = true;
 
 const videoElement = document.getElementById('pixelStreamVideo');
 
@@ -299,94 +295,12 @@ function forceVideoRefresh() {
     };
   }, 500);
 }
-function startAudioPolling() {
-  if (audioPollingInterval) {
-    clearInterval(audioPollingInterval);
-  }
-  
-  audioPollingInterval = setInterval(async () => {
-    if (!isAudioSyncEnabled) return;
-    
-    try {
-      const response = await fetch(`${localBackendUrl}/api/check-audio`);
-      const data = await response.json();
-      console.log(data)
-      if (data.status === 'success' && data.audio_id) {
-        playAudioFromServer(data.audio_id);
-      }
-    } catch (error) {
-      console.error('Error polling for audio:', error);
-    }
-  }, 1000); // Check every 500ms
-}
-async function playAudioFromServer(audioId) {
-  try {
-    // Create audio element if it doesn't exist
-    let audioElement = document.getElementById('tts-audio');
-    if (!audioElement) {
-      audioElement = document.createElement('audio');
-      audioElement.id = 'tts-audio';
-      audioElement.style.display = 'none';
-      document.body.appendChild(audioElement);
-    }
-    
-    // Stop any currently playing audio
-    if (currentlyPlayingAudio) {
-      currentlyPlayingAudio.pause();
-      currentlyPlayingAudio.currentTime = 0;
-    }
-    
-    // Set the source and play
-    audioElement.src = `${localBackendUrl}/api/audio/${audioId}?t=${Date.now()}`; // Add timestamp to prevent caching
-    audioElement.onended = async () => {
-      try {
-          await fetch(`${localBackendUrl}/api/audio-completed`, {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ id: audioId })
-          });
-      } catch (error) {
-          console.error('Error notifying audio completion:', error);
-      }
-  };
-    audioElement.oncanplaythrough = () => {
-      audioElement.play()
-        .then(() => {
-          console.log(`Playing audio: ${audioId}`);
-          currentlyPlayingAudio = audioElement;
-        })
-        .catch(error => {
-          console.error('Error playing audio:', error);
-        });
-    };
-    
-    audioElement.onerror = (e) => {
-      console.error('Error loading audio:', e);
-    };
-    
-  } catch (error) {
-    console.error('Error playing audio from server:', error);
-  }
-}
-// Add a function to toggle audio sync
-function toggleAudioSync(enabled) {
-  isAudioSyncEnabled = enabled;
-  if (enabled) {
-    startAudioPolling();
-  } else if (audioPollingInterval) {
-    clearInterval(audioPollingInterval);
-    audioPollingInterval = null;
-  }
-}
 
 const lectureButton = document.getElementById('lecture-button');
 const topicInput = document.getElementById('topic-input');
 lectureButton.onclick = async () => {
   try {
     lectureButton.disabled = true;
-    startAudioPolling();
     const topic = topicInput.value.trim();
     if (!topic) {
       alert('Please enter a topic.');
@@ -419,8 +333,6 @@ const startButton = document.getElementById('start-button');
 startButton.onclick = async () => {
   try {
       startButton.disabled = true;
-
-      startAudioPolling();
 
       const userQuestion = await initializeVoiceRecognition();
       addChatMessage(`You: ${userQuestion}`, 'user');
@@ -623,9 +535,3 @@ function showStatusMessage(message, isError = false) {
   statusDiv.textContent = message;
   document.getElementById('msgHistory').prepend(statusDiv);
 }
-
-document.getElementById('audio-sync-toggle').addEventListener('change', function(e) {
-  if (typeof toggleAudioSync === 'function') {
-    toggleAudioSync(e.target.checked);
-  }
-});
