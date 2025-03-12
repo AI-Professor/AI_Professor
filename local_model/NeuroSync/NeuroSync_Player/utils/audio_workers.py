@@ -18,7 +18,7 @@ def tts_worker(chunk_queue, audio_queue, pipeline):
             if chunk is None:
                 break
 
-            audio_path, sync_id = call_local_tts(chunk, pipeline)
+            audio_path, webm_path = call_local_tts(chunk, pipeline)
             audio_bytes = read_audio_file_as_bytes(audio_path)
             if audio_bytes is None:
                 print(f"Failed to read {audio_path}")
@@ -28,7 +28,7 @@ def tts_worker(chunk_queue, audio_queue, pipeline):
             if validate_audio_bytes(audio_bytes):
                 facial_data = send_audio_to_neurosync(audio_bytes)
                 if facial_data:
-                    audio_queue.put((audio_path, facial_data, sync_id))
+                    audio_queue.put((audio_path, webm_path, facial_data))
                 else:
                     print("Failed to get facial data for chunk:", chunk)
             else:
@@ -48,8 +48,7 @@ def audio_queue_worker(audio_queue, osc_sender, py_face, socket_connection, defa
         item = audio_queue.get()
         if item is None:
             break
+        audio_path, webm_path, facial_data = item
 
-        audio_path, facial_data, sync_id = item
-
-        run_audio_animation_from_bytes(audio_path, osc_sender, facial_data, py_face, socket_connection, default_animation_thread, stop_default_animation)
+        run_audio_animation_from_bytes(audio_path, webm_path, osc_sender, facial_data, py_face, socket_connection, default_animation_thread, stop_default_animation)
         audio_queue.task_done()

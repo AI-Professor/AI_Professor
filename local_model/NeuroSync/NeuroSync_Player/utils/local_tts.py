@@ -1,10 +1,13 @@
 # utils/local_tts.py
 import os
 from pathlib import Path
+import platform
 import time
 import numpy as np
 import soundfile as sf
 import uuid
+
+from local_model.NeuroSync.NeuroSync_Player.utils.audio.play_audio import convert_to_webm
 
 def call_local_tts(text, pipeline):
     """
@@ -15,9 +18,9 @@ def call_local_tts(text, pipeline):
     os.makedirs(AUDIO_DIR, exist_ok=True)
     audio_dir = Path(__file__).parent.parent / "data" / "audio"
 
-    sync_id = str(uuid.uuid4())
-    filename = f"{sync_id}.wav"
+    filename = f"{str(uuid.uuid4())}.wav"
     audio_path = audio_dir / filename
+    webm_path = ""
     try:
         generator = pipeline(
         text, voice='am_adam', # <= change voice here
@@ -32,7 +35,11 @@ def call_local_tts(text, pipeline):
 
         sf.write(audio_path, audio_stream, 24000)
 
-        return str(audio_path), sync_id
+        system = platform.system()
+        if system == 'Linux':
+            webm_path = convert_to_webm(str(audio_path))
+
+        return str(audio_path), str(webm_path)
     except Exception as e:
         print(f"Error calling local TTS: {e}")
         return None

@@ -90,6 +90,6 @@ app.post('/python-api/upload-files', upload.any(), async (req, res) => {
 app.get('/', (req, res) => res.sendFile(__dirname + '/public/index-agents.html'));
 
 const server = http.createServer(app);
-server.listen(parseInt(localFrontendPort), () => {
-  console.log(`Server running on ${localFrontendUrl}`);
+server.listen(parseInt(serverFrontendPort), () => {
+  console.log(`Server running on ${serverFrontendUrl}`);
 });

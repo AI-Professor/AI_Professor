@@ -53,6 +53,10 @@ local_back_url = f"http://{local_host_name}:{local_back_port}"
 local_ue_url = f"http://{local_host_name}:{local_ue_port}"
 audio_port = int(os.getenv('AUDIO_PORT'))
 
+def check_ffmpeg_installed():
+    """Check if FFmpeg is installed on the system."""
+    return shutil.which('ffmpeg') is not None
+
 def start_UE():
     global UE
     UE = True
@@ -121,6 +125,23 @@ async def health_check():
     logger.info("Health check endpoint accessed.")
     return {"status": "ok", "initialized": "True"}#bool(global_db)
 
+@app.on_event("startup")
+async def startup_event():
+    # Check platform and FFmpeg for Linux systems
+    if platform.system() == "Linux" and not check_ffmpeg_installed():
+        print("Running on Linux...")
+        logger.warning("FFmpeg not found. Audio conversion to WebM will not work. Please install FFmpeg.")
+    
+    # Check if UE is running on Windows
+    if platform.system() == "Windows":
+        print("Running on Windows...")
+        logger.info("Starting Unreal Engine...")
+        start_UE()
+
+    # Check if UE is running on Mac
+    if platform.system() == "Darwin":
+        print("Running on macOS...")
+
 @app.on_event("shutdown")
 async def on_shutdown():
     if platform.system() == "Darwin":
@@ -150,7 +171,11 @@ async def on_shutdown():
 
 def cleanup_audio_files():
     audio_dir = Path("local_model/NeuroSync/NeuroSync_Player/data/audio")
-    for file_path in glob.glob(str(audio_dir / "*.wav")):
+
+    # Find all .wav and .webm files separately and merge them
+    files_to_delete = glob.glob(str(audio_dir / "*.wav")) + glob.glob(str(audio_dir / "*.webm"))
+
+    for file_path in files_to_delete:
         try:
             os.remove(file_path)
             print(f"Deleted: {file_path}")
@@ -386,7 +411,7 @@ atexit.register(clear_chatlog)
 def main():  
     py_face = initialize_py_face()
     socket_connection = create_socket_connection()
-    osc_sender = udp_client.SimpleUDPClient(local_host_name, audio_port)
+    osc_sender = udp_client.SimpleUDPClient(server_host_name, audio_port)
     chat_history = load_chat_history()
     pipeline = KPipeline(lang_code='a')
     stop_default_animation = Event()
@@ -495,12 +520,5 @@ if __name__ == "__main__":
         main()
     else:
         #This will start our backend API and connect with frontend functions. Run this command whenever you want to see backend API calls and frontend reactions: python main.py
-        logger.info(f"Starting API server on port {local_back_port}.")
-        if platform.system() == "Darwin":
-            print("Running on macOS...")
-        elif platform.system() == "Linux":
-            print("Running on Linux...")
-        elif platform.system() == "Windows":
-            print("Running on Windows...")
-            start_UE()
-        uvicorn.run(app, host=local_host_name, port=int(local_back_port))
+        logger.info(f"Starting API server on port {server_back_port}.")
+        uvicorn.run(app, host=server_host_name, port=int(server_back_port))

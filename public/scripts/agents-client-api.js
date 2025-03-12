@@ -115,7 +115,10 @@ function initializePixelStreaming() {
     iceTransportPolicy: 'all',
     bundlePolicy: 'balanced',  // Changed from max-bundle to balanced
     rtcpMuxPolicy: 'require',
-    iceCandidatePoolSize: 0    // Match the successful configuration
+    iceCandidatePoolSize: 0,    // Match the successful configuration
+    offerExtmapAllowMixed: true,
+    offerToReceiveAudio: true, // Make sure this is true
+    offerToReceiveVideo: true
   };
 
   const config = new epic.Config({ 
@@ -137,8 +140,21 @@ function initializePixelStreaming() {
   });
 
   window.pixelStreamingApp.addEventListener('webRtcConnected', () => {
-    console.log('WebRTC connected successfully');
+    console.log('WebRTC connected successfully!');
+    const stream = window.pixelStreamingApp._webRtcController.videoPlayer.videoElement.srcObject;
+
+    const audioElement = new Audio();
+    audioElement.srcObject = stream;
+    audioElement.autoplay = true;
+    audioElement.muted = false;
+    audioElement.volume = 1.0;
+    document.body.appendChild(audioElement);
+  
+    document.body.addEventListener('click', () => {
+      audioElement.play().catch(err => console.error('Audio play error:', err));
+    });
   });
+  
 
   window.pixelStreamingApp.addEventListener('webRtcFailed', (event) => {
     console.error('WebRTC connection failed:', event);
@@ -282,7 +298,7 @@ function forceVideoRefresh() {
     videoElement.srcObject = stream;
     videoElement.autoplay = true;
     videoElement.playsInline = true;
-    videoElement.muted = true;
+    videoElement.muted = false;
 
     // Force play
     videoElement.onloadeddata = () => {

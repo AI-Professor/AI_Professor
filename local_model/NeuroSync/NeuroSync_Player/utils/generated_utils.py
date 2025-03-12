@@ -32,7 +32,7 @@ def load_facial_data_from_csv(csv_path):
     return data.values
 
 
-def run_audio_animation_from_bytes(audio_path, osc_sender, generated_facial_data, py_face, socket_connection, default_animation_thread, stop_default_animation):
+def run_audio_animation_from_bytes(audio_path, webm_path, osc_sender, generated_facial_data, py_face, socket_connection, default_animation_thread, stop_default_animation):
     # --------------------------------------------------------------------
     # Create a separate instance for encoding to include blend in/out data.
     # --------------------------------------------------------------------
@@ -48,8 +48,8 @@ def run_audio_animation_from_bytes(audio_path, osc_sender, generated_facial_data
             default_animation_thread.join()
 
     start_event = Event()
-
-    audio_thread = Thread(target=send_osc_audio, args=(audio_path, start_event, osc_sender))
+    
+    audio_thread = Thread(target=send_osc_audio, args=(audio_path, webm_path, start_event, osc_sender))
     data_thread = Thread(target=send_pre_encoded_data_to_unreal, args=(encoded_facial_data, start_event, fps, socket_connection))
 
     audio_thread.start()

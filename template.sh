@@ -4,6 +4,15 @@
 #SBATCH --mem=64g -c 16
 #SBATCH --gres=gpu:1
 
+export PATH=$HOME/bin/ffmpeg-master-latest-linux64-gpl/bin:$PATH
+export PATH=$HOME/.local/bin:$PATH
+export LD_LIBRARY_PATH=$HOME/.local/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+export XDG_RUNTIME_DIR=/local/scratch/hzha627/run/user/52909
+pulseaudio --start --log-level=info --exit-idle-time=-1 --realtime
+pactl load-module module-null-sink sink_name=virtual_speaker sink_properties=device.description=VirtualSpeaker channels=2 channel_map=front-left,front-right rate=48000 format=float32le
+pactl set-default-sink virtual_speaker
+pactl list short sinks
+
 LOG_DIR="/local/scratch/$USER/AI_Professor/logs/logs_$(date +%Y%m%d_%H%M%S)"
 mkdir -p $LOG_DIR
 
@@ -122,7 +131,7 @@ trap cleanup EXIT INT TERM
 # Monitor all processes
 while is_running $UE_PID || is_running $SIGNAL_PID || is_running $BACKEND_PID || is_running $FRONTEND_PID; do
     echo "$(date) - Service status:"
-    is_running $UE_PID && echo "UE Engine: Running (PID: $UE_PID)" || echo "UE Engine: Stopped"
+    is_running $UE_PID && echo "UE Engine: Running (PID: $UE_PID)" && echo "=== Sink Inputs ===" && pactl list short sink-inputs && echo "=== PulseAudio Clients ===" && pactl list short clients || echo "UE Engine: Stopped"
     is_running $SIGNAL_PID && echo "Signalling: Running (PID: $SIGNAL_PID)" || echo "Signalling: Stopped"
     is_running $BACKEND_PID && echo "Backend: Running (PID: $BACKEND_PID)" || echo "Backend: Stopped"
     is_running $FRONTEND_PID && echo "Frontend: Running (PID: $FRONTEND_PID)" || echo "Frontend: Stopped"
