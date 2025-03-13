@@ -47,7 +47,7 @@
 .signalingState-have-remote-offer,
 .signalingState-have-local-pranswer,
 .signalingState-have-remote-pranswer {
-  color: cornflowerblue;
+  color: orange;
 }
 .signalingState-closed {
   color: red;
@@ -84,6 +84,10 @@
 body * {
   font-family: 'Mulish', sans-serif;
   text-align: center;
+}
+
+body {
+  background-image: url('/public/assets/bg.png');
 }
 
 #content {
@@ -197,4 +201,65 @@ video {
 }
 .danger:hover {
   background-color: #cc0000 !important;
+}
+
+#auth-section {
+  margin-top: 20px;
+}
+
+#auth-section h2 {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+#auth-section h3 {
+  font-size: 20px;
+  margin-bottom: 5px;
+}
+
+#auth-section form {
+  margin-bottom: 20px;
+}
+
+#auth-section label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+#auth-section input {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+#auth-section button {
+  padding: 10px 15px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#auth-section button:hover {
+  background-color: #0056b3;
+}
+
+#auth-section div {
+  margin-top: 10px;
+}
+
+#text-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  resize: none; /* Disable manual resizing */
+  min-height: 40px; /* Minimum height */
+  max-height: 200px; /* Maximum height */
+  overflow: hidden; /* Hide overflow */
+  box-sizing: border-box; /* Include padding and border in the element's total width and height */
+  line-height: 1.5; /* Set line height for better readability */
 }

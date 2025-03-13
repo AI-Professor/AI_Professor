@@ -1,11 +1,16 @@
+from datetime import timedelta
+import datetime
 import json , os, sys, shutil, warnings, argparse, uvicorn, logging
-from typing import Dict, List
-from fastapi.responses import JSONResponse
+from typing import Dict, List, Optional
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi.responses import JSONResponse
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import JWTError, jwt
+from pydantic import BaseModel
 
 from src.data_ingestion.pdf_parser import extract_text_from_pdf 
 from src.data_ingestion.epub_parser import extract_text_from_epub
@@ -17,7 +22,57 @@ from src.avatar.lip_sync import create_talking_avatar
 from src.avatar.script_generator import generate_lesson_script
 from src.nlp.quiz_system import BasicQuizEngine
 
+from fastapi import FastAPI, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from app import models, schemas, crud, auth
+from app.database import SessionLocal, engine
+
+from dotenv import load_dotenv
+
+load_dotenv()
 warnings.filterwarnings("ignore")
+
+SECRET_KEY = os.environ["ENCRYPTION_KEY"]
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# Users
+def get_userdb():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# Define the OAuth2 password bearer scheme
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# Function to create a JWT token
+def create_access_token(data: dict, expires_delta: timedelta):
+    to_encode = data.copy()
+    expire = datetime.datetime.utcnow() + expires_delta
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm="HS256")
+    return encoded_jwt
+
+# Function to get the current user from the token
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_userdb)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+        token_data = schemas.TokenData(email=email)
+    except JWTError:
+        raise credentials_exception
+    user = crud.get_user_by_email(db, email=token_data.email)
+    if user is None:
+        raise credentials_exception
+    return user
 
 #Initialize log functions to create system logs whenever APIs are called
 LOG_DIR = "logs"
@@ -52,6 +107,39 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Users
+def get_userdb():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@app.post("/api/register", response_model=schemas.UserResponse)
+def register_user(user: schemas.UserCreate, db: Session = Depends(get_userdb)):
+    db_user = crud.get_user_by_email(db, email=user.email)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    return crud.create_user(db=db, user=user)
+
+@app.post("/api/token", response_model=schemas.Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_userdb)):
+    user = crud.get_user_by_email(db, email=form_data.username)
+
+    if not user or not auth.verify_password(form_data.password, user.password):
+        raise HTTPException(status_code=400, detail="Incorrect email or password")
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+
+    return {"access_token": access_token, "token_type": "bearer"}
+    
+@app.get("/user-info", response_model=schemas.UserResponse)
+async def read_user_info(current_user: schemas.UserResponse = Depends(get_current_user)):
+    return current_user    
+
 #Check if our smart AI is initialized. global_db refers to the knowledge graph we generated from materials
 @app.get("/health")
 async def health_check():
@@ -71,6 +159,23 @@ async def answer_endpoint(question_data: dict):
         
     except Exception as e:
         logger.error("Error in /api/answer: %s", str(e))
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+@app.post("/api/question")
+async def question_endpoint(question_data: dict, current_user: schemas.UserResponse = Depends(get_current_user)):
+    try:
+        logger.info("Received question from user %s: %s", current_user.email, question_data["question"])
+        if not global_db:
+            raise HTTPException(status_code=503, detail="System not initialized")
+            
+        response = answer_question(question_data["question"], global_db)
+        return {"answer": response['text']}
+        
+    except Exception as e:
+        logger.error("Error in /api/question: %s", str(e))
         return JSONResponse(
             status_code=500,
             content={"error": str(e)}
@@ -197,14 +302,15 @@ def main():
             text += extract_text_from_epub(str(file))
         elif file.suffix.lower() in ['.mp4', '.mov', '.avi']:
             text += extract_text_from_video(str(file))
-        chunks = split_text(text)  
+
+        chunks = split_text(text)
         db = initialize_qa_system(chunks)
         print("✅ Course material loaded successfully!\n")
 
-        #Generate lesson script from knowledge graph
-        print("📝 Generating lesson script...")
-        generate_lesson_script(db, "TEACHING", 5)
-        print("✅ Lecture script prepared successfully!\n")
+        # #Generate lesson script from knowledge graph
+        # print("📝 Generating lesson script...")
+        # generate_lesson_script(db, "TEACHING", 5)
+        # print("✅ Lecture script prepared successfully!\n")
 
         #Generate lecture audio from lesson script
         #print("🔊 Rendering lecture audio...")

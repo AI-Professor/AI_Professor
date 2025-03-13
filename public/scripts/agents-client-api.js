@@ -1,8 +1,12 @@
 'use strict';
+console.log('agents-client-api.js loaded'); // Log when the script is loaded
+
 //This is the javascript files for our index-agents.html frontend UI
 
 //We will fetch our D-ID API key from frontend environment file api.json
 const DID_API = await (await fetch("/api.json")).json();
+console.log('DID_API loaded', DID_API); // Log when the API key is loaded
+
 const API_BASE = `${DID_API.url}/talks/streams`;
 import { initializeVoiceRecognition } from "./voice-ui.js";
 
@@ -55,59 +59,15 @@ const presenterInputByService = {
   },
 };
 
-//The following section of functions will serve connect button clicked event. These functions are meant to create a live stream, establish a WebRTC connection with the platform, and submit network information to initialize connection. These steps are crucial to our implementation to Real-Time Q&A feature. Detailed explanation can be find on "https://docs.d-id.com/reference/talks-streams-overview".
-const connectButton = document.getElementById('connect-button');
-connectButton.onclick = async () => {
-  if (peerConnection && peerConnection.connectionState === 'connected') {
-    return;
-  }
+let accessToken = '';
+let currentStreamId = null; // Define currentStreamId
 
-  stopAllStreams();
-  closePC();
-
-  /**
-   * Set 'stream_warmup' to 'true' in the payload to initiate idle streaming at the beginning of the connection, addressing jittering issues.
-   * The idle streaming process is transparent to the user and is concealed by triggering a 'stream/ready' event on the data channel,
-   * indicating that idle streaming has concluded and the stream channel is ready for use.
-   */
-  const sessionResponse = await fetchWithRetry(`${DID_API.url}/${DID_API.service}/streams`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${DID_API.key}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ ...presenterInputByService[DID_API.service], stream_warmup,source_url: "https://i.ibb.co/h1D26ggv/avatar.png" }),
-  });
-
-  const { id: newStreamId, offer, ice_servers: iceServers, session_id: newSessionId } = await sessionResponse.json();
-  streamId = newStreamId;
-  sessionId = newSessionId;
-
-  try {
-    sessionClientAnswer = await createPeerConnection(offer, iceServers);
-  } catch (e) {
-    console.log('error during streaming setup', e);
-    stopAllStreams();
-    closePC();
-    return;
-  }
-
-  const sdpResponse = await fetch(`${DID_API.url}/${DID_API.service}/streams/${streamId}/sdp`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${DID_API.key}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      answer: sessionClientAnswer,
-      session_id: sessionId,
-    }),
-  });
-};
 function onIceGatheringStateChange() {
   iceGatheringStatusLabel.innerText = peerConnection.iceGatheringState;
   iceGatheringStatusLabel.className = 'iceGatheringState-' + peerConnection.iceGatheringState;
 }
+
+
 function onIceCandidate(event) {
   console.log('onIceCandidate', event);
   if (event.candidate) {
@@ -378,11 +338,19 @@ async function handleUserInput(text) {
     showStatusMessage(`❌ Processing error: ${error.message}`, true);
 }
 }
+const MAX_MESSAGES = 1; // Maximum number of messages to display in the chat history
+
 function addChatMessage(text, sender) {
   const msgDiv = document.createElement('div');
   msgDiv.className = `chat-msg ${sender}`;
   msgDiv.textContent = text;
-  document.getElementById('msgHistory').appendChild(msgDiv);
+  const msgHistory = document.getElementById('msgHistory');
+  msgHistory.appendChild(msgDiv);
+
+  // Remove oldest messages if the number of messages exceeds the limit
+  while (msgHistory.children.length > MAX_MESSAGES) {
+    msgHistory.removeChild(msgHistory.firstChild);
+  }
 }
 
 //The following section of functions will serve destroy button clicked. It will destroy the live stream we created and cut off peer connection
@@ -591,4 +559,147 @@ window.addEventListener('beforeunload', async () => {
           headers: { 'Authorization': `Basic ${DID_CONFIG.key}` }
       });
   }
+  // Clear the access token from localStorage
+  localStorage.removeItem('accessToken');
 });
+
+// document.addEventListener('DOMContentLoaded', () => {
+  // console.log('DOM fully loaded and parsed'); // Log when the DOM is fully loaded
+
+  // Handle registration form submission
+  document.getElementById('register-button').addEventListener('click', async () => {
+    console.log("Register button clicked"); // Log when the register button is clicked
+    const email = document.getElementById('register-email').value;
+    const password = document.getElementById('register-password').value;
+
+    if (!email || !password) {
+      document.getElementById('register-message').textContent = 'Please fill in all fields.';
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:5001/api/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API Error ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      document.getElementById('register-message').textContent = 'Registration successful!';
+    } catch (error) {
+      document.getElementById('register-message').textContent = 'Registration failed: ' + error.message;
+    }
+  });
+
+  // Handle login form submission
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+
+    if (!email || !password) {
+      document.getElementById('login-message').textContent = 'Please fill in all fields.';
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:5001/api/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ username: email, password }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API Error ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      accessToken = data.access_token;
+      localStorage.setItem('accessToken', accessToken); // Store token in localStorage
+      document.getElementById('login-message').textContent = 'Login successful!';
+      console.log('Access Token:', accessToken);
+    } catch (error) {
+      // Clear the access token from localStorage if login fails
+      localStorage.removeItem('accessToken');
+      document.getElementById('login-message').textContent = 'Login failed: ' + error.message;
+    }
+  });
+
+  // Fetch user-specific information
+  document.getElementById('fetch-user-info').addEventListener('click', async () => {
+    const token = localStorage.getItem('accessToken'); // Retrieve token from localStorage
+    if (!token) {
+      document.getElementById('user-info').textContent = 'No access token found. Please log in.';
+      return;
+    }
+    try {
+      const response = await fetch('http://localhost:5001/user-info', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API Error ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      document.getElementById('user-info').textContent = JSON.stringify(data, null, 2);
+    } catch (error) {
+      document.getElementById('user-info').textContent = 'Failed to fetch user info: ' + error.message;
+    }
+  });
+
+  document.getElementById('text-input').addEventListener('input', function() {
+    this.style.height = 'auto'; // Reset the height
+    this.style.height = (this.scrollHeight) + 'px'; // Set the height to the scroll height
+  });
+
+  document.getElementById('text-submit-button').addEventListener('click', async () => {
+    const question = document.getElementById('text-input').value;
+    if (!question) {
+      showStatusMessage('Please enter a question.', true);
+      return;
+    }
+  
+    try {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        showStatusMessage('No access token found. Please log in.', true);
+        return;
+      }
+  
+      const response = await fetch('http://localhost:5001/api/question', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ question })
+      });
+  
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API Error ${response.status}: ${errorText}`);
+      }
+  
+      const data = await response.json();
+      addChatMessage(`AI: ${data.answer}`, 'ai');
+    } catch (error) {
+      showStatusMessage(`❌ Processing error: ${error.message}`, true);
+    }
+  });
+  
+// });

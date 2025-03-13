@@ -175,4 +175,9 @@ api.json
 
 data/processed
 
-node_modules
+
+# Node
+node_modules/
+logs/
+
+.idea
