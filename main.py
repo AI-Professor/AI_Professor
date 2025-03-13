@@ -64,8 +64,7 @@ def start_UE():
     args = [
         '-PixelStreamingURL=ws://127.0.0.1:8888',
         '-AllowPixelStreamingCommands',
-        '-RenderOffScreen',
-        '-AudioMixer'
+        '-RenderOffscreen'
     ]
 
     # Start the game as a detached process
@@ -151,7 +150,7 @@ async def on_shutdown():
     elif platform.system() == "Windows":
         print("Shutting down on Windows...")
         logger.info("Shutting down Unreal Engine...")
-        terminate_UE('AI_Professor-Win64-Shipping.exe')
+        terminate_UE('AI_Professor.exe')
         logger.info("Unreal Engine terminated successfully.")
     
     if 'quiz_engine' in globals():
@@ -520,5 +519,5 @@ if __name__ == "__main__":
         main()
     else:
         #This will start our backend API and connect with frontend functions. Run this command whenever you want to see backend API calls and frontend reactions: python main.py
-        logger.info(f"Starting API server on port {server_back_port}.")
-        uvicorn.run(app, host=server_host_name, port=int(server_back_port))
+        logger.info(f"Starting API server on port {local_back_port}.")
+        uvicorn.run(app, host=local_host_name, port=int(local_back_port))
