@@ -17,9 +17,7 @@ const localFrontendUrl = `http://${localHostName}:${localFrontendPort}`
 const localBackendUrl = `http://${localHostName}:${localBackendPort}`
 const localUeUrl = `ws://${localHostName}:${localUePort}`
 
-let currentQuiz = [];
-let currentQuestionIndex = 0;
-let score = 0;
+let closed = false;
 window.pixelStreamingApp = null;
 
 const videoElement = document.getElementById('pixelStreamVideo');
@@ -470,6 +468,7 @@ disconnectButton.onclick = async () => {
     console.log('Disconnected successfully:', data);
 
     await window.pixelStreamingApp.disconnect();
+    closed = true;
 
     // Optionally, enable the button again or update UI
     disconnectButton.disabled = false;
@@ -546,3 +545,31 @@ function showStatusMessage(message, isError = false) {
 
 document.addEventListener('DOMContentLoaded', loadNavbar());
   
+window.addEventListener('beforeunload', async () => {
+  if (closed == false){
+    try {
+      // Send a POST request to the /api/connect endpoint
+      const response = await fetch(`${localBackendUrl}/api/disconnect`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      // Check if the request was successful
+      if (!response.ok) {
+        throw new Error('Failed to disconnect');
+      }
+
+      const data = await response.json();
+
+      
+      await window.pixelStreamingApp.disconnect();
+      
+
+    } catch (error) {
+      console.error('Error connecting:', error);
+      disconnectButton.disabled = false;
+    }
+}
+});

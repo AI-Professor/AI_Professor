@@ -179,6 +179,7 @@ def clear_chatlog():
 
 @app.on_event("shutdown")
 async def on_shutdown():
+
     if platform.system() == "Darwin":
         print("Shutting down on macOS...")
     elif platform.system() == "Linux":
