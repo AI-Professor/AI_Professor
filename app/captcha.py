@@ -47,3 +47,10 @@ def get_captcha():
         "image": image_bytes
     }
 
+def verify_captcha(captcha_id, user_input):
+    # Return False if captcha expired or not found.
+    expected = captcha_store.get(captcha_id)
+    if expected is None:
+        return False
+    return expected == user_input.lower()
+

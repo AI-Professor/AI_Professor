@@ -1,9 +1,22 @@
 import { loadNavbar, setupNavbarUserState } from "./navbar.js";
+import { loadCaptcha } from "./captcha.js";
 
 const ENV = await (await fetch("/api.json")).json();
-const localHostName = ENV.LOCAL_HOST_NAME
-const localBackendPort = ENV.LOCAL_BACKEND_PORT
-const localBackendUrl = `http://${localHostName}:${localBackendPort}`
+const localHostName = ENV.LOCAL_HOST_NAME;
+const localBackendPort = ENV.LOCAL_BACKEND_PORT;
+const localBackendUrl = `http://${localHostName}:${localBackendPort}`;
+
+async function refreshCaptcha() {
+    const data = await loadCaptcha(localBackendUrl);
+    if (data) {
+        document.getElementById('captcha-image').src = `data:image/png;base64,${data.captcha_image}`;
+        document.getElementById('captcha-id').value = data.captcha_id;
+    }
+}
+
+// Change: attach refresh event to captcha image instead of refresh button
+document.getElementById('captcha-image').onclick = refreshCaptcha;
+await refreshCaptcha();
 
 const registerButton = document.getElementById('register-button');
 registerButton.onclick = async () => {
@@ -16,11 +29,13 @@ registerButton.onclick = async () => {
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
     const confirmPassword = document.getElementById('confirm_password').value;
+    const captchaText = document.getElementById('captcha-input').value;
+    const captchaId = document.getElementById('captcha-id').value;
 
-    if (!firstname || !lastname || !username || !university || !confirmPassword || !email || !password) {
+    if (!firstname || !lastname || !username || !university || !confirmPassword || !email || !password || !captchaText) {
         document.getElementById('register-message').textContent = 'Please fill in all fields.';
         return;
-      }
+    }
 
     if (password != confirmPassword) {
         document.getElementById('register-message').textContent = 'Passwards do not match. Please reenter password.';
@@ -39,7 +54,10 @@ registerButton.onclick = async () => {
           user_name: username,
           university_name: university,
           email: email, 
-          password: password }),
+          password: password,
+          captcha_id: captchaId,
+          captcha_text: captchaText
+        }),
       });
 
       if (!response.ok) {
@@ -55,7 +73,7 @@ registerButton.onclick = async () => {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: new URLSearchParams({ username: email, password }),
+        body: new URLSearchParams({ username: email, password, captcha_id: captchaId, captcha_text: captchaText }),
       });
 
       if (!loginResponse.ok) {
@@ -96,6 +114,7 @@ registerButton.onclick = async () => {
         sessionStorage.removeItem('accessToken');
         document.getElementById('register-message').textContent = 'Registration failed: ' + error.message;
         registerButton.disabled = false;
+        await refreshCaptcha(); // Refresh captcha on error
       }
 };
 

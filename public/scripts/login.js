@@ -1,9 +1,22 @@
-import { loadNavbar, setupNavbarUserState} from "./navbar.js";
+import { loadNavbar, setupNavbarUserState } from "./navbar.js";
+import { loadCaptcha } from "./captcha.js";
 
 const ENV = await (await fetch("/api.json")).json();
-const localHostName = ENV.LOCAL_HOST_NAME
-const localBackendPort = ENV.LOCAL_BACKEND_PORT
-const localBackendUrl = `http://${localHostName}:${localBackendPort}`
+const localHostName = ENV.LOCAL_HOST_NAME;
+const localBackendPort = ENV.LOCAL_BACKEND_PORT;
+const localBackendUrl = `http://${localHostName}:${localBackendPort}`;
+
+async function refreshCaptcha() {
+    const data = await loadCaptcha(localBackendUrl);
+    if (data) {
+        document.getElementById('captcha-image').src = `data:image/png;base64,${data.captcha_image}`;
+        document.getElementById('captcha-id').value = data.captcha_id;
+    }
+}
+
+// Change: attach refresh event to captcha image instead of refresh button
+document.getElementById('captcha-image').onclick = refreshCaptcha;
+await refreshCaptcha();
 
 const loginButton = document.getElementById('login-button');
 loginButton.onclick = async () => {
@@ -11,19 +24,28 @@ loginButton.onclick = async () => {
 
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
+    const captchaText = document.getElementById('captcha-input').value;
+    const captchaId = document.getElementById('captcha-id').value;
 
-    if (!email || !password) {
+    if (!email || !password || !captchaText) {
       document.getElementById('login-message').textContent = 'Please fill in all fields.';
       return;
     }
 
     try {
+      // Use URLSearchParams to include captcha fields
+      const form = new URLSearchParams();
+      form.append("username", email);
+      form.append("password", password);
+      form.append("captcha_id", captchaId);
+      form.append("captcha_text", captchaText);
+
       const response = await fetch(`${localBackendUrl}/api/token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: new URLSearchParams({ username: email, password }),
+        body: form,
       });
 
       if (!response.ok) {
@@ -33,7 +55,7 @@ loginButton.onclick = async () => {
 
       const data = await response.json();
 
-      sessionStorage.setItem('accessToken', data.access_token); // Store token in localStorage
+      sessionStorage.setItem('accessToken', data.access_token);
       document.getElementById('login-message').textContent = 'Login successful!';
       console.log('Access Token:', data.access_token);
       
@@ -45,15 +67,12 @@ loginButton.onclick = async () => {
         },
       });
 
-      if (!response.ok) {
+      if (!userResponse.ok) {
         const errorText = await userResponse.text();
         throw new Error(`API Error ${userResponse.status}: ${errorText}`);
       }
 
       const userdata = await userResponse.json();
-      console.log(userdata.user_name);
-      console.log(userdata.email);
-
       sessionStorage.setItem('username', userdata.user_name);
 
       setTimeout(() => {
@@ -64,11 +83,11 @@ loginButton.onclick = async () => {
       
       window.location.href = "/";
     } catch (error) {
-      // Clear the access token from localStorage if login fails
       sessionStorage.removeItem('accessToken');
       document.getElementById('login-message').textContent = 'Login failed: ' + error.message;
       loginButton.disabled = false;
+      await refreshCaptcha(); // Refresh captcha on error
     }
-  };
+};
 
 document.addEventListener('DOMContentLoaded', loadNavbar());

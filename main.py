@@ -2,7 +2,7 @@ import atexit
 from dotenv import load_dotenv
 from datetime import timedelta
 import datetime
-from fastapi import FastAPI, HTTPException, UploadFile, File, Request, Depends, status
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request, Depends, status, Form
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
@@ -23,8 +23,9 @@ from subprocess import Popen, PIPE
 from threading import Event, Thread
 import torch
 from typing import Dict, List, Optional
+import base64
 
-from app import models, schemas, crud, auth
+from app import models, schemas, crud, auth, captcha
 from app.database import SessionLocal, engine
 
 from src.data_ingestion.pdf_parser import extract_text_from_pdf 
@@ -243,20 +244,39 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_exception
     return user
 
+@app.get("/api/captcha")
+async def get_captcha_endpoint():
+    logger.info("GET /api/captcha endpoint called")  # Added debug log
+    cap = captcha.get_captcha()
+    # Encode image bytes to base64
+    encoded_image = base64.b64encode(cap["image"]).decode("utf-8")
+    return {"captcha_id": cap["captcha_id"], "captcha_image": encoded_image}
+
 @app.post("/api/register", response_model=schemas.UserResponse)
 def register_user(user: schemas.UserCreate, db: Session = Depends(get_userdb)):
+    # Captcha verification: expect captcha_id and captcha_text in the payload
+    captcha_id = getattr(user, "captcha_id", None)
+    captcha_text = getattr(user, "captcha_text", None)
+    if not captcha_id or not captcha_text or not captcha.verify_captcha(captcha_id, captcha_text):
+        raise HTTPException(status_code=400, detail="Invalid captcha")
+    # ...existing registration logic...
     db_user = crud.get_user_by_email(db, email=user.email)
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     return crud.create_user(db=db, user=user)
 
 @app.post("/api/token", response_model=schemas.Token)
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_userdb)):
+async def login_for_access_token(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_userdb)):
+    # Captcha verification
+    form = await request.form()
+    captcha_id = form.get("captcha_id")
+    captcha_text = form.get("captcha_text")
+    if not captcha_id or not captcha_text or not captcha.verify_captcha(captcha_id, captcha_text):
+        raise HTTPException(status_code=400, detail="Invalid captcha")
+    
     user = crud.get_user_by_email(db, email=form_data.username)
-
     if not user:
         raise HTTPException(status_code=400, detail="Email not registered. Please sign up first!")
-
     if not auth.verify_password(form_data.password, user.password):
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     
@@ -264,9 +284,8 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     access_token = create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
-
     return {"access_token": access_token, "token_type": "bearer"}
-    
+
 @app.get("/api/user-info", response_model=schemas.UserResponse)
 async def read_user_info(current_user: schemas.UserResponse = Depends(get_current_user)):
     return current_user    

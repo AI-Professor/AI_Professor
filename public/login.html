@@ -18,6 +18,14 @@
 
       <label for="loginPassword">Password</label>
       <input type="password" id="loginPassword" name="password" placeholder="Enter your password" required>
+      
+      <!-- Captcha Section -->
+      <label for="captcha-container">Captcha</label>
+      <div id="captcha-container">
+          <img id="captcha-image" src="" alt="Captcha Image">
+          <input type="text" id="captcha-input" name="captcha_text" placeholder="Enter captcha" required>
+          <input type="hidden" id="captcha-id" name="captcha_id">
+      </div>
 
       <button type="button" id="login-button">Login</button>
     </form>
