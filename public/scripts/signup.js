@@ -28,34 +28,68 @@ registerButton.onclick = async () => {
     }
 
     try {
-        const response = await fetch(`${localBackendUrl}/api/register`, {
-          method: 'POST',
+      const response = await fetch(`${localBackendUrl}/api/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          first_name: firstname,
+          last_name: lastname,
+          user_name: username,
+          university_name: university,
+          email: email, 
+          password: password }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API Error ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      document.getElementById('register-message').textContent = 'Registration successful!';
+
+      const loginResponse = await fetch(`${localBackendUrl}/api/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ username: email, password }),
+      });
+
+      if (!loginResponse.ok) {
+        const errorText = await loginResponse.text();
+        throw new Error(`API Error ${loginResponse.status}: ${errorText}`);
+      }
+
+        const loginData = await loginResponse.json();
+
+        sessionStorage.setItem('accessToken', loginData.access_token); // Store token in localStorage
+        console.log('Access Token:', loginData.access_token);
+        
+        const userResponse = await fetch(`${localBackendUrl}/api/user-info`, {
+          method: 'GET',
+          credentials: "include",
           headers: {
-            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${loginData.access_token}`,
           },
-          body: JSON.stringify({ 
-            first_name: firstname,
-            last_name: lastname,
-            user_name: username,
-            university_name: university,
-            email: email, 
-            password: password }),
         });
-  
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`API Error ${response.status}: ${errorText}`);
+
+        if (!userResponse.ok) {
+          const errorText = await userResponse.text();
+          throw new Error(`API Error ${userResponse.status}: ${errorText}`);
         }
-  
-        const data = await response.json();
-        document.getElementById('register-message').textContent = 'Registration successful!';
 
-        sessionStorage.setItem('accessToken', data.access_token); 
-        console.log('Access Token:', data.access_token);
+        const userdata = await userResponse.json();
 
-        sessionStorage.setItem('username', username);
+        sessionStorage.setItem('username', userdata.user_name);
 
-        await setupNavbarUserState();
+        setTimeout(() => {
+          if (sessionStorage.getItem('username')) {
+            setupNavbarUserState();
+          }
+        }, 500);
 
         window.location.href = "/my-account.html";
       } catch (error) {

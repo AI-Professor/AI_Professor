@@ -46,8 +46,8 @@ loginButton.onclick = async () => {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API Error ${response.status}: ${errorText}`);
+        const errorText = await userResponse.text();
+        throw new Error(`API Error ${userResponse.status}: ${errorText}`);
       }
 
       const userdata = await userResponse.json();

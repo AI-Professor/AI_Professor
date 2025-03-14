@@ -106,7 +106,6 @@ async def health_check():
 
 
 # Start the program
-@app.on_event("startup")
 def start_UE():
     global UE
     UE = True
@@ -125,6 +124,7 @@ def check_ffmpeg_installed():
     """Check if FFmpeg is installed on the system."""
     return shutil.which('ffmpeg') is not None
 
+@app.on_event("startup")
 async def startup_event():
     # Check platform and FFmpeg for Linux systems
     if platform.system() == "Linux" and not check_ffmpeg_installed():
@@ -135,7 +135,7 @@ async def startup_event():
     if platform.system() == "Windows":
         print("Running on Windows...")
         logger.info("Starting Unreal Engine...")
-        start_UE()
+        #start_UE()
 
     # Check if UE is running on Mac
     if platform.system() == "Darwin":
@@ -186,7 +186,7 @@ async def on_shutdown():
     elif platform.system() == "Windows":
         print("Shutting down on Windows...")
         logger.info("Shutting down Unreal Engine...")
-        terminate_UE('AI_Professor.exe')
+        #terminate_UE('AI_Professor.exe')
         logger.info("Unreal Engine terminated successfully.")
     
     if 'quiz_engine' in globals():
@@ -207,13 +207,6 @@ async def on_shutdown():
 
 
 # Users
-def get_userdb():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 def get_userdb():
     db = SessionLocal()
     try:
@@ -254,14 +247,7 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(get_userdb)):
     db_user = crud.get_user_by_email(db, email=user.email)
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
-    )
-    
-    crud.create_user(db=db, user=user)
-    return {"access_token": access_token, "token_type": "bearer"} 
+    return crud.create_user(db=db, user=user)
 
 @app.post("/api/token", response_model=schemas.Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_userdb)):
