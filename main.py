@@ -335,11 +335,12 @@ async def connect():
         global device, model_path, blendshape_model
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model_path = 'local_model/NeuroSync/NeuroSync_Local_API/utils/model/model.pth'
-        blendshape_model = load_model(model_path, config, device, use_half_precision=True)
+        blendshape_model = load_model(model_path, config, device, use_half_precision=False)
         py_face = initialize_py_face()
         global socket_connection, osc_sender
         socket_connection = create_socket_connection()
-        osc_sender = udp_client.SimpleUDPClient(local_host_name, audio_port)
+        osc_sender = udp_client.SimpleUDPClient('127.0.0.1', audio_port)
+        osc_sender.send_message('/test', 'we are connected' )
         global chat_history
         chat_history = load_chat_history()
         pipeline = KPipeline(lang_code='a')
