@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import Optional
 from uuid import UUID
 
@@ -25,6 +25,15 @@ class UserResponse(BaseModel):
     class Config:
         orm_mode = True
 
+
+class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    last_name: Optional[str] = None
+    first_name: Optional[str] = None
+    user_name: Optional[str] = None
+    university_name: Optional[str] = None
+    major: Optional[str] = None
 
 class Token(BaseModel):
     access_token: str

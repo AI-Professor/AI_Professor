@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>My Account - AI Lecturer</title>
   <link rel="stylesheet" href="/public/styles/my-account.css"/>
+  <link rel="stylesheet" href="/public/styles/input-styles.css"/> <!-- Added new CSS file -->
 </head>
 <body>
   <!-- ---------- Navigation ---------- -->
@@ -16,7 +17,7 @@
       <div class="profile">
         <!-- <img class="profile-img" src="https://via.placeholder.com/150" alt="User Avatar"> -->
         <div class="user-info">
-          <h3 id="username">Loading...</h3>
+          <h3 id="profileUserName">Loading...</h3>
           <p id="user-email">Loading...</p>
         </div>
       </div>
@@ -25,36 +26,46 @@
 
     <!-- Read-Only Info Grid -->
     <div class="info-grid">
+      <!-- Non-editable fields -->
       <div>
         <h4>User ID</h4>
         <div class="info-box" id="userIdText">Loading...</div>
-        <input type="text" id="userIdInput" class="hidden" value="">
       </div>
-
       <div>
-        <h4>Major</h4>
-        <div class="info-box" id="majorText">Loading...</div>
-        <input type="text" id="majorInput" class="hidden" value="">
+        <h4>Subscription Plan</h4>
+        <div class="info-box" id="subscriptionText">Loading...</div>
+      </div>
+      <div>
+        <h4>Role</h4>
+        <div class="info-box" id="roleText">Loading...</div>
       </div>
 
+      <!-- Editable fields -->
+      <div>
+        <h4>First Name</h4>
+        <div class="info-box" id="firstNameText">Loading...</div>
+        <input type="text" id="firstNameInput" class="hidden" value="">
+      </div>
+      <div>
+        <h4>Last Name</h4>
+        <div class="info-box" id="lastNameText">Loading...</div>
+        <input type="text" id="lastNameInput" class="hidden" value="">
+      </div>
+      <div>
+        <h4>User Name</h4>
+        <div class="info-box" id="userNameText">Loading...</div>
+        <input type="text" id="userNameInput" class="hidden" value="">
+      </div>
       <div>
         <h4>Email</h4>
         <div class="info-box" id="emailText">Loading...</div>
         <input type="email" id="emailInput" class="hidden" value="">
       </div>
-
       <div>
-        <h4>Subscription Plan</h4>
-        <div class="info-box" id="subscriptionText">Loading...</div>
-        <input type="text" id="subscriptionInput" class="hidden" value="">
+        <h4>Major</h4>
+        <div class="info-box" id="majorText">Loading...</div>
+        <input type="text" id="majorInput" class="hidden" value="">
       </div>
-
-      <div>
-        <h4>Role</h4>
-        <div class="info-box" id="roleText">Loading...</div>
-        <input type="text" id="roleInput" class="hidden" value="">
-      </div>
-
       <div>
         <h4>University</h4>
         <div class="info-box" id="universityText">Loading...</div>
