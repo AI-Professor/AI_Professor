@@ -89,7 +89,8 @@ def stream_llm_chunks(user_input, chat_history, chunk_queue, db:FAISS, is_lesson
 
     else:
         lesson_script_chunks = re.split(r'(?<=[.!?])\s+', user_input.strip())
-        for chunk in lesson_script_chunks:
+        grouped_chunk = group_sentences(lesson_script_chunks, 2)
+        for chunk in grouped_chunk:
             chunk = chunk.strip()  # Ensure no leading/trailing whitespace
 
             if chunk:
@@ -103,3 +104,21 @@ def stream_llm_chunks(user_input, chat_history, chunk_queue, db:FAISS, is_lesson
 
         if buffer.strip():
             chunk_queue.put(buffer.strip())
+
+def group_sentences(sentences, group_size):
+    """
+    Groups sentences into larger chunks to reduce TTS latency.
+    """
+    grouped_chunks = []
+    buffer = []
+    
+    for sentence in sentences:
+        buffer.append(sentence)
+        if len(buffer) >= group_size:
+            grouped_chunks.append(" ".join(buffer))
+            buffer = []
+    
+    if buffer:  # Add remaining sentences
+        grouped_chunks.append(" ".join(buffer))
+    
+    return grouped_chunks

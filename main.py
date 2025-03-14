@@ -1,21 +1,31 @@
-from dotenv import load_dotenv
-import numpy as np
-import torch
-import json , os, sys, shutil, warnings, argparse, uvicorn, logging
-from pythonosc import udp_client
-from typing import Dict, List
-from fastapi.responses import JSONResponse
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
-from fastapi import FastAPI, HTTPException, UploadFile, File, Request
-from fastapi.middleware.cors import CORSMiddleware
-from threading import Event, Thread
-from queue import Queue, Empty
 import atexit
+from dotenv import load_dotenv
+from datetime import timedelta
+import datetime
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request, Depends, status
+from fastapi.responses import JSONResponse
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 import glob
-from subprocess import Popen, PIPE
-import psutil  
+from jose import JWTError, jwt
+import json , os, sys, shutil, warnings, argparse, uvicorn, logging
+from logging.handlers import RotatingFileHandler
+import numpy as np
+from pathlib import Path
 import platform
+import psutil
+from pydantic import BaseModel
+from pythonosc import udp_client
+from queue import Queue, Empty
+from sqlalchemy.orm import Session
+from subprocess import Popen, PIPE
+from threading import Event, Thread
+import torch
+from typing import Dict, List, Optional
+
+from app import models, schemas, crud, auth
+from app.database import SessionLocal, engine
 
 from src.data_ingestion.pdf_parser import extract_text_from_pdf 
 from src.data_ingestion.epub_parser import extract_text_from_epub
@@ -52,38 +62,8 @@ local_front_url = f"http://{local_host_name}:{local_front_port}"
 local_back_url = f"http://{local_host_name}:{local_back_port}"
 local_ue_url = f"http://{local_host_name}:{local_ue_port}"
 audio_port = int(os.getenv('AUDIO_PORT'))
-
-def check_ffmpeg_installed():
-    """Check if FFmpeg is installed on the system."""
-    return shutil.which('ffmpeg') is not None
-
-def start_UE():
-    global UE
-    UE = True
-    exe_path = os.path.join(os.path.dirname(__file__), 'Windows', 'AI_Professor.exe')
-    args = [
-        '-PixelStreamingURL=ws://127.0.0.1:8888',
-        '-AllowPixelStreamingCommands',
-        '-RenderOffscreen'
-    ]
-
-    # Start the game as a detached process
-    game_process = Popen([exe_path] + args, shell=True)
-    print(f"Game started with PID: {game_process.pid}")
-
-def terminate_UE(name):
-    UE = False
-    for proc in psutil.process_iter(['pid', 'name']):
-        # Check if the process name matches
-        if proc.info['name'] == name:
-            print(f"Terminating process {name} with PID {proc.info['pid']}")
-            proc.terminate()
-            try:
-                proc.wait(timeout=5)
-                print(f"Process {name} terminated successfully.")
-            except psutil.TimeoutExpired:
-                print("Process did not terminate in time. Forcing termination...")
-                proc.kill()
+SECRET_KEY = os.environ["ENCRYPTION_KEY"]
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 #Initialize log functions to create system logs whenever APIs are called
 LOG_DIR = "logs"
@@ -118,13 +98,33 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-#Check if our smart AI is initialized. global_db refers to the knowledge graph we generated from materials
 @app.get("/health")
 async def health_check():
     logger.info("Health check endpoint accessed.")
     return {"status": "ok", "initialized": "True"}#bool(global_db)
 
+
+
+# Start the program
 @app.on_event("startup")
+def start_UE():
+    global UE
+    UE = True
+    exe_path = os.path.join(os.path.dirname(__file__), 'Windows', 'AI_Professor.exe')
+    args = [
+        '-PixelStreamingURL=ws://127.0.0.1:8888',
+        '-AllowPixelStreamingCommands',
+        '-RenderOffscreen'
+    ]
+
+    # Start the game as a detached process
+    game_process = Popen([exe_path] + args, shell=True)
+    print(f"Game started with PID: {game_process.pid}")
+
+def check_ffmpeg_installed():
+    """Check if FFmpeg is installed on the system."""
+    return shutil.which('ffmpeg') is not None
+
 async def startup_event():
     # Check platform and FFmpeg for Linux systems
     if platform.system() == "Linux" and not check_ffmpeg_installed():
@@ -140,6 +140,42 @@ async def startup_event():
     # Check if UE is running on Mac
     if platform.system() == "Darwin":
         print("Running on macOS...")
+
+
+
+# Terminate the program
+def terminate_UE(name):
+    UE = False
+    for proc in psutil.process_iter(['pid', 'name']):
+        # Check if the process name matches
+        if proc.info['name'] == name:
+            print(f"Terminating process {name} with PID {proc.info['pid']}")
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+                print(f"Process {name} terminated successfully.")
+            except psutil.TimeoutExpired:
+                print("Process did not terminate in time. Forcing termination...")
+                proc.kill()
+
+def cleanup_audio_files():
+    audio_dir = Path("local_model/NeuroSync/NeuroSync_Player/data/audio")
+
+    # Find all .wav and .webm files separately and merge them
+    files_to_delete = glob.glob(str(audio_dir / "*.wav")) + glob.glob(str(audio_dir / "*.webm"))
+
+    for file_path in files_to_delete:
+        try:
+            os.remove(file_path)
+            print(f"Deleted: {file_path}")
+        except Exception as e:
+            print(f"Error deleting {file_path}: {e}")
+
+def clear_chatlog():
+    chat_path = "local_model/NeuroSync/NeuroSync_Player/chat_logs/chat_history.json"
+    with open(chat_path, 'w', encoding='utf-8') as f:
+        json.dump([], f, indent=4)
+    print(f"Chat log in {chat_path} has been cleared.")
 
 @app.on_event("shutdown")
 async def on_shutdown():
@@ -168,24 +204,95 @@ async def on_shutdown():
     clear_chatlog()
     logger.info("Chat history cleaned successfully.")
 
-def cleanup_audio_files():
-    audio_dir = Path("local_model/NeuroSync/NeuroSync_Player/data/audio")
 
-    # Find all .wav and .webm files separately and merge them
-    files_to_delete = glob.glob(str(audio_dir / "*.wav")) + glob.glob(str(audio_dir / "*.webm"))
 
-    for file_path in files_to_delete:
-        try:
-            os.remove(file_path)
-            print(f"Deleted: {file_path}")
-        except Exception as e:
-            print(f"Error deleting {file_path}: {e}")
+# Users
+def get_userdb():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-def clear_chatlog():
-    chat_path = "local_model/NeuroSync/NeuroSync_Player/chat_logs/chat_history.json"
-    with open(chat_path, 'w', encoding='utf-8') as f:
-        json.dump([], f, indent=4)
-    print(f"Chat log in {chat_path} has been cleared.")
+def get_userdb():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+def create_access_token(data: dict, expires_delta: timedelta):
+    to_encode = data.copy()
+    expire = datetime.datetime.utcnow() + expires_delta
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm="HS256")
+    return encoded_jwt
+
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_userdb)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+        token_data = schemas.TokenData(email=email)
+    except JWTError:
+        raise credentials_exception
+    user = crud.get_user_by_email(db, email=token_data.email)
+    if user is None:
+        raise credentials_exception
+    return user
+
+@app.post("/api/register", response_model=schemas.UserResponse)
+def register_user(user: schemas.UserCreate, db: Session = Depends(get_userdb)):
+    db_user = crud.get_user_by_email(db, email=user.email)
+    if db_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+    
+    crud.create_user(db=db, user=user)
+    return {"access_token": access_token, "token_type": "bearer"} 
+
+@app.post("/api/token", response_model=schemas.Token)
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_userdb)):
+    user = crud.get_user_by_email(db, email=form_data.username)
+
+    if not user:
+        raise HTTPException(status_code=400, detail="Email not registered. Please sign up first!")
+
+    if not auth.verify_password(form_data.password, user.password):
+        raise HTTPException(status_code=400, detail="Incorrect email or password")
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+
+    return {"access_token": access_token, "token_type": "bearer"}
+    
+@app.get("/api/user-info", response_model=schemas.UserResponse)
+async def read_user_info(current_user: schemas.UserResponse = Depends(get_current_user)):
+    return current_user    
+
+
+
+# Service
+def flush_queue(q):
+    try:
+        while True:
+            q.get_nowait()
+    except Empty:
+        pass
 
 @app.post("/api/connect")
 async def connect():
@@ -293,7 +400,6 @@ async def lecture(topic: dict):
             content={"error": str(e)}
         )
 
-#This function will handle the question asked by a user in the frontend and send back the answer generated by our model. Check *answer_question* function in src/nlp/qa_system.py for detailed implementation
 @app.post("/api/answer")
 async def answer_endpoint(question_data: dict):
     try:
@@ -315,8 +421,7 @@ async def answer_endpoint(question_data: dict):
             status_code=500,
             content={"error": str(e)}
         )
-
-#This function will take in the files uploaded from frontend and store them inside data/raw folder. Then they will be processed through extract functions for different forms of input. Detailed implementation can be found in src/data_ingestion folder. After they are processed, they will be splitted by split_text function in src/data_ingestion/text_splitter.py and create our knowledge graph by initialize_qa_system function in src/nlp/qa_system.py. Finally, a lesson script of length based on your choice will be generated and stored in data/processed/lesson_script folder in .txt form. Detailed implementation of generate_lesson_script function can be found in src/avatar/script_generator.py.
+    
 @app.post("/api/upload")
 async def upload_file(files: List[UploadFile] = File(...)):
     try:
@@ -358,7 +463,17 @@ async def upload_file(files: List[UploadFile] = File(...)):
         if 'file' in locals():
             file.file.close()
 
-#This function will handle "start quiz" button clicked from frontend. It will create a BasicQuizEngine object defined in src/nlp/quiz_system.py. This object has the ability to generate quiz questions and choices based on the number for questions you provided and the lecture script. This function send generated questions back to frontend for users to do.
+@app.post('/api/audio_to_blendshapes')
+async def audio_to_blendshapes_route(request: Request):
+    audio_bytes = await request.body()
+    generated_facial_data = generate_facial_data_from_bytes(audio_bytes, blendshape_model, device, config)
+    generated_facial_data_list = generated_facial_data.tolist() if isinstance(generated_facial_data, np.ndarray) else generated_facial_data
+
+    return {'blendshapes': generated_facial_data_list}
+
+
+
+# Quiz
 @app.get("/api/generate-quiz")
 async def generate_quiz():
     try:
@@ -388,21 +503,6 @@ async def generate_quiz():
             content={"error": f"Quiz generation failed: {str(e)}"}
         )
 
-@app.post('/api/audio_to_blendshapes')
-async def audio_to_blendshapes_route(request: Request):
-    audio_bytes = await request.body()
-    generated_facial_data = generate_facial_data_from_bytes(audio_bytes, blendshape_model, device, config)
-    generated_facial_data_list = generated_facial_data.tolist() if isinstance(generated_facial_data, np.ndarray) else generated_facial_data
-
-    return {'blendshapes': generated_facial_data_list}
-
-def flush_queue(q):
-    try:
-        while True:
-            q.get_nowait()
-    except Empty:
-        pass
-      
 atexit.register(cleanup_audio_files)
 atexit.register(clear_chatlog)
 
@@ -443,7 +543,8 @@ def main():
             text += extract_text_from_epub(str(file))
         elif file.suffix.lower() in ['.mp4', '.mov', '.avi']:
             text += extract_text_from_video(str(file))
-        chunks = split_text(text)  
+
+        chunks = split_text(text)
         db = initialize_qa_system(chunks)
         print("✅ Course material loaded successfully!\n")
 
@@ -520,4 +621,6 @@ if __name__ == "__main__":
     else:
         #This will start our backend API and connect with frontend functions. Run this command whenever you want to see backend API calls and frontend reactions: python main.py
         logger.info(f"Starting API server on port {local_back_port}.")
+        print(f"Allowed origins for CORS middleware: {[server_front_url, server_back_url, server_ue_url, local_front_url, local_back_url, local_ue_url]}")
         uvicorn.run(app, host=local_host_name, port=int(local_back_port))
+        

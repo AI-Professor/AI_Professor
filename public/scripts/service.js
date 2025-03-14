@@ -1,4 +1,6 @@
 import { initializeVoiceRecognition } from "./voice-ui.js";
+import { loadNavbar } from "./navbar.js";
+
 const ENV = await (await fetch("/api.json")).json();
 const serverHostName = ENV.SERVER_HOST_NAME
 const serverFrontendPort = ENV.SERVER_FRONTEND_PORT
@@ -29,6 +31,11 @@ connectButton.onclick = async () => {
     // Disable the button to prevent multiple clicks
     connectButton.disabled = true;
 
+    const token = sessionStorage.getItem('accessToken');
+    if (!token) {
+      alert('No access token found. Please log in.');
+      return;
+    }
     const statusDiv = document.createElement('div');
     statusDiv.id = 'connection-status';
     statusDiv.innerText = 'Establishing connection...';
@@ -141,18 +148,6 @@ function initializePixelStreaming() {
 
   window.pixelStreamingApp.addEventListener('webRtcConnected', () => {
     console.log('WebRTC connected successfully!');
-    const stream = window.pixelStreamingApp._webRtcController.videoPlayer.videoElement.srcObject;
-
-    const audioElement = new Audio();
-    audioElement.srcObject = stream;
-    audioElement.autoplay = true;
-    audioElement.muted = false;
-    audioElement.volume = 1.0;
-    document.body.appendChild(audioElement);
-  
-    document.body.addEventListener('click', () => {
-      audioElement.play().catch(err => console.error('Audio play error:', err));
-    });
   });
   
 
@@ -317,6 +312,13 @@ const topicInput = document.getElementById('topic-input');
 lectureButton.onclick = async () => {
   try {
     lectureButton.disabled = true;
+
+    const token = sessionStorage.getItem('accessToken');
+    if (!token) {
+      alert('No access token found. Please log in.');
+      return;
+    }
+
     const topic = topicInput.value.trim();
     if (!topic) {
       alert('Please enter a topic.');
@@ -350,6 +352,12 @@ startButton.onclick = async () => {
   try {
       startButton.disabled = true;
 
+      const token = sessionStorage.getItem('accessToken');
+      if (!token) {
+        alert('No access token found. Please log in.');
+        return;
+      }
+
       const userQuestion = await initializeVoiceRecognition();
       addChatMessage(`You: ${userQuestion}`, 'user');
       
@@ -370,17 +378,72 @@ startButton.onclick = async () => {
       addChatMessage(`AI: ${text}`, 'ai');
       
       startButton.disabled = false;
-      alert('Question input successful!')
   } catch (error) {
-      alert(`Question input failed! Processing error: ${error.message}`)
       startButton.disabled = false;
+      showStatusMessage(`❌ Processing error: ${error.message}`, true);
   }
 };
+document.getElementById('text-input').addEventListener('input', function() {
+  this.style.height = 'auto'; // Reset the height
+  this.style.height = (this.scrollHeight) + 'px'; // Set the height to the scroll height
+});
+const textButton = document.getElementById('text-submit-button');
+textButton.onclick = async () => {
+  try {
+    textButton.disabled = true;
+
+    const token = sessionStorage.getItem('accessToken');
+    if (!token) {
+      alert('No access token found. Please log in.');
+      return;
+    }
+
+    const question = document.getElementById('text-input').value;
+    if (!question) {
+      showStatusMessage('Please enter a question.', true);
+      return;
+    }
+
+    document.getElementById('text-input').value = '';
+    addChatMessage(`You: ${question}`, 'user');
+
+    const response = await fetch(`${localBackendUrl}/api/answer`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ question: question })
+    }).catch(error => {
+      throw new Error(`Network error: ${error.message}`);
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`API Error ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    addChatMessage(`AI: ${data.text}`, 'ai');
+
+    textButton.disabled = false;
+  } catch (error) {
+    document.getElementById('text-input').value = '';
+    textButton.disabled = false;
+    showStatusMessage(`❌ Processing error: ${error.message}`, true);
+  }
+}
+const MAX_MESSAGES = 1;
 function addChatMessage(text, sender) {
   const msgDiv = document.createElement('div');
   msgDiv.className = `chat-msg ${sender}`;
   msgDiv.textContent = text;
-  document.getElementById('msgHistory').appendChild(msgDiv);
+  const msgHistory = document.getElementById('msgHistory');
+  msgHistory.appendChild(msgDiv);
+
+  // Remove oldest messages if the number of messages exceeds the limit
+  while (msgHistory.children.length > MAX_MESSAGES) {
+    msgHistory.removeChild(msgHistory.firstChild);
+  }
 }
 
 //The following section of functions will serve disconnect button clicked. It will disconnect the live stream we created and cut off peer connection
@@ -422,6 +485,12 @@ disconnectButton.onclick = async () => {
 const uploadButton = document.getElementById('upload-button');
 uploadButton.onclick = async () => {
   uploadButton.disabled = true;
+
+  const token = sessionStorage.getItem('accessToken');
+  if (!token) {
+    alert('No access token found. Please log in.');
+    return;
+  }
 
   const fileInput = document.getElementById('fileInput');
   const files = Array.from(fileInput.files);
@@ -467,72 +536,6 @@ async function checkSystemStatus() {
   }
 }
 
-//The following section of functions will serve start quiz button. It will call backend API to generate some quiz questions based on lesson script and send them back to frontend.
-const quizButton = document.getElementById('start-quiz-btn');
-quizButton.onclick = async () => {
-  try {
-    quizButton.disabled = true;
-
-    const response = await fetch(`${localBackendUrl}/api/generate-quiz`);
-    if (!response.ok) throw new Error('Failed to fetch quiz');
-    
-    currentQuiz = await response.json();
-    
-    if (!currentQuiz?.length) {
-      alert('No questions available!');
-      quizButton.disabled = false;
-      return;
-    }
-    
-    currentQuestionIndex = 0;
-    score = 0
-    showQuestion(currentQuiz[currentQuestionIndex]);
-    
-  } catch (error) {
-    alert(`Quiz generation failed! ${error.message}`)
-    quizButton.disabled = false;
-  }
-};
-function showQuestion(question) {
-  const quizContainer = document.getElementById('quiz-container');
-  quizContainer.innerHTML = `
-    <div class="quiz-question">
-      <h3>Question ${currentQuestionIndex + 1}</h3>
-      <p>${question.question}</p>
-      ${question.options.map((opt, i) => `
-        <button data-answer="${i}" style="color: black;">
-          ${String.fromCharCode(65 + i)} ${opt}
-        </button>
-      `).join('')}
-    </div>
-  `;
-}
-async function handleAnswer(selectedIndex) {
-  const correct = selectedIndex === currentQuiz[currentQuestionIndex].answer;
-  
-  // Show result
-  showStatusMessage(correct ? "Correct! 🎉" : "Incorrect ❌", !correct);
-  if (correct){
-    score += 1
-  }
-  
-  // Next question
-  currentQuestionIndex++;
-  if(currentQuestionIndex < currentQuiz.length) {
-    showQuestion(currentQuiz[currentQuestionIndex]);
-  } else {
-    showStatusMessage("Quiz completed! Well done!", false);
-    showStatusMessage(`Final Score: ${score}/${currentQuiz.length}`, false);
-    quizButton.disabled = false;
-  }
-}
-document.getElementById('quiz-container').addEventListener('click', function(event) {
-  if (event.target.closest('button[data-answer]')) {
-    const selectedIndex = parseInt(event.target.getAttribute('data-answer'));
-    handleAnswer(selectedIndex);
-  }
-});
-
 //These two functions are constantly used by state changing event to check status of our frontend UI .
 function showStatusMessage(message, isError = false) {
   const statusDiv = document.createElement('div');
@@ -540,3 +543,6 @@ function showStatusMessage(message, isError = false) {
   statusDiv.textContent = message;
   document.getElementById('msgHistory').prepend(statusDiv);
 }
+
+document.addEventListener('DOMContentLoaded', loadNavbar());
+  

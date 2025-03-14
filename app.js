@@ -87,7 +87,13 @@ app.post('/python-api/upload-files', upload.any(), async (req, res) => {
 }
 });
 
-app.get('/', (req, res) => res.sendFile(__dirname + '/public/index-agents.html'));
+app.get('/', (req, res) => res.sendFile(__dirname + '/public/mainpage.html'));
+app.get('/signup.html', (req, res) => res.sendFile(__dirname + '/public/signup.html'));
+app.get('/login.html', (req, res) => res.sendFile(__dirname + '/public/login.html'));
+app.get('/my-account.html', (req, res) => res.sendFile(__dirname + '/public/my-account.html'));
+app.get('/quiz.html', (req, res) => res.sendFile(__dirname + '/public/quiz.html'));
+app.get('/service.html', (req, res) => res.sendFile(__dirname + '/public/service.html'));
+
 
 const server = http.createServer(app);
 server.listen(parseInt(localFrontendPort), () => {

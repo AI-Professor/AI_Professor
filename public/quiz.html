@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class</title>
+    <link rel="stylesheet" href="/public/styles/quiz.css"/>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="logo">
+           <!-- <div class="logo-icon">&#8501;</div> -->
+        </div>
+    </header>
+    
+    <!-- Main Content -->
+    <div class="container">
+        <!-- Start Screen -->
+        <div class="screen active" id="start-screen">
+            <div class="quiz-container">
+                <h2>Subject  Quiz</h2>
+                <p style="margin: 20px 0;">Test your knowledge  this quiz. Click the button below to generate questions based on the lesson materials.</p>
+                <button class="start-button" id="start-quiz">Start Quiz</button>
+            </div>
+        </div>
+        
+        <!-- Loading Screen -->
+        <div class="screen" id="loading-screen">
+            <div class="loading">
+                <div class="loading-spinner"></div>
+            </div>
+        </div>
+        
+        <!-- Quiz Screen -->
+        <div class="screen" id="quiz-screen">
+            <!-- Pagination -->
+            <div class="pagination" id="pagination">
+                <!-- Pagination items will be generated dynamically -->
+            </div>
+            
+            <!-- Quiz Question -->
+            <div class="quiz-container">
+                <div class="question">
+                    <div class="question-number" id="question-number">Question 1:</div>
+                    <div class="question-text" id="question-text">Question text will appear here.</div>
+                </div>
+                
+                <div class="options" id="options-container">
+                    <!-- Options will be generated dynamically -->
+                </div>
+                
+                <div class="feedback" id="feedback"></div>
+                
+                <div class="navigation">
+                    <button class="nav-button prev-button" id="prev-button">Previous</button>
+                    <button class="nav-button next-button" id="next-button">Next</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Screen -->
+        <div class="screen" id="results-screen">
+            <div class="results-container">
+                <div class="results-title">Quiz Completed!</div>
+                <div class="results-score" id="results-score">0/0</div>
+                <div class="results-message" id="results-message">You've completed the quiz.</div>
+                <button class="restart-button" id="restart-button">Take Another Quiz</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Footer -->
+    <footer>
+        <div class="footer-container">
+            <div class="footer-logo">
+                <div class="social-icons">
+                    <span class="social-icon">&#120143;</span>
+                    <span class="social-icon">&#128247;</span>
+                    <span class="social-icon">&#9654;</span>
+                    <span class="social-icon">in</span>
+                </div>
+            </div>
+            
+            <div class="footer-section">
+                <div class="footer-title">Resources</div>
+                <div class="footer-links">
+                    <a href="#" class="footer-link">Documentation</a>
+                    <a href="#" class="footer-link">Tutrials</a>
+                    <a href="#" class="footer-link">Webinar</a>
+                </div>
+            </div>
+            
+            <div class="footer-section">
+                <div class="footer-title">Product</div>
+                <div class="footer-links">
+                    <a href="#" class="footer-link">AI Lecturer</a>
+                    <a href="#" class="footer-link">Courses</a>
+                    <a href="#" class="footer-link">Tool</a>
+                </div>
+            </div>
+            
+            <div class="footer-section">
+                <div class="footer-title">Join US</div>
+                <div class="footer-links">
+                    <a href="#" class="footer-link">Blog</a>
+                    <a href="#" class="footer-link"> Career</a>
+                    
+                </div>
+            </div>
+        </div>
+    </footer>
+    
+    <script type="module" src="/public/scripts/quiz.js"></script>
+</body>
+</html>

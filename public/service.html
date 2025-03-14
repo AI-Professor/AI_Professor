@@ -7,11 +7,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@300;400;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/public/styles/style-agents.css"/>
+    <link rel="stylesheet" href="/public/styles/service.css"/>
   </head>
 
   <body>
-    <!-- adde "id=content" -->
+    <!-- ---------- Navigation ---------- -->
+  <div id="navbar-container"></div>
+
+    <!-- added "id=content" -->
     <div id="content">
       <!-- added "id=video-wrapper" -->
       <div id="video-wrapper">
@@ -33,13 +36,16 @@
       </div>
       <div id="quiz-section">
         <h2>Lecture Quiz</h2>
-        <button id="start-quiz-btn">Start Quiz</button>
+        <a href="/quiz.html" id="start-quiz-btn">Start Quiz</a>
         <div id="quiz-container"></div>
       </div>
       <div class="status-box">
         <h3>Voice Interaction</h3>
         <button id="start-button">Start Speaking</button>
         <div id="msgHistory" style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;"></div>
+        <!-- replaced input with textarea -->
+        <textarea id="text-input" placeholder="Type your question here"></textarea>
+        <button id="text-submit-button">Submit</button>
       </div>
       <div class="file-upload-section">
         <h3>Upload Course Materials</h3>
@@ -49,7 +55,7 @@
       </div>
 
       <script src="/public/scripts/player.js"></script>
-      <script type="module" src="/public/scripts/agents-client-api.js"></script>
+      <script type="module" src="/public/scripts/service.js"></script>
       
   </body>
 </html>
