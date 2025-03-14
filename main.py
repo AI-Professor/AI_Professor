@@ -377,23 +377,26 @@ async def connect():
 @app.delete("/api/disconnect")
 async def disconnect():
     try:
-        # Wait until all text chunks have been processed
-        chunk_queue.join()
-        # Signal the TTS worker to exit
-        chunk_queue.put(None)
-        tts_worker_thread.join()
-        
-        # Wait until all audio items have been played
-        audio_queue.join()
-        # Signal the audio worker to exit
-        audio_queue.put(None)
-        audio_worker_thread.join()
-        
-        stop_default_animation.set()
-        default_animation_thread.join()
-        socket_connection.close()
+        if chunk_queue:
+            # Wait until all text chunks have been processed
+            chunk_queue.join()
+            # Signal the TTS worker to exit
+            chunk_queue.put(None)
+            tts_worker_thread.join()
+            
+            # Wait until all audio items have been played
+            audio_queue.join()
+            # Signal the audio worker to exit
+            audio_queue.put(None)
+            audio_worker_thread.join()
+            
+            stop_default_animation.set()
+            default_animation_thread.join()
+            socket_connection.close()
 
-        return {"status": "Disonnected", "message": "Model and workers ended"}
+            return {"status": "Disonnected", "message": "Model and workers ended"}
+        else:
+            return {"status": "Disonnected", "message": "Model and workers not initialized"}
 
     except Exception as e:
         logger.error("Error in /api/disconnect: %s", str(e))
@@ -427,7 +430,7 @@ async def lecture(topic: dict):
             print("Generated lesson script successfully!")
         
         stream_llm_chunks(lesson_script, chat_history, chunk_queue, db=global_db, is_lesson=True)
-        return {"status": "Success", "message": "Lesson scripts generated successfully"}
+        return {"status": "Success", "message": "Lesson scripts generated successfully", "script": lesson_script}
     except Exception as e:
         logger.error("Error in /api/lecture: %s", str(e))
         return JSONResponse(

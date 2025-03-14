@@ -1,9 +1,15 @@
 import { loadNavbar } from "./navbar.js";
+import { loadFooter } from "./footer.js";
 
 const ENV = await (await fetch("/api.json")).json();
 const localHostName = ENV.LOCAL_HOST_NAME;
 const localBackendPort = ENV.LOCAL_BACKEND_PORT;
 const localBackendUrl = `http://${localHostName}:${localBackendPort}`;
+
+document.addEventListener('DOMContentLoaded', fetchUserInfo());
+document.addEventListener('DOMContentLoaded', loadNavbar());
+document.addEventListener('DOMContentLoaded', loadFooter());
+window.saveChanges = saveChanges;
 
 async function fetchUserInfo() {
   const token = sessionStorage.getItem('accessToken'); // Retrieve token from localStorage
@@ -143,6 +149,4 @@ function toggleEdit() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', fetchUserInfo());
-document.addEventListener('DOMContentLoaded', loadNavbar());
-window.saveChanges = saveChanges;
+

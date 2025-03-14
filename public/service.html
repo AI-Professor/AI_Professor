@@ -14,48 +14,88 @@
     <!-- ---------- Navigation ---------- -->
   <div id="navbar-container"></div>
 
-    <!-- added "id=content" -->
-    <div id="content">
-      <!-- added "id=video-wrapper" -->
-      <div id="video-wrapper">
-        <div>
-          <video id="pixelStreamVideo" width="700" height="500" autoplay volume="1.0" playsinline style="opacity: 1"></video>
-        </div>
-      </div>
-      <br />
-
-      <!-- added div#buttons -->
-      <div id="buttons">
-        <button id="connect-button" type="button">Connect</button>
-        <button id="disconnect-button" type="button" class="danger">Disconnect</button>
-      </div>
-      <div id="lecture-section">
-        <h2>Lecture</h2>
-        <input type="text" id="topic-input" placeholder="Enter a topic you'd like to learn about">
+  <div class="content">
+    <!-- Lecture content here -->
+    <div id="lecture-content-container" class="center-box">
+      <h3>Lecture</h3>
+      <div class="lecture-input-section">
+        <input type="text" id="topic-input" placeholder="Enter a topic you'd like to learn">
         <button id="lecture-button" type="button">Learn a short lesson</button>
       </div>
-      <div id="quiz-section">
-        <h2>Lecture Quiz</h2>
-        <a href="/quiz.html" id="start-quiz-btn">Start Quiz</a>
-        <div id="quiz-container"></div>
+    
+      <div class="lecture-transcript-container">
+        <div id="lecture-transcript" class="lecture-transcript">
+          <!-- Dynamic script/messages will flow here -->
+        </div>
       </div>
-      <div class="status-box">
-        <h3>Voice Interaction</h3>
-        <button id="start-button">Start Speaking</button>
-        <div id="msgHistory" style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;"></div>
-        <!-- replaced input with textarea -->
-        <textarea id="text-input" placeholder="Type your question here"></textarea>
-        <button id="text-submit-button">Submit</button>
+    </div>
+
+    <!-- added "id=content" -->
+    <div id="video-content">
+      <div class="video-display">
+        <video id="pixelStreamVideo" autoplay volume="1.0" playsinline style="opacity: 1"></video>
+        <div class="video-controls">
+          <button class="control-btn" id="connect-button">Connect</button>
+          <button class="control-btn disconnect" id="disconnect-button">Disconnect</button>
+        </div>
       </div>
-      <div class="file-upload-section">
-        <h3>Upload Course Materials</h3>
-        <input type="file" id="fileInput" accept=".pdf,.epub,.mp4,.mov,.avi" multiple/>
-        <button id="upload-button">Upload & Process</button>
-        <div id="uploadStatus"></div>
+      <!-- Chat message area -->
+      <div class="chat-area">
+        <div class="chat-area">
+          <div id="msgHistory" class="chat-history"></div>
+        </div>
       </div>
 
-      <script src="/public/scripts/player.js"></script>
-      <script type="module" src="/public/scripts/service.js"></script>
+      <!-- Message input area -->
+      <div class="message-input-container">
+        <textarea id="text-input" placeholder="Type your question here..."></textarea>
+        <div class="input-actions">
+          <button id="voice-input-btn" class="input-action-btn">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 15.5c2.21 0 4-1.79 4-4V6c0-2.21-1.79-4-4-4S8 3.79 8 6v5.5c0 2.21 1.79 4 4 4z" fill="currentColor"/>
+              <path d="M19 10v1.5c0 3.87-3.13 7-7 7s-7-3.13-7-7V10H3v1.5c0 4.55 3.4 8.3 7.8 8.9v1.6H8v2h8v-2h-2.8v-1.6c4.4-.6 7.8-4.35 7.8-8.9V10h-2z" fill="currentColor"/>
+            </svg>
+          </button>
+          <button id="file-upload-trigger" class="input-action-btn">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z" fill="currentColor"/>
+            </svg>
+          </button>
+          <button id="send-button" class="send-btn">Send</button>
+          <input type="file" id="fileInput" hidden />
+        </div>
+      </div>
+
+      <!-- Hidden original buttons for functionality -->
+      <div id="buttons" style="display: none;">
+        <button id="connect-button" type="button">Connect</button>
+        <button id="disconnect-button" type="button" class="danger">Disconnect</button>
+        <button id="start-button">Start Speaking</button>
+        <button id="text-submit-button">Submit</button>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div id="quiz-container" class="fixed-box">
+        <h3>Lecture Quiz</h3>
+        <a href="/quiz.html" id="start-quiz-btn">Start Quiz</a>
+      </div>
+      <div id="uploaded-files-container" class="fixed-box">
+        <h3>Uploaded Files</h3>
+        <div id="uploaded-files-list" class="uploaded-files-list"></div>
+      </div>
+      <div id="status-message-container" class="fixed-box">
+        <h3>Status Messages</h3>
+        <div id="status-message-box" class="status-message-box"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- Footer ---------- -->
+  <div id="footer-container"></div>
+  
+  <script src="/public/scripts/player.js"></script>
+  <script type="module" src="/public/scripts/service.js"></script>
       
   </body>
 </html>

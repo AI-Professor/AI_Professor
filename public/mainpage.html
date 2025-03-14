@@ -96,48 +96,15 @@
   </section>
 
   <!-- ---------- Footer ---------- -->
-  <footer>
-    <div class="footer-content">
-      <div class="footer-col">
-        <h5>Resources</h5>
-        <ul>
-          <li><a href="#">Documentation</a></li>
-          <li><a href="#">Tutorials</a></li>
-          <li><a href="#">Webinars</a></li>
-        </ul>
-      </div>
-      <div class="footer-col">
-        <h5>Products</h5>
-        <ul>
-          <li><a href="#">AI Lecturer</a></li>
-          <li><a href="#">Courses</a></li>
-          <li><a href="#">Tools</a></li>
-        </ul>
-      </div>
-      <div class="footer-col">
-        <h5>Join Us</h5>
-        <ul>
-          <li><a href="#">Careers</a></li>
-          <li><a href="#">Blog</a></li>
-          <li><a href="#">Resource Library</a></li>
-        </ul>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <p>&copy; 2025 AI Lecturer. All rights reserved.</p>
-      <div class="social-media">
-        <a href="#">FB</a>
-        <a href="#">TW</a>
-        <a href="#">IG</a>
-      </div>
-    </div>
-  </footer>
+  <div id="footer-container"></div>
   <script type="module">
     import { loadNavbar } from '/public/scripts/navbar.js';
+    import { loadFooter } from '/public/scripts/footer.js';
   
     // When the page loads, load the navbar
     window.addEventListener('DOMContentLoaded', () => {
       loadNavbar();
+      loadFooter();
     });
   </script>
 </body>

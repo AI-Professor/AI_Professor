@@ -1,5 +1,6 @@
 import { initializeVoiceRecognition } from "./voice-ui.js";
 import { loadNavbar } from "./navbar.js";
+import { loadFooter } from "./footer.js";
 
 const ENV = await (await fetch("/api.json")).json();
 const serverHostName = ENV.SERVER_HOST_NAME
@@ -17,10 +18,29 @@ const localFrontendUrl = `http://${localHostName}:${localFrontendPort}`
 const localBackendUrl = `http://${localHostName}:${localBackendPort}`
 const localUeUrl = `ws://${localHostName}:${localUePort}`
 
+document.addEventListener('DOMContentLoaded', loadNavbar());
+document.addEventListener('DOMContentLoaded', loadFooter());
+
 let closed = false;
+let autoScrollChat = true;
+let autoScrollLecture = true;
 window.pixelStreamingApp = null;
 
 const videoElement = document.getElementById('pixelStreamVideo');
+
+const statusMessageBox = document.getElementById('status-message-box');
+function showStatusMessage(message, type = 'info') {
+  const msg = document.createElement('div');
+  msg.className = `status-message ${type}`;
+  msg.textContent = message;
+
+  statusMessageBox.prepend(msg); // Most recent message on top
+
+  // Optionally auto-remove after X seconds
+  setTimeout(() => {
+    msg.remove();
+  }, 5000);
+}
 
 //The following section of functions will serve connect button clicked event. These functions are meant to create a live stream, establish a WebRTC connection with the platform, and submit network information to initialize connection. These steps are crucial to our implementation to Real-Time Q&A feature. Detailed explanation can be find on "https://docs.d-id.com/reference/talks-streams-overview".
 const connectButton = document.getElementById('connect-button');
@@ -62,7 +82,6 @@ connectButton.onclick = async () => {
     }
 
     const data = await response.json();
-    console.log('Connection successful:', data);
 
     initializePixelStreaming();
     const connectionTimeout = 20000; // 20 seconds
@@ -86,11 +105,11 @@ connectButton.onclick = async () => {
 
     // Optionally, enable the button again or update UI
     connectButton.disabled = false;
-    alert('Connection successful!');
+    showStatusMessage('✅ Connecting to stream successully!');
     forceVideoRefresh();
   } catch (error) {
     console.error('Error connecting:', error);
-    alert('Connection failed!');
+    alert('Connecting to stream failed!');
     connectButton.disabled = false;
   }
 };
@@ -305,6 +324,8 @@ function forceVideoRefresh() {
   }, 500);
 }
 
+const lectureTranscriptContainer = document.querySelector('.lecture-transcript-container');
+const lectureTranscript = document.getElementById('lecture-transcript');
 const lectureButton = document.getElementById('lecture-button');
 const topicInput = document.getElementById('topic-input');
 lectureButton.onclick = async () => {
@@ -324,6 +345,8 @@ lectureButton.onclick = async () => {
       return;
     }
 
+    addLectureMessage(`You asked for: ${topic}`, 'user');
+
     const response = await fetch(`${localBackendUrl}/api/lecture`, {
       method: 'POST',
       headers: {
@@ -335,20 +358,83 @@ lectureButton.onclick = async () => {
     if (!response.ok) throw new Error('Failed to generate lesson!');
 
     const data = await response.json();
-    console.log('Lesson generated successfully:', data);
-    alert('Lesson generated successfully!');
+
+    showStatusMessage('✅ Lesson generated successully!');
+
+    const lesson_script = data.script;
+    const chunked_script = chunkScript(lesson_script);
+    const grouped_script = groupSentences(chunked_script, 2);
+
+    setTimeout(() => {
+      streamScriptChunks(grouped_script);
+    }, 4000);
+
     lectureButton.disabled = false;
   } catch (error) {
     alert(`Lesson generation failed! Lecture Error: ${error.message}`);
     lectureButton.disabled = false;
   }
 };
+function addLectureMessage(messageText, sender = 'ai') {
+  const msgDiv = document.createElement('div');
+  msgDiv.className = `lecture-message ${sender}`;
+  msgDiv.textContent = messageText;
+
+  lectureTranscript.appendChild(msgDiv);
+
+  if (autoScrollLecture) {
+    lectureTranscriptContainer.scrollTop = lectureTranscriptContainer.scrollHeight;
+  }
+}
+function chunkScript(script) {
+  // Split on periods, exclamation marks, and question marks followed by a space or end of line
+  return script.match(/[^.!?]+[.!?]+(\s|$)/g) || [script];
+}
+function groupSentences(sentences, groupSize) {
+  /**
+   * Groups sentences into larger chunks to reduce TTS latency.
+   */
+  const groupedChunks = [];
+  let buffer = [];
+
+  for (let i = 0; i < sentences.length; i++) {
+    buffer.push(sentences[i]);
+
+    if (buffer.length >= groupSize) {
+      groupedChunks.push(buffer.join(" "));
+      buffer = [];
+    }
+  }
+
+  // Add any remaining sentences in the buffer
+  if (buffer.length > 0) {
+    groupedChunks.push(buffer.join(" "));
+  }
+
+  return groupedChunks;
+}
+async function streamScriptChunks(sentences) {
+  for (const sentence of sentences) {
+    addLectureMessage(sentence.trim(), 'ai');
+    
+    // Calculate delay: 50ms per character (adjustable)
+    const delay = sentence.length * 60 + 1000;
+    
+    await new Promise(resolve => setTimeout(resolve, delay));
+  }
+}
+lectureTranscriptContainer.addEventListener('scroll', () => {
+  const threshold = 50; // px from bottom to reactivate auto-scroll
+  const isAtBottom = lectureTranscriptContainer.scrollTop + lectureTranscriptContainer.clientHeight >= lectureTranscriptContainer.scrollHeight - threshold;
+  
+  autoScrollLecture = isAtBottom;
+});
 
 //The following section of functions will serve to record an user's voice input, send it to backend through API calls in main.py to process, and get our GPT-4 model's answer back from backend and create a stream talk that can be seen and listend on our frontend Real-Time interaction.
-const startButton = document.getElementById('start-button');
-startButton.onclick = async () => {
+const voiceButton = document.getElementById('voice-input-btn');
+voiceButton.onclick = async () => {
   try {
-      startButton.disabled = true;
+      voiceButton.disabled = true;
 
       const token = sessionStorage.getItem('accessToken');
       if (!token) {
@@ -357,7 +443,8 @@ startButton.onclick = async () => {
       }
 
       const userQuestion = await initializeVoiceRecognition();
-      addChatMessage(`You: ${userQuestion}`, 'user');
+      
+      addChatMessage(userQuestion, 'user');
       
       const backendResponse = await fetch(`${localBackendUrl}/api/answer`, {
           method: 'POST',
@@ -372,23 +459,25 @@ startButton.onclick = async () => {
         throw new Error(`API Error ${response.status}: ${errorText}`);
       }
       
-      const {text}= await backendResponse.json();
-      addChatMessage(`AI: ${text}`, 'ai');
+      const data = await backendResponse.json();
+
+      addChatMessage(data.text, 'ai');
+      showStatusMessage('✅ voice input successful!');
       
-      startButton.disabled = false;
+      voiceButton.disabled = false;
   } catch (error) {
-      startButton.disabled = false;
-      showStatusMessage(`❌ Processing error: ${error.message}`, true);
+      voiceButton.disabled = false;
+      alert(`Processing error: ${error.message}`, true);
   }
 };
 document.getElementById('text-input').addEventListener('input', function() {
   this.style.height = 'auto'; // Reset the height
   this.style.height = (this.scrollHeight) + 'px'; // Set the height to the scroll height
 });
-const textButton = document.getElementById('text-submit-button');
-textButton.onclick = async () => {
+const sendButton = document.getElementById('send-button');
+sendButton.onclick = async () => {
   try {
-    textButton.disabled = true;
+    sendButton.disabled = true;
 
     const token = sessionStorage.getItem('accessToken');
     if (!token) {
@@ -396,14 +485,15 @@ textButton.onclick = async () => {
       return;
     }
 
-    const question = document.getElementById('text-input').value;
+    const question = document.getElementById('text-input').value.trim();
     if (!question) {
-      showStatusMessage('Please enter a question.', true);
+      alert('Please enter a question.', true);
       return;
     }
 
     document.getElementById('text-input').value = '';
-    addChatMessage(`You: ${question}`, 'user');
+
+    addChatMessage(question, 'user');
 
     const response = await fetch(`${localBackendUrl}/api/answer`, {
       method: 'POST',
@@ -421,28 +511,53 @@ textButton.onclick = async () => {
     }
 
     const data = await response.json();
-    addChatMessage(`AI: ${data.text}`, 'ai');
+    
+    addChatMessage(data.text, 'ai');
+    showStatusMessage('✅ Text input successful!');
 
-    textButton.disabled = false;
+    sendButton.disabled = false;
   } catch (error) {
     document.getElementById('text-input').value = '';
-    textButton.disabled = false;
-    showStatusMessage(`❌ Processing error: ${error.message}`, true);
+    sendButton.disabled = false;
+    alert(`Processing error: ${error.message}`, true);
   }
 }
-const MAX_MESSAGES = 1;
-function addChatMessage(text, sender) {
+const msgHistory = document.getElementById('msgHistory');
+function addChatMessage(text, sender = 'ai') {
   const msgDiv = document.createElement('div');
   msgDiv.className = `chat-msg ${sender}`;
-  msgDiv.textContent = text;
-  const msgHistory = document.getElementById('msgHistory');
+
+  const avatarContainer = document.createElement('div');
+  const avatar = document.createElement('div');
+
+  avatarContainer.className = 'avatar-container';
+  avatar.className = 'avatar';
+  avatar.textContent = sender === 'ai' ? 'AI' : 'U';
+
+  avatarContainer.appendChild(avatar);
+
+  const chatBubble = document.createElement('div');
+  chatBubble.className = 'chat-bubble';
+  chatBubble.textContent = text;
+
+  msgDiv.appendChild(avatarContainer);
+  msgDiv.appendChild(chatBubble);
+
   msgHistory.appendChild(msgDiv);
 
-  // Remove oldest messages if the number of messages exceeds the limit
-  while (msgHistory.children.length > MAX_MESSAGES) {
-    msgHistory.removeChild(msgHistory.firstChild);
-  }
+  requestAnimationFrame(() => {
+    if (autoScrollChat) {
+      msgHistory.scrollTop = msgHistory.scrollHeight;
+    }
+  });
 }
+msgHistory.addEventListener('scroll', () => {
+  const threshold = 50; // px from bottom to reactivate auto-scroll
+  const isAtBottom = msgHistory.scrollTop + msgHistory.clientHeight >= msgHistory.scrollHeight - threshold;
+  
+  autoScrollChat = isAtBottom;
+});
+
 
 //The following section of functions will serve disconnect button clicked. It will disconnect the live stream we created and cut off peer connection
 const disconnectButton = document.getElementById('disconnect-button');
@@ -472,7 +587,7 @@ disconnectButton.onclick = async () => {
 
     // Optionally, enable the button again or update UI
     disconnectButton.disabled = false;
-    alert('Disconnected successfully!');
+    showStatusMessage('✅ Disconnecting to stream successully!');
   } catch (error) {
     console.error('Error connecting:', error);
     alert('Disconnect failed!');
@@ -481,10 +596,46 @@ disconnectButton.onclick = async () => {
 };
 
 //The following section of functions will serve upload function. It will take required form of input files and send it to our backend through API calls in main.py to process. It will initialize our knowledge graph based on given input
-const uploadButton = document.getElementById('upload-button');
-uploadButton.onclick = async () => {
-  uploadButton.disabled = true;
+const fileUploadTrigger = document.getElementById('file-upload-trigger');
+const fileInput = document.getElementById('fileInput');
+const uploadedFilesList = document.getElementById('uploaded-files-list');
+fileUploadTrigger.addEventListener('click', () => {
+  fileInput.click();
+});
+fileInput.addEventListener('change', async () => {
+  const files = Array.from(fileInput.files);
 
+  // Clear previous file list (optional: keep history if you want)
+  uploadedFilesList.innerHTML = '';
+
+  if (files.length === 0) {
+    const noFileMsg = document.createElement('div');
+    noFileMsg.textContent = 'No file selected.';
+    uploadedFilesList.appendChild(noFileMsg);
+    return;
+  }
+
+  // Display selected files in the new container
+  files.forEach(file => {
+    const fileItem = document.createElement('div');
+    fileItem.className = 'uploaded-file-item';
+
+    const fileIcon = document.createElement('div');
+    fileIcon.className = 'uploaded-file-icon';
+    fileIcon.textContent = '📄'; // You can add file-type icons here
+
+    const fileName = document.createElement('div');
+    fileName.textContent = `${file.name} (${Math.round(file.size / 1024)} KB)`;
+
+    fileItem.appendChild(fileIcon);
+    fileItem.appendChild(fileName);
+
+    uploadedFilesList.appendChild(fileItem);
+  });
+
+  await upload();
+});
+async function upload(){
   const token = sessionStorage.getItem('accessToken');
   if (!token) {
     alert('No access token found. Please log in.');
@@ -496,7 +647,6 @@ uploadButton.onclick = async () => {
   
   if (files.length === 0) {
       alert('Please select files first!');
-      uploadButton.disabled = false;
       return;
   }
 
@@ -515,12 +665,10 @@ uploadButton.onclick = async () => {
       
       await checkSystemStatus();
 
-      uploadButton.disabled = false;
-      alert(`Upload Successful! ${result.message}`)
+      showStatusMessage('✅ Upload successul!');
       
   } catch (error) {
       alert(`Upload failed! ${error.message}`)
-      uploadButton.disabled = false;
   }
 };
 async function checkSystemStatus() {
@@ -535,15 +683,6 @@ async function checkSystemStatus() {
   }
 }
 
-//These two functions are constantly used by state changing event to check status of our frontend UI .
-function showStatusMessage(message, isError = false) {
-  const statusDiv = document.createElement('div');
-  statusDiv.className = `status-msg ${isError ? 'error' : 'info'}`;
-  statusDiv.textContent = message;
-  document.getElementById('msgHistory').prepend(statusDiv);
-}
-
-document.addEventListener('DOMContentLoaded', loadNavbar());
   
 window.addEventListener('beforeunload', async () => {
   if (closed == false){
