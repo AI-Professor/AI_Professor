@@ -20,7 +20,7 @@ class User(Base):
     user_name = Column(String(20))
     subscription_tier = Column(String(20), default='Free')
     university_name = Column(String(20))
-    major = Column(String(20), default='Undecided')
+    major = Column(String(50), default='Undecided')
     learning_style = Column(JSON)
     learning_goal = Column(ARRAY(String))
     progress = Column(JSON)

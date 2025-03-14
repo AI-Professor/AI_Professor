@@ -104,7 +104,7 @@ function initializePixelStreaming() {
   console.log('Initializing PixelStreaming with enhanced WebRTC config...');
   
   // Use the exact signaling server URL that works
-  const signalingUrl = `ws://${localHostName}:8085`;
+  const signalingUrl = `ws://127.0.0.1:8085`;
   console.log('Using signaling server URL:', signalingUrl);
   
   // Enhanced WebRTC configuration that matches the successful connection

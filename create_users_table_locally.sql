@@ -20,7 +20,7 @@ CREATE TABLE "Users" (
     user_name VARCHAR(20),
     subscription_tier VARCHAR(20),
     university_name VARCHAR(20),
-    major VARCHAR(20),
+    major VARCHAR(50),
     learning_style JSONB,
     learning_goal TEXT[],
     progress JSONB,

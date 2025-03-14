@@ -340,7 +340,6 @@ async def connect():
         global socket_connection, osc_sender
         socket_connection = create_socket_connection()
         osc_sender = udp_client.SimpleUDPClient('127.0.0.1', audio_port)
-        osc_sender.send_message('/test', 'we are connected' )
         global chat_history
         chat_history = load_chat_history()
         pipeline = KPipeline(lang_code='a')
