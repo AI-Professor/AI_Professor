@@ -253,17 +253,39 @@ async def get_captcha_endpoint():
     return {"captcha_id": cap["captcha_id"], "captcha_image": encoded_image}
 
 @app.post("/api/register", response_model=schemas.UserResponse)
-def register_user(user: schemas.UserCreate, db: Session = Depends(get_userdb)):
-    # Captcha verification: expect captcha_id and captcha_text in the payload
-    captcha_id = getattr(user, "captcha_id", None)
-    captcha_text = getattr(user, "captcha_text", None)
+async def register_user(
+    first_name: str = Form(...),
+    last_name: str = Form(...),
+    user_name: str = Form(...),
+    university_name: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...),
+    captcha_id: str = Form(...),
+    captcha_text: str = Form(...)
+):
+    # Validate captcha first
     if not captcha_id or not captcha_text or not captcha.verify_captcha(captcha_id, captcha_text):
         raise HTTPException(status_code=400, detail="Invalid captcha")
-    # ...existing registration logic...
-    db_user = crud.get_user_by_email(db, email=user.email)
-    if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    return crud.create_user(db=db, user=user)
+
+    db = SessionLocal()
+    try:
+        # Check if email already exists
+        db_user = crud.get_user_by_email(db, email=email)
+        if db_user:
+            raise HTTPException(status_code=400, detail="Email already registered")
+
+        # Create user schema
+        user = schemas.UserCreate(
+            first_name=first_name,
+            last_name=last_name,
+            user_name=user_name,
+            university_name=university_name,
+            email=email,
+            password=password
+        )
+        return crud.create_user(db=db, user=user)
+    finally:
+        db.close()
 
 @app.post("/api/token", response_model=schemas.Token)
 async def login_for_access_token(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_userdb)):

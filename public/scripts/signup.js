@@ -43,21 +43,19 @@ registerButton.onclick = async () => {
     }
 
     try {
+      const formData = new FormData();
+      formData.append('first_name', firstname);
+      formData.append('last_name', lastname);
+      formData.append('user_name', username);
+      formData.append('university_name', university);
+      formData.append('email', email);
+      formData.append('password', password);
+      formData.append('captcha_id', captchaId);
+      formData.append('captcha_text', captchaText);
+
       const response = await fetch(`${localBackendUrl}/api/register`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          first_name: firstname,
-          last_name: lastname,
-          user_name: username,
-          university_name: university,
-          email: email, 
-          password: password,
-          captcha_id: captchaId,
-          captcha_text: captchaText
-        }),
+        body: formData,
       });
 
       if (!response.ok) {
