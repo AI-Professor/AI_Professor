@@ -136,7 +136,7 @@ async def startup_event():
     if platform.system() == "Windows":
         print("Running on Windows...")
         logger.info("Starting Unreal Engine...")
-        #start_UE()
+        start_UE()
 
     # Check if UE is running on Mac
     if platform.system() == "Darwin":
@@ -188,7 +188,7 @@ async def on_shutdown():
     elif platform.system() == "Windows":
         print("Shutting down on Windows...")
         logger.info("Shutting down Unreal Engine...")
-        #terminate_UE('AI_Professor.exe')
+        terminate_UE('AI_Professor.exe')
         logger.info("Unreal Engine terminated successfully.")
     
     if 'quiz_engine' in globals():
@@ -335,7 +335,7 @@ async def connect():
         global device, model_path, blendshape_model
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model_path = 'local_model/NeuroSync/NeuroSync_Local_API/utils/model/model.pth'
-        blendshape_model = load_model(model_path, config, device, use_half_precision=False)
+        blendshape_model = load_model(model_path, config, device, use_half_precision=True)
         py_face = initialize_py_face()
         global socket_connection, osc_sender
         socket_connection = create_socket_connection()
