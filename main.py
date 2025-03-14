@@ -270,6 +270,13 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 async def read_user_info(current_user: schemas.UserResponse = Depends(get_current_user)):
     return current_user    
 
+@app.patch("/api/user-info", response_model=schemas.UserResponse)
+async def update_user_info(user_update: schemas.UserUpdate, db: Session = Depends(get_userdb), current_user: schemas.UserResponse = Depends(get_current_user)):
+    db_user = crud.get_user_by_email(db, email=current_user.email)
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    updated_user = crud.update_user(db=db, db_user=db_user, user_update=user_update)
+    return updated_user
 
 
 # Service
@@ -609,4 +616,3 @@ if __name__ == "__main__":
         logger.info(f"Starting API server on port {local_back_port}.")
         print(f"Allowed origins for CORS middleware: {[server_front_url, server_back_url, server_ue_url, local_front_url, local_back_url, local_ue_url]}")
         uvicorn.run(app, host=local_host_name, port=int(local_back_port))
-        

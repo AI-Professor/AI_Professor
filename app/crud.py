@@ -17,3 +17,10 @@ def create_user(db: Session, user: schemas.UserCreate):
     db.commit()
     db.refresh(db_user)
     return db_user
+
+def update_user(db: Session, db_user: models.User, user_update: schemas.UserUpdate):
+    for key, value in user_update.dict(exclude_unset=True).items():
+        setattr(db_user, key, value)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
