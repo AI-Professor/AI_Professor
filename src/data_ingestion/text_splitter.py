@@ -1,5 +1,5 @@
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from pdf_parser_MinerU import process_pdf 
+from src.data_ingestion.pdf_parser_MinerU import process_pdf 
 import json
 import re
 
@@ -66,15 +66,15 @@ def split_text(text: str) -> list:
 
     return chunks
 
-pdf_path = "../../data/raw/cs326-3-4.pdf" 
-markdown_text = process_pdf(pdf_path)
+# pdf_path = "../../data/raw/cs326-4-5.pdf" 
+# markdown_text = process_pdf(pdf_path)
 
-# 🔹 Process and split text while preserving GCS image URLs
-split_texts = split_text(markdown_text)
+# # 🔹 Process and split text while preserving GCS image URLs
+# split_texts = split_text(markdown_text)
 
-# 🔹 Save processed text
-split_text_file = "cs326_split_text.json"
-with open(split_text_file, "w") as f:
-    json.dump(split_texts, f, indent=4)
+# # 🔹 Save processed text
+# split_text_file = "cs326_split_text.json"
+# with open(split_text_file, "w") as f:
+#     json.dump(split_texts, f, indent=4)
 
-print(f"Text successfully split while preserving images. Saved to {split_text_file}")
+# print(f"Text successfully split while preserving images. Saved to {split_text_file}")

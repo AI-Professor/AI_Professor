@@ -402,7 +402,7 @@ def main():
     audio_worker_thread = Thread(target=audio_queue_worker, args=(audio_queue, py_face, socket_connection, default_animation_thread, stop_default_animation))
     audio_worker_thread.start()
 
-    file = Path("data/raw/scrum.epub")
+    file = Path("data/raw/cs326-4-5.pdf")
     text = ""
     try:
         #Ingest pdf textbook and build knowledge graph
@@ -414,7 +414,7 @@ def main():
         elif file.suffix.lower() in ['.mp4', '.mov', '.avi']:
             text += extract_text_from_video(str(file))
         chunks = split_text(text)  
-        db = initialize_qa_system(chunks, 'scrum.epub')
+        db = initialize_qa_system(chunks, 'cs326-4-5.pdf')
         print("✅ Course material loaded successfully!\n")
 
         #Generate lesson script from knowledge graph

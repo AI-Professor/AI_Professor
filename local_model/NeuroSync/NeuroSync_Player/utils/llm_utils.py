@@ -2,6 +2,7 @@
 import os
 from dotenv import load_dotenv
 import openai
+import requests
 from langchain_community.vectorstores import FAISS  
 import re
 
@@ -12,10 +13,27 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 if not openai_api_key:
     raise ValueError("OPENAI_API_KEY not found in environment variables")
 
+def fetch_image_from_gcs(image_url):
+    """
+    Fetches the image from Google Cloud Storage using the provided URL.
+    Assumes images are stored in a public or accessible bucket.
+    """
+    try:
+        response = requests.get(image_url)
+        if response.status_code == 200:
+            return response.content  # Returns binary image data
+        else:
+            print(f"Failed to fetch image: {image_url}")
+            return None
+    except Exception as e:
+        print(f"Error fetching image from GCS: {e}")
+        return None
+    
 def stream_llm_chunks(user_input, chat_history, chunk_queue, db:FAISS, is_lesson=False):
     """
     Streams tokens from the LLM and buffers them into text chunks that end at sentence boundaries,
     exceed the maximum chunk length, or after a given number of tokens have been received.
+    If an image URL is detected, it fetches the image from Google Cloud Storage and includes it in the prompt.
     Each chunk is put into chunk_queue for TTS processing.
     Returns the full response as a string.
     """
@@ -37,9 +55,19 @@ def stream_llm_chunks(user_input, chat_history, chunk_queue, db:FAISS, is_lesson
         relevant_text = db.similarity_search(user_input, k=5)
 
         text = ""
-
+        image_urls = []
         for doc in relevant_text:
+            content = doc.page_content
             text += doc.page_content + "\n\n"
+            found_urls = re.findall(r'https://storage\.googleapis\.com/[\S]+', content)
+            if found_urls:
+                image_urls.extend(found_urls)
+        
+        image_data_list = []
+        for url in image_urls:
+            image_data = fetch_image_from_gcs(url)
+            if image_data:
+                image_data_list.append(image_data)
         
         relevant_text = text
         messages = [{"role": "system", "content": f"""You are a helpful teaching assistant. Answer the question 
@@ -57,14 +85,19 @@ def stream_llm_chunks(user_input, chat_history, chunk_queue, db:FAISS, is_lesson
         
         try:
             openai.api_key = openai_api_key
-            response = openai.ChatCompletion.create(
-                model="gpt-4",
-                messages=messages,
-                max_tokens=4000,
-                temperature=0,
-                top_p=0.9,
-                stream=True
-            )
+            request_payload = {
+                "model": "gpt-4-vision-preview" if image_data_list else "gpt-4",
+                "messages": messages,
+                "max_tokens": 4000,
+                "temperature": 0,
+                "top_p": 0.9,
+                "stream": True
+            }
+
+            if image_data_list:
+                request_payload["images"] = image_data_list
+
+            response = openai.ChatCompletion.create(**request_payload)
             for chunk in response:
                 token = chunk["choices"][0].get("delta", {}).get("content", "")
                 full_response += token

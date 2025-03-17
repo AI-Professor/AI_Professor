@@ -2,8 +2,8 @@ import os
 from langchain_community.vectorstores import FAISS  
 from langchain_community.embeddings import OpenAIEmbeddings  
 from langchain_community.chat_models import ChatOpenAI  
-from src.data_ingestion.pdf_parser_MinerU import process_pdf
-from src.data_ingestion.text_splitter import split_text
+# from pdf_parser_MinerU import process_pdf
+# from text_splitter import split_text
 from dotenv import load_dotenv
 import warnings
 warnings.filterwarnings("ignore")
@@ -20,11 +20,11 @@ def initialize_qa_system(text_chunks: list, pdf_file_name: str) -> FAISS:
     embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
     DB_DIR = "data/processed/knowledge_graph"
     os.makedirs(DB_DIR, exist_ok=True)
-    
+
     # Create FAISS index with error handling
     try:
         if os.path.exists(f"{pdf_file_name}/index.faiss"):
-            db = FAISS.load_local("data/processed/knowledge_graph",embeddings=embeddings, allow_dangerous_deserialization=True)
+            db = FAISS.load_local(f"data/processed/knowledge_graph/{pdf_file_name}",embeddings=embeddings, allow_dangerous_deserialization=True)
             print("Loaded knowledge graph successfully!")
         else: 
             db = FAISS.from_texts(text_chunks, embeddings)  
@@ -36,10 +36,10 @@ def initialize_qa_system(text_chunks: list, pdf_file_name: str) -> FAISS:
         raise
 
 
-pdf_path = "../../data/raw/cs326-3-4.pdf" 
+# pdf_path = "../../data/raw/cs326-4-5.pdf" 
 
-markdown_text = process_pdf(pdf_path)
+# markdown_text = process_pdf(pdf_path)
 
-split_texts = split_text(markdown_text)
+# split_texts = split_text(markdown_text)
 
-initialize_qa_system(split_texts,'cs326-3-4')
+# initialize_qa_system(split_texts,'cs326-4-5')
