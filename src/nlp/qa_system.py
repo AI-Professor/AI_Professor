@@ -23,7 +23,7 @@ def initialize_qa_system(text_chunks: list, pdf_file_name: str) -> FAISS:
 
     # Create FAISS index with error handling
     try:
-        if os.path.exists(f"{pdf_file_name}/index.faiss"):
+        if os.path.exists(f"{DB_DIR}/{pdf_file_name}/index.faiss"):
             db = FAISS.load_local(f"data/processed/knowledge_graph/{pdf_file_name}",embeddings=embeddings, allow_dangerous_deserialization=True)
             print("Loaded knowledge graph successfully!")
         else: 

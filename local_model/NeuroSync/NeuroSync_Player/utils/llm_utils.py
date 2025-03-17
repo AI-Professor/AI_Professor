@@ -1,34 +1,62 @@
 # utils/llm_utils.py
 import os
 from dotenv import load_dotenv
-import openai
-import requests
-from langchain_community.vectorstores import FAISS  
 import re
+import base64
+import io
+import re
+from google.cloud import storage
+from google.oauth2 import service_account
+from openai import OpenAI
+from langchain_community.vectorstores import FAISS 
 
-# This is terrible, I know. I am sorry. Better coming soon.
 
 load_dotenv(override=True) 
 openai_api_key = os.getenv("OPENAI_API_KEY")
 if not openai_api_key:
     raise ValueError("OPENAI_API_KEY not found in environment variables")
+GCS_CREDENTIALS_PATH = "FigureFetchingKey.json"
+BUCKET_NAME = "ai_professor_uploaded_figures"
+credentials = service_account.Credentials.from_service_account_file(GCS_CREDENTIALS_PATH)
+storage_client = storage.Client(credentials=credentials)
+bucket = storage_client.bucket(BUCKET_NAME)
+client = OpenAI(api_key=openai_api_key)
+# This is terrible, I know. I am sorry. Better coming soon.
+
 
 def fetch_image_from_gcs(image_url):
     """
-    Fetches the image from Google Cloud Storage using the provided URL.
-    Assumes images are stored in a public or accessible bucket.
+    Fetches an image from a private Google Cloud Storage bucket, removes trailing ')',
+    encodes it in Base64, and returns the encoded string.
     """
     try:
-        response = requests.get(image_url)
-        if response.status_code == 200:
-            return response.content  # Returns binary image data
+        # Remove trailing `)` from the URL if they exist
+        cleaned_url = re.sub(r"\)+$", "", image_url)
+
+        # Extract the object path from the GCS URL
+        if "storage.googleapis.com" in cleaned_url:
+            object_path = cleaned_url.split(f"{BUCKET_NAME}/")[-1]  # Extract only the object name
         else:
-            print(f"Failed to fetch image: {image_url}")
+            raise ValueError(f"Invalid GCS URL format: {cleaned_url}")
+
+        # Fetch the image from GCS
+        blob = bucket.blob(object_path)
+        image_data = blob.download_as_bytes()  # Download image as bytes
+
+        if not image_data:
+            print(f"Failed to fetch image: {cleaned_url}")
             return None
+
+        print(f"Successfully fetched image from GCS: {cleaned_url}")
+
+        # Encode the image in Base64
+        base64_encoded_image = base64.b64encode(image_data).decode("utf-8")
+        return base64_encoded_image
+
     except Exception as e:
         print(f"Error fetching image from GCS: {e}")
         return None
-    
+
 def stream_llm_chunks(user_input, chat_history, chunk_queue, db:FAISS, is_lesson=False):
     """
     Streams tokens from the LLM and buffers them into text chunks that end at sentence boundaries,
@@ -44,7 +72,7 @@ def stream_llm_chunks(user_input, chat_history, chunk_queue, db:FAISS, is_lesson
             chunk_queue.put(chunk_text_val)
         buffer = ""
         token_count = 0
-    
+
     buffer = ""
     full_response = ""
     token_count = 0
@@ -62,13 +90,13 @@ def stream_llm_chunks(user_input, chat_history, chunk_queue, db:FAISS, is_lesson
             found_urls = re.findall(r'https://storage\.googleapis\.com/[\S]+', content)
             if found_urls:
                 image_urls.extend(found_urls)
-        
+
         image_data_list = []
         for url in image_urls:
-            image_data = fetch_image_from_gcs(url)
-            if image_data:
-                image_data_list.append(image_data)
-        
+            base64_image = fetch_image_from_gcs(url)
+            if base64_image:
+                image_data_list.append(base64_image)
+
         relevant_text = text
         messages = [{"role": "system", "content": f"""You are a helpful teaching assistant. Answer the question 
             using ONLY the provided text. If unsure or not related to the context, say "I don't know".
@@ -81,41 +109,49 @@ def stream_llm_chunks(user_input, chat_history, chunk_queue, db:FAISS, is_lesson
         for entry in chat_history:
             messages.append({"role": "user", "content": entry["input"]})
             messages.append({"role": "assistant", "content": entry["response"]})
-        messages.append({"role": "user", "content": user_input})
         
         try:
-            openai.api_key = openai_api_key
             request_payload = {
-                "model": "gpt-4-vision-preview" if image_data_list else "gpt-4",
-                "messages": messages,
+                "model": "gpt-4o",
+                "messages" :messages,
                 "max_tokens": 4000,
                 "temperature": 0,
                 "top_p": 0.9,
                 "stream": True
             }
-
+            content = []
+            content.append({ "type": "text", "text": user_input })
             if image_data_list:
-                request_payload["images"] = image_data_list
+                for image in image_data_list:
+                    content.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+                    })
+            cur_msg = {"role": "user", "content": content}
+            messages.append(cur_msg)
 
-            response = openai.ChatCompletion.create(**request_payload)
+            response = client.chat.completions.create(**request_payload)
             for chunk in response:
-                token = chunk["choices"][0].get("delta", {}).get("content", "")
-                full_response += token
-                buffer += token
-                token_count += 1
-                
-                # ----- CHANGED LOGIC (same as above) -----
-                if buffer.strip() and buffer.strip()[-1] in ".!?":
-                    flush_buffer()
-                elif len(buffer) >= max_chunk_length:
-                    flush_buffer()
-                elif token_count >= flush_token_count:
-                    flush_buffer()
-                # --------------------------------------------
+                if hasattr(chunk, "choices") and chunk.choices:  # Ensure choices exist
+                    choice = chunk.choices[0]  # Access first choice object
+
+                    if hasattr(choice, "delta") and choice.delta.content is not None:
+                        content = choice.delta.content  # ✅ Use dot notation instead of dictionary indexing
+                        full_response += content
+                        buffer += content
+                        token_count += 1
+                        # ----- CHANGED LOGIC (same as above) -----
+                        if buffer.strip() and buffer.strip()[-1] in ".!?":
+                            flush_buffer()
+                        elif len(buffer) >= max_chunk_length:
+                            flush_buffer()
+                        elif token_count >= flush_token_count:
+                            flush_buffer()
+                        # --------------------------------------------
             if buffer.strip():
                 chunk_queue.put(buffer.strip())
             return full_response
-        
+
         except Exception as e:
             print(f"Error calling OpenAI API: {e}")
             return "Error: OpenAI API call failed."
@@ -144,14 +180,14 @@ def group_sentences(sentences, group_size):
     """
     grouped_chunks = []
     buffer = []
-    
+
     for sentence in sentences:
         buffer.append(sentence)
         if len(buffer) >= group_size:
             grouped_chunks.append(" ".join(buffer))
             buffer = []
-    
+
     if buffer:  # Add remaining sentences
         grouped_chunks.append(" ".join(buffer))
-    
+
     return grouped_chunks

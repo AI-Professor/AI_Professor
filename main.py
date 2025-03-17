@@ -407,12 +407,12 @@ def main():
     try:
         #Ingest pdf textbook and build knowledge graph
         print("📖 Loading course material...") 
-        if file.suffix.lower() == '.pdf':
-            text += process_pdf(str(file))
-        elif file.suffix.lower() == '.epub':
-            text += extract_text_from_epub(str(file))
-        elif file.suffix.lower() in ['.mp4', '.mov', '.avi']:
-            text += extract_text_from_video(str(file))
+        # if file.suffix.lower() == '.pdf':
+        #     text += process_pdf(str(file))
+        # elif file.suffix.lower() == '.epub':
+        #     text += extract_text_from_epub(str(file))
+        # elif file.suffix.lower() in ['.mp4', '.mov', '.avi']:
+        #     text += extract_text_from_video(str(file))
         chunks = split_text(text)  
         db = initialize_qa_system(chunks, 'cs326-4-5.pdf')
         print("✅ Course material loaded successfully!\n")
