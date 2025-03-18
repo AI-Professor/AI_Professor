@@ -1,4 +1,4 @@
-import { loadNavbar } from "./navbar.js";
+import { loadNavbar, setupNavbarUserState } from "./navbar.js";
 import { loadFooter } from "./footer.js";
 
 const ENV = await (await fetch("/api.json")).json();
@@ -125,7 +125,12 @@ async function saveChanges() {
     document.getElementById("subscriptionText").innerText = data.subscription_tier;
     document.getElementById("universityText").innerText = data.university_name;
 
+    // Update sessionStorage and navbar
+    sessionStorage.setItem('username', data.user_name);
+    await setupNavbarUserState();
+
     toggleEdit();
+    window.location.reload(); // Add this line to refresh the page
   } catch (error) {
     document.body.innerHTML = '<p>Failed to update user info: ' + error.message + '</p>';
   }
