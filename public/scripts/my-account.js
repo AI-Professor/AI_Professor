@@ -11,10 +11,13 @@ document.addEventListener('DOMContentLoaded', loadNavbar());
 document.addEventListener('DOMContentLoaded', loadFooter());
 window.saveChanges = saveChanges;
 
+let prevEmail = "";
+
 async function fetchUserInfo() {
   const token = sessionStorage.getItem('accessToken'); // Retrieve token from localStorage
   if (!token) {
-    document.getElementById('user-info').textContent = 'No access token found. Please log in.';
+    alert('No access token found. Please log in.');
+    window.location.href = '/login.html';
     return;
   }
   try {
@@ -43,6 +46,7 @@ async function fetchUserInfo() {
     document.getElementById('lastNameText').innerText = data.last_name;
     document.getElementById('userNameText').innerText = data.user_name;
     document.getElementById('emailText').innerText = data.email;
+    prevEmail = data.email;
     document.getElementById('majorText').innerText = data.major;
     document.getElementById('subscriptionText').innerText = data.subscription_tier;
     document.getElementById('roleText').innerText = data.role;
@@ -56,11 +60,7 @@ async function fetchUserInfo() {
     document.getElementById('universityInput').value = data.university_name;
 
   } catch (error) {
-    if (error.message.includes('401')) {
-      window.location.href = '/login.html'; // Redirect to login page if unauthorized
-    } else {
       document.body.innerHTML = '<p>Failed to fetch user info: ' + error.message + '</p>';
-    }
   }
 }
 
@@ -114,6 +114,11 @@ async function saveChanges() {
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`API Error ${response.status}: ${errorText}`);
+    }
+
+    if (prevEmail != document.getElementById("emailInput").value){
+      sessionStorage.clear();
+      window.location.href = '/login.html';
     }
 
     const data = await response.json();
