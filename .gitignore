@@ -195,3 +195,6 @@ libtool-2.5.4/
 pcre2-10.45/
 pulseaudio-16.2/
 tdb-1.4.13/
+
+*.wav
+*.webm
