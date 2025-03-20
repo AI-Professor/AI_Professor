@@ -54,6 +54,7 @@ connectButton.onclick = async () => {
       alert('No access token found. Please log in.');
       return;
     }
+    
     const statusDiv = document.createElement('div');
     statusDiv.id = 'connection-status';
     statusDiv.innerText = 'Establishing connection...';
@@ -83,7 +84,25 @@ connectButton.onclick = async () => {
 
     const data = await response.json();
 
+    // Initialize PixelStreaming
     initializePixelStreaming();
+    
+    // IMPORTANT: Add event listeners for connection events BEFORE connecting
+    // This ensures we handle the video setup at the right time
+    if (window.pixelStreamingApp) {
+      // Add a dedicated event listener for when the stream is actually ready
+      window.pixelStreamingApp.addEventListener('videoInitialized', () => {
+        console.log('Video initialized event received - stream should be ready');
+        setTimeout(attachVideoStream, 1000); // Wait 1 second after video is initialized
+      });
+      
+      window.pixelStreamingApp.addEventListener('webRtcConnected', () => {
+        console.log('WebRTC connected - waiting for video stream...');
+        // Wait 3 seconds after connection to check for the stream
+        setTimeout(attachVideoStream, 3000);
+      });
+    }
+
     const connectionTimeout = 20000; // 20 seconds
     const connectionPromise = window.pixelStreamingApp.connect();
 
@@ -93,7 +112,7 @@ connectButton.onclick = async () => {
 
     await Promise.race([connectionPromise, timeoutPromise]);
     
-    // Add ICE connection state monitoring
+    // Add ICE connection state monitoring - for debugging only, not for attaching video
     monitorIceConnectionState();
 
     statusDiv.innerText = 'Connection established!';
@@ -103,10 +122,13 @@ connectButton.onclick = async () => {
       }
     }, 2000);
 
-    // Optionally, enable the button again or update UI
+    // Enable the button again
     connectButton.disabled = false;
-    showStatusMessage('✅ Connecting to stream successully!');
-    forceVideoRefresh();
+    showStatusMessage('✅ Connecting to stream successfully!');
+    
+    // Set a final fallback timer for 5 seconds after connection attempt
+    setTimeout(attachVideoStream, 5000);
+    
   } catch (error) {
     console.error('Error connecting:', error);
     alert('Connecting to stream failed!');
@@ -123,7 +145,7 @@ function initializePixelStreaming() {
   console.log('Initializing PixelStreaming with enhanced WebRTC config...');
   
   // Use the exact signaling server URL that works
-  const signalingUrl = `ws://127.0.0.1:8085`;
+  const signalingUrl = `ws://34.125.65.245:8085`;
   console.log('Using signaling server URL:', signalingUrl);
   
   // Enhanced WebRTC configuration that matches the successful connection
@@ -131,7 +153,7 @@ function initializePixelStreaming() {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { 
-        urls: 'turn:170.140.151.5:19303',
+        urls: 'turn:34.125.65.245:19303',
         username: 'pixelstreaming',  // Add credentials if required
         credential: 'pixelstreaming'
       }
@@ -140,9 +162,7 @@ function initializePixelStreaming() {
     bundlePolicy: 'balanced',  // Changed from max-bundle to balanced
     rtcpMuxPolicy: 'require',
     iceCandidatePoolSize: 0,    // Match the successful configuration
-    offerExtmapAllowMixed: true,
-    offerToReceiveAudio: true, // Make sure this is true
-    offerToReceiveVideo: true
+    offerExtmapAllowMixed: true
   };
 
   const config = new epic.Config({ 
@@ -158,15 +178,22 @@ function initializePixelStreaming() {
   console.log('PixelStreaming config:', config);
   window.pixelStreamingApp = new epic.PixelStreaming(config);
 
-  // Add connection event listeners
+  // ===== EVENT LISTENERS =====
+  // Connecting events
   window.pixelStreamingApp.addEventListener('webRtcConnecting', () => {
     console.log('WebRTC connecting...');
   });
 
   window.pixelStreamingApp.addEventListener('webRtcConnected', () => {
     console.log('WebRTC connected successfully!');
+    // Don't try to access the video stream here - it may not be ready yet
   });
   
+  // Add a custom event for video initialization that we can listen for
+  window.pixelStreamingApp.addEventListener('streamingStarted', () => {
+    console.log('Streaming started!');
+    window.pixelStreamingApp.dispatchEvent(new Event('videoInitialized'));
+  });
 
   window.pixelStreamingApp.addEventListener('webRtcFailed', (event) => {
     console.error('WebRTC connection failed:', event);
@@ -182,7 +209,9 @@ function initializePixelStreaming() {
     console.log('WebRTC initialized');
   });
 
-  // Style and Application UI
+  // ===== STYLE AND UI =====
+  // These lines may not be necessary for your app since you have your own UI
+  // Comment them out if they cause issues
   const style = new epic.PixelStreamingApplicationStyle();
   style.applyStyleSheet();
 
@@ -191,7 +220,19 @@ function initializePixelStreaming() {
     onColorModeChanged: (mode) => style.setColorMode(mode)
   });
 
-  document.body.appendChild(app.rootElement);
+  // Decide if you want to append this to your document or not
+  // document.body.appendChild(app.rootElement);
+  
+  // This event helps us know when video tracks are added
+  window.pixelStreamingApp.addEventListener('trackAdded', (event) => {
+    console.log('Track added:', event.detail.kind);
+    if (event.detail.kind === 'video') {
+      // Dispatch our custom event when video track is added
+      window.pixelStreamingApp.dispatchEvent(new Event('videoInitialized'));
+    }
+  });
+  
+  return window.pixelStreamingApp;
 }
 function monitorIceConnectionState() {
   if (!window.pixelStreamingApp) {
@@ -298,30 +339,98 @@ function monitorIceConnectionState() {
     }, 1000);
   }, 100);
 }
-function forceVideoRefresh() {
-  console.log('Forcing video element refresh...');
-
-  // Detach and Re-Attach MediaStream
-  videoElement.srcObject = null;
-  setTimeout(() => {
-    const videoPlayer = window.pixelStreamingApp._webRtcController.videoPlayer;
-    const stream = videoPlayer.videoElement.srcObject;
-
-    videoElement.srcObject = stream;
-    videoElement.autoplay = true;
-    videoElement.playsInline = true;
-    videoElement.muted = false;
-
-    // Force play
-    videoElement.onloadeddata = () => {
-      console.log('Video data loaded, forcing play...');
-      videoElement.play().catch(error => console.error('Video play failed:', error));
-    };
-
-    videoElement.onplay = () => {
-      console.log('Video is now playing.');
-    };
-  }, 500);
+function attachVideoStream() {
+  console.log('Attempting to attach video stream...');
+  
+  if (!window.pixelStreamingApp) {
+    console.error('PixelStreamingApp not initialized');
+    return;
+  }
+  
+  // Check if we can access the video controller
+  if (!window.pixelStreamingApp._webRtcController) {
+    console.log('WebRTC controller not ready yet, will retry later');
+    return;
+  }
+  
+  // Check if video player is available
+  const videoPlayer = window.pixelStreamingApp._webRtcController.videoPlayer;
+  if (!videoPlayer || !videoPlayer.videoElement) {
+    console.log('Video player not ready yet, will retry later');
+    return;
+  }
+  
+  // Check if the source stream is available
+  const pixelStreamingVideo = videoPlayer.videoElement;
+  console.log('PixelStreaming video element found:', pixelStreamingVideo);
+  
+  if (!pixelStreamingVideo.srcObject) {
+    console.log('No srcObject in PixelStreaming video element yet, will retry later');
+    
+    // Try to find the stream from peer connection directly
+    try {
+      const peerConnection = window.pixelStreamingApp._webRtcController.peerConnection;
+      if (peerConnection) {
+        const receivers = peerConnection.getReceivers();
+        if (receivers && receivers.length > 0) {
+          console.log('Found receivers in peer connection:', receivers.length);
+          
+          // Create a new MediaStream from the tracks
+          const newStream = new MediaStream();
+          receivers.forEach(receiver => {
+            if (receiver.track) {
+              console.log('Adding track to new stream:', receiver.track.kind);
+              newStream.addTrack(receiver.track);
+            }
+          });
+          
+          // If we have tracks, set this stream
+          if (newStream.getTracks().length > 0) {
+            videoElement.srcObject = newStream;
+            videoElement.play().catch(e => console.error('Play failed:', e));
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error trying to get stream from peer connection:', e);
+    }
+    
+    return;
+  }
+  
+  console.log('PixelStreaming source stream found:', pixelStreamingVideo.srcObject);
+  
+  // Get tracks from the stream
+  const tracks = pixelStreamingVideo.srcObject.getTracks();
+  console.log('Stream tracks:', tracks.length);
+  
+  if (tracks.length === 0) {
+    console.log('No tracks in stream yet, will retry later');
+    return;
+  }
+  
+  // Create a new MediaStream and add all tracks
+  const newStream = new MediaStream();
+  tracks.forEach(track => {
+    console.log('Adding track to new stream:', track.kind, track.readyState);
+    newStream.addTrack(track);
+  });
+  
+  // Attach to our video element
+  videoElement.srcObject = newStream;
+  videoElement.autoplay = true;
+  videoElement.playsInline = true;
+  videoElement.muted = false; // Ensure audio is not muted
+  
+  // Make sure video element is visible
+  videoElement.style.display = 'block';
+  videoElement.style.width = '100%';
+  videoElement.style.height = '100%';
+  
+  // Force play
+  videoElement.play()
+    .then(() => console.log('Video playback started successfully'));
 }
 
 const lectureTranscriptContainer = document.querySelector('.lecture-transcript-container');
