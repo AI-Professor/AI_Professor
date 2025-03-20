@@ -125,7 +125,7 @@ def stream_llm_chunks(user_input, chat_history, chunk_queue, db:FAISS, is_lesson
                 for image in image_data_list:
                     content.append({
                         "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+                        "image_url": {"url": f"data:image/jpeg;base64,{image}"},
                     })
             cur_msg = {"role": "user", "content": content}
             messages.append(cur_msg)
