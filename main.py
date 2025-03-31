@@ -29,6 +29,7 @@ from app import models, schemas, crud, auth, captcha
 from app.database import SessionLocal, engine
 
 from src.data_ingestion.pdf_parser import extract_text_from_pdf 
+from src.data_ingestion.pdf_parser_MinerU import process_pdf 
 from src.data_ingestion.epub_parser import extract_text_from_epub
 from src.data_ingestion.video_parser import extract_text_from_video 
 from src.data_ingestion.text_splitter import split_text  
@@ -477,7 +478,7 @@ async def upload_file(files: List[UploadFile] = File(...)):
             
             # Process file
             if file.filename.lower().endswith('.pdf'):
-                text += extract_text_from_pdf(file_path)
+                text += process_pdf(file_path)
             elif file.filename.lower().endswith('.epub'):
                 text += extract_text_from_epub(file_path)
             elif file.filename.lower().split('.')[-1] in ['mp4', 'mov', 'avi']:
@@ -486,7 +487,7 @@ async def upload_file(files: List[UploadFile] = File(...)):
         # Initialize QA system with new content
         global global_db
         chunks = split_text(text)
-        global_db = initialize_qa_system(chunks)
+        global_db = initialize_qa_system(chunks, files[0].filename)
         
         logger.info("File processed successfully: %s", file.filename)
         return {"status": "success", "message": f"Processed {file.filename}"}
@@ -570,20 +571,19 @@ def main():
     audio_worker_thread = Thread(target=audio_queue_worker, args=(audio_queue, osc_sender, py_face, socket_connection, default_animation_thread, stop_default_animation))
     audio_worker_thread.start()
 
-    file = Path("data/raw/scrum.epub")
+    file = Path("data/raw/cs326-4-5.pdf")
     text = ""
     try:
         #Ingest pdf textbook and build knowledge graph
         print("📖 Loading course material...") 
-        if file.suffix.lower() == '.pdf':
-            text += extract_text_from_pdf(str(file))
-        elif file.suffix.lower() == '.epub':
-            text += extract_text_from_epub(str(file))
-        elif file.suffix.lower() in ['.mp4', '.mov', '.avi']:
-            text += extract_text_from_video(str(file))
-
-        chunks = split_text(text)
-        db = initialize_qa_system(chunks)
+        # if file.suffix.lower() == '.pdf':
+        #     text += process_pdf(str(file))
+        # elif file.suffix.lower() == '.epub':
+        #     text += extract_text_from_epub(str(file))
+        # elif file.suffix.lower() in ['.mp4', '.mov', '.avi']:
+        #     text += extract_text_from_video(str(file))
+        chunks = split_text(text)  
+        db = initialize_qa_system(chunks, 'cs326-4-5.pdf')
         print("✅ Course material loaded successfully!\n")
 
         #Generate lesson script from knowledge graph
