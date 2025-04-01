@@ -647,12 +647,27 @@ function addChatMessage(text, sender = 'ai') {
 
   const chatBubble = document.createElement('div');
   chatBubble.className = 'chat-bubble';
+  
+  // Replace $...$ with \(...\) for inline math
+  text = text.replace(/\$([^\$]+)\$/g, '\\($1\\)');
+  // Replace $$...$$ with \[...\] for display math
+  text = text.replace(/\$\$([^\$]+)\$\$/g, '\\[$1\\]');
+  
   chatBubble.textContent = text;
 
   msgDiv.appendChild(avatarContainer);
   msgDiv.appendChild(chatBubble);
 
   msgHistory.appendChild(msgDiv);
+
+  // Render LaTeX in the new message
+  renderMathInElement(chatBubble, {
+    delimiters: [
+      {left: "\\(", right: "\\)", display: false},
+      {left: "\\[", right: "\\]", display: true}
+    ],
+    throwOnError: false
+  });
 
   requestAnimationFrame(() => {
     if (autoScrollChat) {
