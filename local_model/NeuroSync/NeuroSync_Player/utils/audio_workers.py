@@ -1,9 +1,9 @@
 # utils/audio_workers.py
 import time
-from utils.neurosync_api_connect import send_audio_to_neurosync, read_audio_file_as_bytes, validate_audio_bytes
-from utils.local_tts import call_local_tts 
-from utils.generated_utils import run_audio_animation_from_bytes
-from livelink.connect.livelink_init import UDP_IP, LIVELINK_PORT, AUDIO_PORT
+from local_model.NeuroSync.NeuroSync_Player.utils.neurosync_api_connect import send_audio_to_neurosync, read_audio_file_as_bytes, validate_audio_bytes
+from local_model.NeuroSync.NeuroSync_Player.utils.local_tts import call_local_tts 
+from local_model.NeuroSync.NeuroSync_Player.utils.generated_utils import run_audio_animation_from_bytes
+from local_model.NeuroSync.NeuroSync_Player.livelink.connect.livelink_init import UDP_IP, LIVELINK_PORT, AUDIO_PORT
 import os
 
 
