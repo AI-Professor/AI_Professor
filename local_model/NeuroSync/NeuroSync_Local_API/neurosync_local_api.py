@@ -3,9 +3,9 @@ import numpy as np
 import torch
 import flask
 
-from utils.generate_face_shapes import generate_facial_data_from_bytes
-from utils.model.model import load_model
-from utils.config import config
+from local_model.NeuroSync.NeuroSync_Local_API.utils.generate_face_shapes import generate_facial_data_from_bytes
+from local_model.NeuroSync.NeuroSync_Local_API.utils.model.model import load_model
+from local_model.NeuroSync.NeuroSync_Local_API.utils.config import config
 
 app = flask.Flask(__name__)
 
@@ -14,7 +14,7 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model_path = 'local_model/NeuroSync/NeuroSync_Local_API/utils/model/model.pth'
 blendshape_model = load_model(model_path, config, device, use_half_precision=True)
 
-@app.route('/audio_to_blendshapes', methods=['POST'])
+@app.route('/api/audio_to_blendshapes', methods=['POST'])
 def audio_to_blendshapes_route():
     audio_bytes = request.data
     generated_facial_data = generate_facial_data_from_bytes(audio_bytes, blendshape_model, device, config)
