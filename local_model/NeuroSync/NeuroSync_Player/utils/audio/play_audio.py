@@ -89,18 +89,17 @@ def convert_to_webm(audio_path):
         print(f"Error creating WebM: {e}")
         return None
 
-def send_osc_audio(audio_path, webm_path, start_event, osc_sender):
+def send_osc_audio(audio_path, webm_path, start_event, audio_sender):
     try:
         start_event.wait()
-
         # Handle different OS platforms
         system = platform.system()
         if system == "Linux":
             # For Linux, convert to WebM before sending
-            osc_sender.send_message("/audio", webm_path)
+            audio_sender.send_message("/audio", webm_path)
         else:
             # For Windows and other OS, use WAV directly
-            osc_sender.send_message("/audio", audio_path)
+            audio_sender.send_message("/audio", audio_path)
             
         time.sleep(1)
     except KeyboardInterrupt:

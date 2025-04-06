@@ -8,7 +8,8 @@ if not openai_api_key:
     raise ValueError("OPENAI_API_KEY not found in environment variables")
 
 #This function will generate lesson script through GPT-4 model identified in answer_question function in src/nlp/qa_system.py. The content is based on the template we defined here and give to GPT-4.
-def generate_lesson_script(db, template, length, topic, topic_path):
+
+def generate_lesson_script(db, template, length, topic, topic_path, user_id):
     """Auto-generates lesson script using GPT-4"""
 
     templates = {
@@ -71,7 +72,7 @@ def generate_lesson_script(db, template, length, topic, topic_path):
         )
         lesson_script = llm.predict(prompt)
 
-        LESSON_DIR = "data/processed/lesson_script"
+        LESSON_DIR = f"data/processed/lesson_script/{user_id}"
         os.makedirs(LESSON_DIR, exist_ok=True)
 
         with open(f"{LESSON_DIR}/{topic_path}_lesson_script.txt", "w") as f:

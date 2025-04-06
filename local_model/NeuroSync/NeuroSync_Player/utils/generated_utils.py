@@ -32,12 +32,21 @@ def load_facial_data_from_csv(csv_path):
     return data.values
 
 
-def run_audio_animation_from_bytes(audio_path, webm_path, osc_sender, generated_facial_data, py_face, socket_connection, default_animation_thread, stop_default_animation):
+def run_audio_animation_from_bytes(audio_path, 
+                                   webm_path, 
+                                   livelink_port, 
+                                   py_face_name, 
+                                   audio_sender, 
+                                   generated_facial_data, 
+                                   py_face, 
+                                   socket_connection, 
+                                   default_animation_thread, 
+                                   stop_default_animation):
     # --------------------------------------------------------------------
     # Create a separate instance for encoding to include blend in/out data.
     # --------------------------------------------------------------------
     fps=60
-    encoding_face = initialize_py_face()
+    encoding_face = initialize_py_face(name=py_face_name)
     
     # Pre-encode the facial data with blend animations applied to the temporary instance.
     encoded_facial_data = pre_encode_facial_data(generated_facial_data, encoding_face, fps)
@@ -49,7 +58,7 @@ def run_audio_animation_from_bytes(audio_path, webm_path, osc_sender, generated_
 
     start_event = Event()
     
-    audio_thread = Thread(target=send_osc_audio, args=(audio_path, webm_path, start_event, osc_sender))
+    audio_thread = Thread(target=send_osc_audio, args=(audio_path, webm_path, start_event, audio_sender))
     data_thread = Thread(target=send_pre_encoded_data_to_unreal, args=(encoded_facial_data, start_event, fps, socket_connection))
 
     audio_thread.start()
@@ -62,5 +71,5 @@ def run_audio_animation_from_bytes(audio_path, webm_path, osc_sender, generated_
 
     with queue_lock:
         stop_default_animation.clear()
-        default_animation_thread = Thread(target=default_animation_loop, args=(py_face, stop_default_animation))
+        default_animation_thread = Thread(target=default_animation_loop, args=(py_face, stop_default_animation, livelink_port))
         default_animation_thread.start()

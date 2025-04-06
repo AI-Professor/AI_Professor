@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from threading import Event
 
-from local_model.NeuroSync.NeuroSync_Player.livelink.connect.livelink_init import FaceBlendShape, UDP_IP, LIVELINK_PORT, AUDIO_PORT
+from local_model.NeuroSync.NeuroSync_Player.livelink.connect.livelink_init import FaceBlendShape, UDP_IP, LIVELINK_PORT
 
 ground_truth_path = r"local_model/NeuroSync/NeuroSync_Player/livelink/animations/default_anim/default.csv"
 columns_to_drop = [
@@ -39,8 +39,9 @@ def blend_animation(data, blend_frames=30):
 
 blended_animation_data = blend_animation(default_animation_data, blend_frames=30)
 
-def default_animation_loop(py_face, stop_default_animation):
+def default_animation_loop(py_face, stop_default_animation, livelink_port):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+        s.connect((UDP_IP, livelink_port))
         while not stop_default_animation.is_set():
             for frame in blended_animation_data:
                 # Check before processing each frame
@@ -53,8 +54,8 @@ def default_animation_loop(py_face, stop_default_animation):
                 
                 # Send the frame
                 try:
+                    s.sendall(py_face.encode())
                     s.settimeout(1.0)
-                    s.sendto(py_face.encode(), (UDP_IP, LIVELINK_PORT))
                 except Exception as e:
                     print(f"Error in default animation sending: {e}")
                 

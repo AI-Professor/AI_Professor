@@ -14,15 +14,17 @@ if not openai_api_key:
 
 #This object will be able to generate fundamental factual multiple choice questions based on lesson script
 class BasicQuizEngine:
-    def __init__(self, db):
+    def __init__(self, db, user_id):
         self.knowledge_graph = db #define knowledge graph based on input from object construction
+        self.user_id = user_id
         self.llm = ChatOpenAI(
             model="gpt-4",
             openai_api_key=openai_api_key,
             temperature=0
         ) #initialze large learning model for quiz construction, we use GPT-4 here.
-        QUIZ_DIR = "data/processed/quiz_data"
+        QUIZ_DIR = f"data/processed/quiz_data/{user_id}"
         os.makedirs(QUIZ_DIR, exist_ok=True)
+        self.db_path = f"data/processed/quiz_data/{user_id}"
         self.conn = sqlite3.connect('data/processed/quiz_data/quiz_data.db') #initialize sqlite3 model for generating and accessing database
         self._init_db()
 
@@ -125,3 +127,17 @@ class BasicQuizEngine:
             # Optional: Only vacuum if you need to reclaim space
             cursor.execute("VACUUM")
             cursor.close()
+    
+    # This method handles cleanup when done with the quiz engine
+    def close(self):
+        if hasattr(self, 'conn') and self.conn:
+            self.conn.close()
+
+# Factory function to create or retrieve a quiz engine for a specific user
+def get_quiz_engine(db, user_id):
+    # Create user-specific directory for quiz data
+    QUIZ_DIR = f"data/processed/quiz_data/{user_id}"
+    os.makedirs(QUIZ_DIR, exist_ok=True)
+    
+    # Create a new quiz engine instance for this user
+    return BasicQuizEngine(db, user_id)

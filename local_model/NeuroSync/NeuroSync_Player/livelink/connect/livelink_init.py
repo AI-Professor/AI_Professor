@@ -16,15 +16,15 @@ from livelink.connect.pylivelinkface import PyLiveLinkFace, FaceBlendShape
 
 load_dotenv()
 UDP_IP = os.getenv('LOCAL_HOST_NAME')
-LIVELINK_PORT = int(os.getenv('LIVELINK_PORT'))
-AUDIO_PORT = int(os.getenv('AUDIO_PORT'))
+LIVELINK_PORT = 1
 
-def create_socket_connection():
+def create_socket_connection(livelink_port: int):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.connect((UDP_IP, livelink_port))
     return s
 
-def initialize_py_face():
-    py_face = PyLiveLinkFace()
+def initialize_py_face(name):
+    py_face = PyLiveLinkFace(name=name)
     initial_blendshapes = [0.0] * 61
     for i, value in enumerate(initial_blendshapes):
         py_face.set_blendshape(FaceBlendShape(i), float(value))

@@ -1,4 +1,5 @@
 import atexit
+import asyncio
 from dotenv import load_dotenv
 from datetime import timedelta
 import datetime
@@ -46,6 +47,8 @@ from local_model.NeuroSync.NeuroSync_Local_API.utils.generate_face_shapes import
 from local_model.NeuroSync.NeuroSync_Local_API.utils.config import config
 from local_model.kokoro_model.kokoro.pipeline import KPipeline
 
+from src.Multiuser.session_manager import SessionManager
+
 warnings.filterwarnings("ignore")
 load_dotenv()
 server_host_name = os.getenv('SERVER_HOST_NAME')
@@ -62,7 +65,7 @@ local_ue_port = os.getenv('LOCAL_UE_PORT')
 local_front_url = f"http://{local_host_name}:{local_front_port}"
 local_back_url = f"http://{local_host_name}:{local_back_port}"
 local_ue_url = f"http://{local_host_name}:{local_ue_port}"
-audio_port = int(os.getenv('AUDIO_PORT'))
+info_port = int(os.getenv('INFO_PORT'))
 SECRET_KEY = os.environ["ENCRYPTION_KEY"]
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -88,6 +91,11 @@ AUDIO_STORAGE_DIR = "local_model/NeuroSync/NeuroSync_Player/data/audio"
 os.makedirs(AUDIO_STORAGE_DIR, exist_ok=True)
 
 app = FastAPI()
+session_manager = SessionManager(logger)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model_path = 'local_model/NeuroSync/NeuroSync_Local_API/utils/model/model.pth'
+blendshape_model = load_model(model_path, config, device, use_half_precision=True)
+
 
 #FastAPI middleware handles any request before it is processed by any path or functions
 #Our backend API will be running on localhost:5001, our frontend API will be running on localhost:3000
@@ -105,59 +113,13 @@ async def health_check():
     return {"status": "ok", "initialized": "True"}#bool(global_db)
 
 
-
-# Start the program
-def start_UE():
-    global UE
-    UE = True
-    exe_path = os.path.join(os.path.dirname(__file__), 'Windows', 'AI_Professor.exe')
-    args = [
-        '-PixelStreamingURL=ws://127.0.0.1:8888',
-        '-AllowPixelStreamingCommands',
-        '-RenderOffscreen'
-    ]
-
-    # Start the game as a detached process
-    game_process = Popen([exe_path] + args, shell=True)
-    print(f"Game started with PID: {game_process.pid}")
-
-def check_ffmpeg_installed():
-    """Check if FFmpeg is installed on the system."""
-    return shutil.which('ffmpeg') is not None
-
 @app.on_event("startup")
 async def startup_event():
-    # Check platform and FFmpeg for Linux systems
-    if platform.system() == "Linux" and not check_ffmpeg_installed():
-        print("Running on Linux...")
-        logger.warning("FFmpeg not found. Audio conversion to WebM will not work. Please install FFmpeg.")
-    
-    # Check if UE is running on Windows
-    if platform.system() == "Windows":
-        print("Running on Windows...")
-        logger.info("Starting Unreal Engine...")
-        start_UE()
-
-    # Check if UE is running on Mac
-    if platform.system() == "Darwin":
-        print("Running on macOS...")
+    global  info_sender, pipeline
+    info_sender = udp_client.SimpleUDPClient(local_host_name, info_port)
+    pipeline = KPipeline(lang_code='a')
 
 
-
-# Terminate the program
-def terminate_UE(name):
-    UE = False
-    for proc in psutil.process_iter(['pid', 'name']):
-        # Check if the process name matches
-        if proc.info['name'] == name:
-            print(f"Terminating process {name} with PID {proc.info['pid']}")
-            proc.terminate()
-            try:
-                proc.wait(timeout=5)
-                print(f"Process {name} terminated successfully.")
-            except psutil.TimeoutExpired:
-                print("Process did not terminate in time. Forcing termination...")
-                proc.kill()
 
 def cleanup_audio_files():
     audio_dir = Path("local_model/NeuroSync/NeuroSync_Player/data/audio")
@@ -180,7 +142,6 @@ def clear_chatlog():
 
 @app.on_event("shutdown")
 async def on_shutdown():
-
     if platform.system() == "Darwin":
         print("Shutting down on macOS...")
     elif platform.system() == "Linux":
@@ -188,15 +149,8 @@ async def on_shutdown():
     elif platform.system() == "Windows":
         print("Shutting down on Windows...")
         logger.info("Shutting down Unreal Engine...")
-        terminate_UE('AI_Professor.exe')
+        session_manager.cleanup()
         logger.info("Unreal Engine terminated successfully.")
-    
-    if 'quiz_engine' in globals():
-        logger.info("Clearing quiz database...")
-        quiz_engine.clear_all_questions()
-        logger.info("Quiz database cleared successfully.")
-    else:
-        print("Quiz Engine is not initialized!")
 
     logger.info("Cleaning audio files...")
     cleanup_audio_files()
@@ -330,42 +284,116 @@ def flush_queue(q):
         pass
 
 @app.post("/api/connect")
-async def connect():
+async def connect(request: Request, current_user: schemas.UserResponse = Depends(get_current_user)):
     try: 
-        global device, model_path, blendshape_model
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model_path = 'local_model/NeuroSync/NeuroSync_Local_API/utils/model/model.pth'
-        blendshape_model = load_model(model_path, config, device, use_half_precision=True)
-        py_face = initialize_py_face()
-        global socket_connection, osc_sender
-        socket_connection = create_socket_connection()
-        osc_sender = udp_client.SimpleUDPClient('127.0.0.1', audio_port)
-        global chat_history
-        chat_history = load_chat_history()
-        pipeline = KPipeline(lang_code='a')
-        global stop_default_animation, default_animation_thread
+        user_id = str(current_user.user_id)
+        
+        # Check if the user already has an active session
+        existing_sessions = session_manager.get_user_sessions(user_id)
+        if existing_sessions:
+            # You can either return the existing session or terminate it and create a new one
+            # For this implementation, we'll return the existing session
+            session = existing_sessions[0]
+            session.update_activity()
+            
+            # Return the session info for the frontend to connect
+            return {
+                "status": "Connected",
+                "message": "Using existing connection",
+                "session_id": session.session_id,
+                "livelink_port": session.livelink_port,
+                "py_face_name": session.py_face_name,
+                "audio_port": session.audio_port,
+                "streamer_id": session.ue_instance.streamer_id if session.ue_instance else None,
+                "websocket_port": session.ue_instance.websocket_port if session.ue_instance else None,
+                "signaling_port": session.ue_instance.signaling_port if session.ue_instance else None
+            }
+        
+        # Create a new session for this user
+        session = session_manager.create_session(user_id)
+        logger.info(f"Waiting for UE instance to start for session {session.session_id}")
+        
+        # Wait up to 15 seconds for the UE instance to be ready
+        max_attempts = 15
+        for attempt in range(max_attempts):
+            if session.ue_instance and session.ue_instance.is_running():
+                logger.info(f"UE instance running successfully for session {session.session_id} after {attempt+1} attempts")
+                break
+            
+            # Wait a second before checking again
+            await asyncio.sleep(1)
+            
+            if attempt == max_attempts - 1:
+                logger.warning(f"UE instance may not be fully started for session {session.session_id} after {max_attempts} attempts")
+
+        await asyncio.sleep(10)
+
+        info_sender.send_message(f'/Game/LivelinkPresets/Preset_{session.livelink_port}', (session.audio_port, session.py_face_name))
+
+        await asyncio.sleep(10)
+
+        # Initialize PyFace and connections
+        py_face = initialize_py_face(name=session.py_face_name)
+        socket_connection = create_socket_connection(session.livelink_port)
+        audio_sender = udp_client.SimpleUDPClient(local_host_name, session.audio_port)
+        
+        # Load user-specific chat history for this session
+        chat_history = load_chat_history(user_id=user_id, session_id=session.session_id)
+        
+        # Initialize default animation
         stop_default_animation = Event()
-
-        default_animation_thread = Thread(target=default_animation_loop, args=(py_face,stop_default_animation))
+        default_animation_thread = Thread(
+            target=default_animation_loop, 
+            args=(py_face, stop_default_animation, session.livelink_port)
+        )
         default_animation_thread.start()
-
-        # Create queues:
-        # 1. chunk_queue for text chunks to be processed by TTS.
-        # 2. audio_queue for the resulting audio/facial-data pairs.
-        global chunk_queue, audio_queue
+        
+        # Set up queues for the session
         chunk_queue = Queue()
         audio_queue = Queue()
-
-        global tts_worker_thread, audio_worker_thread
-        # Start the TTS worker (processes text chunks into audio)
-        tts_worker_thread = Thread(target=tts_worker, args=(chunk_queue, audio_queue, pipeline))
+        
+        # Start worker threads
+        tts_worker_thread = Thread(
+            target=tts_worker, 
+            args=(chunk_queue, audio_queue, pipeline)
+        )
         tts_worker_thread.start()
-
-        # Start the audio worker (plays audio sequentially)
-        audio_worker_thread = Thread(target=audio_queue_worker, args=(audio_queue, osc_sender, py_face, socket_connection, default_animation_thread, stop_default_animation))
+        
+        audio_worker_thread = Thread(
+            target=audio_queue_worker, 
+            args=(audio_queue,
+                  session.livelink_port,
+                  session.py_face_name, 
+                  audio_sender, 
+                  py_face, 
+                  socket_connection, 
+                  default_animation_thread, 
+                  stop_default_animation)
+        )
         audio_worker_thread.start()
-
-        return {"status": "Connected", "message": "Model loaded and workers started"}
+        
+        # Store all these resources in the session
+        session.py_face = py_face
+        session.socket_connection = socket_connection
+        session.chat_history = chat_history
+        session.stop_default_animation = stop_default_animation
+        session.default_animation_thread = default_animation_thread
+        session.chunk_queue = chunk_queue
+        session.audio_queue = audio_queue
+        session.tts_worker_thread = tts_worker_thread
+        session.audio_worker_thread = audio_worker_thread
+   
+        return {
+            "status": "Connected", 
+            "message": "Model loaded and workers started",
+            "session_id": session.session_id,
+            "livelink_port": session.livelink_port,
+            "py_face_name": session.py_face_name,
+            "audio_port": session.audio_port,
+            "streamer_id": session.ue_instance.streamer_id if session.ue_instance else None,
+            "websocket_port": session.ue_instance.websocket_port if session.ue_instance else None,
+            "signaling_port": session.ue_instance.signaling_port if session.ue_instance else None
+        }
     
     except Exception as e:
         logger.error("Error in /api/connect: %s", str(e))
@@ -374,29 +402,103 @@ async def connect():
             content={"error": str(e)}
         )
 
-@app.delete("/api/disconnect")
-async def disconnect():
+@app.get("/api/session-status")
+async def check_session_status(request: Request, current_user: schemas.UserResponse = Depends(get_current_user)):
     try:
-        if chunk_queue:
-            # Wait until all text chunks have been processed
-            chunk_queue.join()
-            # Signal the TTS worker to exit
-            chunk_queue.put(None)
-            tts_worker_thread.join()
-            
-            # Wait until all audio items have been played
-            audio_queue.join()
-            # Signal the audio worker to exit
-            audio_queue.put(None)
-            audio_worker_thread.join()
-            
-            stop_default_animation.set()
-            default_animation_thread.join()
-            socket_connection.close()
+        # Get session_id as a query parameter
+        session_id = request.query_params.get("session_id")
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id is required")
+        
+        # Get the session
+        session = session_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check if the session belongs to the current user
+        if str(session.user_id) != str(current_user.user_id):
+            raise HTTPException(status_code=403, detail="Not authorized to access this session")
+        
+        # Check if the UE instance is running
+        ue_running = False
+        if session.ue_instance:
+            ue_running = session.ue_instance.is_running()
+        
+        return {
+            "session_id": session.session_id,
+            "py_face_name": session.py_face_name,
+            "livelink_port": session.livelink_port,
+            "py_face_name": session.py_face_name,
+            "audio_port": session.audio_port,
+            "ue_instance_running": ue_running,
+            "status": session.ue_instance.status if session.ue_instance else "no_instance",
+            "has_knowledge_db": session.knowledge_db is not None,
+            "has_quiz_engine": session.quiz_engine is not None
+        }
+        
+    except Exception as e:
+        logger.error(f"Error checking session status for user {current_user.user_id}: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
 
-            return {"status": "Disonnected", "message": "Model and workers ended"}
+@app.get("/api/user-sessions")
+async def get_user_sessions(current_user: schemas.UserResponse = Depends(get_current_user)):
+    try:
+        user_id = str(current_user.user_id)
+        sessions = session_manager.get_user_sessions(user_id)
+        
+        # Format the response
+        return {
+            "user_id": user_id,
+            "sessions": [session.get_session_info() for session in sessions]
+        }
+    
+    except Exception as e:
+        logger.error("Error in /api/user-sessions: %s", str(e))
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+@app.delete("/api/disconnect")
+async def disconnect(request: Request, current_user: schemas.UserResponse = Depends(get_current_user)):
+    try:
+        # Get session_id from request body
+        data = await request.json()
+        session_id = data.get("session_id")
+        
+        if not session_id:
+            return JSONResponse(
+                status_code=400,
+                content={"error": "session_id is required"}
+            )
+        
+        # Get the session
+        session = session_manager.get_session(session_id)
+        if not session:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "Session not found"}
+            )
+        
+        # Check if the session belongs to the current user
+        if str(session.user_id) != str(current_user.user_id):
+            return JSONResponse(
+                status_code=403,
+                content={"error": "Not authorized to disconnect this session"}
+            )
+        
+        # Terminate the session
+        success = session_manager.terminate_session(session_id)
+        if success:
+            return {"status": "Disconnected", "message": "Session terminated successfully"}
         else:
-            return {"status": "Disonnected", "message": "Model and workers not initialized"}
+            return JSONResponse(
+                status_code=500,
+                content={"error": "Failed to terminate session"}
+            )
 
     except Exception as e:
         logger.error("Error in /api/disconnect: %s", str(e))
@@ -406,72 +508,200 @@ async def disconnect():
         )
 
 @app.post("/api/lecture")
-async def lecture(topic: dict):
+async def lecture(request: Request, topic: dict, current_user: schemas.UserResponse = Depends(get_current_user)):
     try:
+        # Get session_id from request body
+        session_id = topic.get("session_id")
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id is required")
+        
+        # Get the session
+        session = session_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check if the session belongs to the current user
+        if str(session.user_id) != str(current_user.user_id):
+            raise HTTPException(status_code=403, detail="Not authorized to use this session")
+        
+        # Check if the user has uploaded content
+        if not session.knowledge_db:
+            raise HTTPException(status_code=400, detail="No knowledge database found. Please upload content first.")
+        
         logger.info("Generating lesson scripts...")
-        if not global_db:
-            raise HTTPException(status_code=503, detail="System not initialized")
-
-        flush_queue(chunk_queue)
-        flush_queue(audio_queue)
         
-        topic = topic['topic']
-        topic_path = topic.lower().replace(" ", "_")
+        user_id = str(current_user.user_id)
+        topic_value = topic['topic']
+        topic_path = topic_value.lower().replace(" ", "_")
         
-        global lesson_path
-        lesson_path = f"data/processed/lesson_script/{topic_path}_lesson_script.txt"
-
-        if os.path.exists(lesson_path):
-            with open(lesson_path, "r") as file:
-                lesson_script = file.read()
-            print("Loaded lesson script successfully!")
-        else:
-            lesson_script = generate_lesson_script(global_db, "TEACHING", 1, topic, topic_path)
-            print("Generated lesson script successfully!")
+        # Generate lesson script with user-specific path
+        lesson_script, lesson_script_path = generate_lesson_script(
+            db=session.knowledge_db, 
+            template="TEACHING", 
+            length=1, 
+            topic=topic_value, 
+            topic_path=topic_path,
+            user_id=user_id
+        )
         
-        stream_llm_chunks(lesson_script, chat_history, chunk_queue, db=global_db, is_lesson=True)
+        if not lesson_script or not lesson_script_path:
+            raise HTTPException(status_code=500, detail="Failed to generate lesson script")
+        
+        # Store the lesson path in the session
+        session.lesson_path = lesson_script_path
+        
+        # Stream the script to the frontend
+        stream_llm_chunks(lesson_script, session.chat_history, session.chunk_queue, db=session.knowledge_db, is_lesson=True)
         return {"status": "Success", "message": "Lesson scripts generated successfully", "script": lesson_script}
+    
     except Exception as e:
-        logger.error("Error in /api/lecture: %s", str(e))
+        logger.error(f"Error in /api/lecture for user {current_user.user_id}: {str(e)}")
         return JSONResponse(
             status_code=500,
             content={"error": str(e)}
         )
 
 @app.post("/api/answer")
-async def answer_endpoint(question_data: dict):
+async def answer_endpoint(request: Request, question_data: dict, current_user: schemas.UserResponse = Depends(get_current_user)):
     try:
-        logger.info("Received question: %s", question_data["question"])
-        if not global_db:
-            raise HTTPException(status_code=503, detail="System not initialized")
+        # Get session_id from request body
+        session_id = question_data.get("session_id")
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id is required")
+        
+        # Get the session
+        session = session_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check if the session belongs to the current user
+        if str(session.user_id) != str(current_user.user_id):
+            raise HTTPException(status_code=403, detail="Not authorized to use this session")
+        
+        # Check if the user has uploaded content
+        if not session.knowledge_db:
+            raise HTTPException(status_code=400, detail="No knowledge database found. Please upload content first.")
+        
+        user_id = str(current_user.user_id)
+        logger.info(f"Received question from user {user_id}: {question_data['question']}")
 
-        flush_queue(chunk_queue)
-        flush_queue(audio_queue)
+        flush_queue(session.chunk_queue)
+        flush_queue(session.audio_queue)
 
-        full_response = stream_llm_chunks(question_data["question"], chat_history, chunk_queue, db=global_db)
-        chat_history.append({"input": question_data["question"], "response": full_response})
-        save_chat_log(chat_history)
+        # Use the session-specific knowledge database
+        full_response = stream_llm_chunks(
+            question_data["question"], 
+            session.chat_history, 
+            session.chunk_queue, 
+            db=session.knowledge_db
+        )
+        
+        session.chat_history.append({"input": question_data["question"], "response": full_response})
+        save_chat_log(session.chat_history, user_id=user_id, session_id=session_id)
+        
         return {"text": full_response}
         
     except Exception as e:
-        logger.error("Error in /api/answer: %s", str(e))
+        logger.error(f"Error in /api/answer for user {current_user.user_id}: {str(e)}")
         return JSONResponse(
             status_code=500,
             content={"error": str(e)}
         )
-    
-@app.post("/api/upload")
-async def upload_file(files: List[UploadFile] = File(...)):
+
+@app.get("/api/chat-history")
+async def get_chat_history(request: Request, current_user: schemas.UserResponse = Depends(get_current_user)):
     try:
-        # Create upload directory
-        logger.info(f"Uploading {len(files)} file/s!")
-        UPLOAD_DIR = "data/raw/"
-        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        # Get session_id as a query parameter
+        session_id = request.query_params.get("session_id")
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id is required")
+        
+        # Get the session
+        session = session_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check if the session belongs to the current user
+        if str(session.user_id) != str(current_user.user_id):
+            raise HTTPException(status_code=403, detail="Not authorized to access this chat history")
+        
+        # Return the chat history from the session
+        return {"chat_history": session.chat_history}
+        
+    except Exception as e:
+        logger.error(f"Error retrieving chat history for user {current_user.user_id}: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+@app.delete("/api/chat-history")
+async def clear_chat_history(request: Request, current_user: schemas.UserResponse = Depends(get_current_user)):
+    try:
+        # Get session_id as a query parameter
+        session_id = request.query_params.get("session_id")
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id is required")
+        
+        # Get the session
+        session = session_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check if the session belongs to the current user
+        if str(session.user_id) != str(current_user.user_id):
+            raise HTTPException(status_code=403, detail="Not authorized to clear this chat history")
+        
+        user_id = str(current_user.user_id)
+        
+        # Clear the chat history
+        from local_model.NeuroSync.NeuroSync_Player.utils.chat_utils import clear_chat_log
+        success = clear_chat_log(user_id=user_id, session_id=session_id)
+        
+        if success:
+            # Also clear the in-memory chat history
+            session.chat_history = []
+            return {"status": "success", "message": "Chat history cleared successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to clear chat history")
+        
+    except Exception as e:
+        logger.error(f"Error clearing chat history for user {current_user.user_id}: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+@app.post("/api/upload")
+async def upload_file(request: Request, files: List[UploadFile] = File(...), current_user: schemas.UserResponse = Depends(get_current_user)):
+    try:
+        # Get session_id from request
+        form_data = await request.form()
+        session_id = form_data.get("session_id")
+        
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id is required")
+        
+        # Get the session
+        session = session_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check if the session belongs to the current user
+        if str(session.user_id) != str(current_user.user_id):
+            raise HTTPException(status_code=403, detail="Not authorized to use this session")
+        
+        # Create upload directory for this user
+        user_id = str(current_user.user_id)
+        user_upload_dir = f"data/raw/{user_id}"
+        os.makedirs(user_upload_dir, exist_ok=True)
+        
+        logger.info(f"Uploading {len(files)} file/s for user {user_id}!")
         
         text = ""
         # Save file
         for file in files:
-            file_path = os.path.join(UPLOAD_DIR, file.filename)
+            file_path = os.path.join(user_upload_dir, file.filename)
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
             
@@ -483,22 +713,24 @@ async def upload_file(files: List[UploadFile] = File(...)):
             elif file.filename.lower().split('.')[-1] in ['mp4', 'mov', 'avi']:
                 text += extract_text_from_video(file_path)
         
-        # Initialize QA system with new content
-        global global_db
+        # Initialize QA system with new content, user-specific
         chunks = split_text(text)
-        global_db = initialize_qa_system(chunks)
+        user_db = initialize_qa_system(chunks, user_id)
         
-        logger.info("File processed successfully: %s", file.filename)
-        return {"status": "success", "message": f"Processed {file.filename}"}
+        # Store the database in the session
+        session.knowledge_db = user_db
+        
+        logger.info(f"Files processed successfully for user {user_id}: {[f.filename for f in files]}")
+        return {"status": "success", "message": f"Processed {len(files)} file(s) for user {user_id}"}
     
     except Exception as e:
-        logger.error("File processing failed: %s", str(e))
+        logger.error(f"File processing failed for user {current_user.user_id}: {str(e)}")
         return JSONResponse(
             status_code=500,
             content={"error": f"File processing failed: {str(e)}"}
         )
     finally:
-        if 'file' in locals():
+        for file in files:
             file.file.close()
 
 @app.post('/api/audio_to_blendshapes')
@@ -509,19 +741,44 @@ async def audio_to_blendshapes_route(request: Request):
 
     return {'blendshapes': generated_facial_data_list}
 
-
-
-# Quiz
 @app.get("/api/generate-quiz")
-async def generate_quiz():
+async def generate_quiz(request: Request, current_user: schemas.UserResponse = Depends(get_current_user)):
     try:
-        logger.info("Generating quiz.")
-        global quiz_engine
-        quiz_engine = BasicQuizEngine(global_db)
-        quiz_engine.generate_quiz_from_script(lesson_path)
+        # Get session_id as a query parameter
+        session_id = request.query_params.get("session_id")
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id is required")
+        
+        # Get the session
+        session = session_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check if the session belongs to the current user
+        if str(session.user_id) != str(current_user.user_id):
+            raise HTTPException(status_code=403, detail="Not authorized to use this session")
+        
+        # Check if the user has a lesson path
+        if not session.lesson_path:
+            raise HTTPException(status_code=400, detail="No lesson has been generated yet. Please generate a lesson first.")
+        
+        # Check if the user has a knowledge database
+        if not session.knowledge_db:
+            raise HTTPException(status_code=400, detail="No knowledge database found. Please upload content first.")
+        
+        user_id = str(current_user.user_id)
+        logger.info(f"Generating quiz for user {user_id}.")
+        
+        # Create a quiz engine for this user if it doesn't exist yet
+        if not session.quiz_engine:
+            from src.nlp.quiz_system import get_quiz_engine
+            session.quiz_engine = get_quiz_engine(session.knowledge_db, user_id)
+        
+        # Generate quiz using the user's lesson script
+        session.quiz_engine.generate_quiz_from_script(session.lesson_path)
         
         # Retrieve all questions
-        cursor = quiz_engine.conn.cursor()
+        cursor = session.quiz_engine.conn.cursor()
         cursor.execute("SELECT * FROM questions ORDER BY RANDOM() LIMIT 10")
         questions = cursor.fetchall()
 
@@ -534,26 +791,62 @@ async def generate_quiz():
                 "concept": q[4]
             } for q in questions
         ]
+    
     except Exception as e:
-        logger.info("Quiz generation failed: %s", str(e))
+        logger.error(f"Quiz generation failed for user {current_user.user_id}: {str(e)}")
         return JSONResponse(
             status_code=500,
             content={"error": f"Quiz generation failed: {str(e)}"}
         )
 
+@app.delete("/api/clear-quiz")
+async def clear_quiz(request: Request, current_user: schemas.UserResponse = Depends(get_current_user)):
+    try:
+        # Get session_id as a query parameter
+        session_id = request.query_params.get("session_id")
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id is required")
+        
+        # Get the session
+        session = session_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check if the session belongs to the current user
+        if str(session.user_id) != str(current_user.user_id):
+            raise HTTPException(status_code=403, detail="Not authorized to use this session")
+        
+        # Check if the user has a quiz engine
+        if not session.quiz_engine:
+            return {"status": "success", "message": "No quiz to clear"}
+        
+        # Clear the quiz
+        session.quiz_engine.clear_all_questions()
+        
+        return {"status": "success", "message": "Quiz cleared successfully"}
+    
+    except Exception as e:
+        logger.error(f"Error clearing quiz for user {current_user.user_id}: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Error clearing quiz: {str(e)}"}
+        )
 atexit.register(cleanup_audio_files)
 atexit.register(clear_chatlog)
 
 #This is a backend complete testing function. Nothing will happen at the frontend, we can test our implementations and functions here. All of the output will be shown in your terminal for testing purposes. 
 def main():  
-    py_face = initialize_py_face()
-    socket_connection = create_socket_connection()
-    osc_sender = udp_client.SimpleUDPClient(server_host_name, audio_port)
+    py_face_name = 'face1'
+    info_sender = udp_client.SimpleUDPClient(local_host_name, info_port)
+    info_sender.send_message("/Game/LivelinkPresets/Preset_11112", (11115, py_face_name))
+    py_face = initialize_py_face(name=py_face_name)
+    socket_connection = create_socket_connection(11112)
+    audio_sender = udp_client.SimpleUDPClient(local_host_name, 11115)
     chat_history = load_chat_history()
     pipeline = KPipeline(lang_code='a')
     stop_default_animation = Event()
 
-    default_animation_thread = Thread(target=default_animation_loop, args=(py_face,stop_default_animation))
+    default_animation_thread = Thread(target=default_animation_loop, args=(py_face,stop_default_animation, 11112))
     default_animation_thread.start()
 
     # Create queues:
@@ -567,7 +860,7 @@ def main():
     tts_worker_thread.start()
 
     # Start the audio worker (plays audio sequentially)
-    audio_worker_thread = Thread(target=audio_queue_worker, args=(audio_queue, osc_sender, py_face, socket_connection, default_animation_thread, stop_default_animation))
+    audio_worker_thread = Thread(target=audio_queue_worker, args=(audio_queue, 11112, py_face_name, audio_sender, py_face, socket_connection, default_animation_thread, stop_default_animation))
     audio_worker_thread.start()
 
     file = Path("data/raw/scrum.epub")
@@ -583,7 +876,7 @@ def main():
             text += extract_text_from_video(str(file))
 
         chunks = split_text(text)
-        db = initialize_qa_system(chunks)
+        db = initialize_qa_system(chunks, '1')
         print("✅ Course material loaded successfully!\n")
 
         #Generate lesson script from knowledge graph

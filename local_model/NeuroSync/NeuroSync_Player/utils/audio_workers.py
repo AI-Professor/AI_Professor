@@ -1,10 +1,8 @@
 # utils/audio_workers.py
-import time
 from utils.neurosync_api_connect import send_audio_to_neurosync, read_audio_file_as_bytes, validate_audio_bytes
 from utils.local_tts import call_local_tts 
 from utils.generated_utils import run_audio_animation_from_bytes
-from livelink.connect.livelink_init import UDP_IP, LIVELINK_PORT, AUDIO_PORT
-import os
+
 
 
 def tts_worker(chunk_queue, audio_queue, pipeline):
@@ -38,7 +36,14 @@ def tts_worker(chunk_queue, audio_queue, pipeline):
         return None
 
 
-def audio_queue_worker(audio_queue, osc_sender, py_face, socket_connection, default_animation_thread, stop_default_animation):
+def audio_queue_worker(audio_queue, 
+                       livelink_port,
+                       py_face_name,
+                       audio_sender, 
+                       py_face, 
+                       socket_connection, 
+                       default_animation_thread, 
+                       stop_default_animation):
     """
     Processes audio items from audio_queue sequentially.
     Each item is a tuple (audio_bytes, facial_data, audio_id, sync_id) that is played back via UE,
@@ -50,5 +55,14 @@ def audio_queue_worker(audio_queue, osc_sender, py_face, socket_connection, defa
             break
         audio_path, webm_path, facial_data = item
 
-        run_audio_animation_from_bytes(audio_path, webm_path, osc_sender, facial_data, py_face, socket_connection, default_animation_thread, stop_default_animation)
+        run_audio_animation_from_bytes(audio_path, 
+                                       webm_path, 
+                                       livelink_port,
+                                       py_face_name,
+                                       audio_sender,
+                                       facial_data, 
+                                       py_face, 
+                                       socket_connection, 
+                                       default_animation_thread, 
+                                       stop_default_animation)
         audio_queue.task_done()

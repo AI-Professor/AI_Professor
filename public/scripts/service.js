@@ -20,11 +20,14 @@ const localUeUrl = `ws://${localHostName}:${localUePort}`
 
 document.addEventListener('DOMContentLoaded', loadNavbar());
 document.addEventListener('DOMContentLoaded', loadFooter());
+document.addEventListener('DOMContentLoaded', addClearChatButton);
 
 let closed = false;
 let autoScrollChat = true;
 let autoScrollLecture = true;
+let activeSession = null;
 window.pixelStreamingApp = null;
+
 
 const videoElement = document.getElementById('pixelStreamVideo');
 
@@ -42,6 +45,78 @@ function showStatusMessage(message, type = 'info') {
   }, 5000);
 }
 
+// Function to store session data in localStorage
+function saveSessionData(sessionData) {
+  sessionStorage.setItem('aiProfessorSession', JSON.stringify(sessionData));
+  activeSession = sessionData;
+}
+// Function to retrieve session data from localStorage
+function getSessionData() {
+  const sessionData = sessionStorage.getItem('aiProfessorSession');
+  if (sessionData) {
+    activeSession = JSON.parse(sessionData);
+    return activeSession;
+  }
+  return null;
+}
+// Function to clear session data
+function clearSessionData() {
+  sessionStorage.removeItem('aiProfessorSession');
+  activeSession = null;
+}
+// Check for existing session on page load
+document.addEventListener('DOMContentLoaded', () => {
+  const savedSession = getSessionData();
+  if (savedSession) {
+    // Optionally, verify if the session is still active on the server
+    checkSessionStatus(savedSession.session_id);
+  }
+});
+// Function to check if a stored session is still active
+async function checkSessionStatus(sessionId) {
+  try {
+    const token = sessionStorage.getItem('accessToken');
+    if (!token) return;
+
+    const response = await fetch(`${localBackendUrl}/api/user-sessions`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      clearSessionData();
+      return;
+    }
+
+    const data = await response.json();
+    const isActive = data.sessions.some(session => session.session_id === sessionId);
+    
+    if (!isActive) {
+      clearSessionData();
+    } else {
+      // Session is still active, update the UI to reflect this
+      updateUIForActiveSession();
+    }
+  } catch (error) {
+    console.error('Error checking session status:', error);
+    // In case of error, don't clear the session
+  }
+}
+// Function to update UI for active session
+function updateUIForActiveSession() {
+  if (activeSession) {
+    connectButton.disabled = true;
+    disconnectButton.disabled = false;
+    showStatusMessage('✅ You have an active session running!');
+  } else {
+    connectButton.disabled = false;
+    disconnectButton.disabled = true;
+  }
+}
+
 //The following section of functions will serve connect button clicked event. These functions are meant to create a live stream, establish a WebRTC connection with the platform, and submit network information to initialize connection. These steps are crucial to our implementation to Real-Time Q&A feature. Detailed explanation can be find on "https://docs.d-id.com/reference/talks-streams-overview".
 const connectButton = document.getElementById('connect-button');
 connectButton.onclick = async () => {
@@ -52,6 +127,7 @@ connectButton.onclick = async () => {
     const token = sessionStorage.getItem('accessToken');
     if (!token) {
       alert('No access token found. Please log in.');
+      connectButton.disabled = false;
       return;
     }
     
@@ -69,10 +145,62 @@ connectButton.onclick = async () => {
     statusDiv.style.zIndex = '1000';
     document.body.appendChild(statusDiv);
 
+    // Check if we already have an active session
+    const existingSession = getSessionData();
+    if (existingSession) {
+      statusDiv.innerText = 'Using existing session...';
+      
+      // Wait for UE instance to be ready
+      await waitForUEInstance(existingSession.session_id, 5, 1000);
+      
+      // Initialize PixelStreaming with the existing session details
+      try {
+        await initializePixelStreamingForSession(existingSession);
+        
+        statusDiv.innerText = 'Connection established!';
+        setTimeout(() => {
+          if (document.body.contains(statusDiv)) {
+            document.body.removeChild(statusDiv);
+          }
+        }, 2000);
+        
+        connectButton.disabled = true;
+        disconnectButton.disabled = false;
+        showStatusMessage('✅ Connected to existing session successfully!');
+        
+        // Load chat history for the existing session
+        await loadChatHistory();
+      } catch (error) {
+        console.error('Error connecting to existing session:', error);
+        statusDiv.innerText = 'Retrying connection...';
+        
+        // Add a longer delay and retry once
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        await initializePixelStreamingForSession(existingSession);
+        
+        statusDiv.innerText = 'Connection established!';
+        setTimeout(() => {
+          if (document.body.contains(statusDiv)) {
+            document.body.removeChild(statusDiv);
+          }
+        }, 2000);
+        
+        connectButton.disabled = true;
+        disconnectButton.disabled = false;
+        showStatusMessage('✅ Connected to existing session successfully!');
+        
+        // Load chat history for the existing session
+        await loadChatHistory();
+      }
+      return;
+    }
+
     // Send a POST request to the /api/connect endpoint
+    statusDiv.innerText = 'Creating new session...';
     const response = await fetch(`${localBackendUrl}/api/connect`, {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
     });
@@ -83,38 +211,29 @@ connectButton.onclick = async () => {
     }
 
     const data = await response.json();
-
-    // Initialize PixelStreaming
-    initializePixelStreaming();
     
-    // IMPORTANT: Add event listeners for connection events BEFORE connecting
-    // This ensures we handle the video setup at the right time
-    if (window.pixelStreamingApp) {
-      // Add a dedicated event listener for when the stream is actually ready
-      window.pixelStreamingApp.addEventListener('videoInitialized', () => {
-        console.log('Video initialized event received - stream should be ready');
-        setTimeout(attachVideoStream, 1000); // Wait 1 second after video is initialized
-      });
+    // Save the session data
+    saveSessionData(data);
+    
+    // Update status message
+    statusDiv.innerText = 'Waiting for UE instance to start...';
+    
+    // Wait for the UE instance to be ready before attempting to connect
+    await waitForUEInstance(data.session_id, 10, 2000); // Check 10 times with 2 second delays
+    
+    // Try to initialize PixelStreaming with the new session details
+    try {
+      statusDiv.innerText = 'Connecting to UE instance...';
+      await initializePixelStreamingForSession(data);
+    } catch (error) {
+      console.error('First connection attempt failed, retrying:', error);
+      statusDiv.innerText = 'Retrying connection...';
       
-      window.pixelStreamingApp.addEventListener('webRtcConnected', () => {
-        console.log('WebRTC connected - waiting for video stream...');
-        // Wait 3 seconds after connection to check for the stream
-        setTimeout(attachVideoStream, 3000);
-      });
+      // Wait a bit longer and try again
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      await initializePixelStreamingForSession(data);
     }
-
-    const connectionTimeout = 20000; // 20 seconds
-    const connectionPromise = window.pixelStreamingApp.connect();
-
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Connection timeout')), connectionTimeout);
-    });
-
-    await Promise.race([connectionPromise, timeoutPromise]);
     
-    // Add ICE connection state monitoring - for debugging only, not for attaching video
-    monitorIceConnectionState();
-
     statusDiv.innerText = 'Connection established!';
     setTimeout(() => {
       if (document.body.contains(statusDiv)) {
@@ -122,54 +241,92 @@ connectButton.onclick = async () => {
       }
     }, 2000);
 
-    // Enable the button again
-    connectButton.disabled = false;
-    showStatusMessage('✅ Connecting to stream successfully!');
+    // Enable the disconnect button
+    connectButton.disabled = true;
+    disconnectButton.disabled = false;
+    showStatusMessage('✅ New connection established successfully!');
     
-    // Set a final fallback timer for 5 seconds after connection attempt
-    setTimeout(attachVideoStream, 5000);
+    // Clear any previous chat history
+    await loadChatHistory();
     
   } catch (error) {
     console.error('Error connecting:', error);
-    alert('Connecting to stream failed!');
+    // Remove status div
+    const statusDiv = document.getElementById('connection-status');
+    if (statusDiv && document.body.contains(statusDiv)) {
+      document.body.removeChild(statusDiv);
+    }
+    
+    // Even though we got an error, the connection might still be happening in the background
+    // Let's not alert immediately, but instead show a message and wait
+    showStatusMessage('🔄 Connection in progress, please wait...');
+    
+    // Wait a bit to see if the connection establishes itself
+    await new Promise(resolve => setTimeout(resolve, 8000));
+    
+    // If we have a session data saved, it means the backend part worked
+    // Let's try one more time to connect to the UE instance
+    const sessionData = getSessionData();
+    if (sessionData) {
+      try {
+        // Try one more time with an additional wait
+        await waitForUEInstance(sessionData.session_id, 5, 1000);
+        await initializePixelStreamingForSession(sessionData);
+        
+        // If we get here, the connection was successful
+        connectButton.disabled = true;
+        disconnectButton.disabled = false;
+        showStatusMessage('✅ Connection established successfully after retry!');
+        
+        // Load chat history for the new session
+        await loadChatHistory();
+        return;
+      } catch (retryError) {
+        console.error('Retry failed:', retryError);
+        // Now we can alert that it failed
+        alert('Connecting to stream failed after multiple attempts. Please try again later.');
+      }
+    } else {
+      alert('Connecting to stream failed! Please try again later.');
+    }
+    
     connectButton.disabled = false;
   }
 };
-function initializePixelStreaming() {
+async function initializePixelStreamingForSession(sessionData) {
   const epic = window["epicgames-frontend"];
   if (!epic) {
-    console.error('epicgames-frontend is not loaded. Make sure player.js is included.');
-    return;
+    throw new Error('epicgames-frontend is not loaded. Make sure player.js is included.');
   }
 
-  console.log('Initializing PixelStreaming with enhanced WebRTC config...');
+  console.log('Initializing PixelStreaming for session:', sessionData);
   
-  // Use the exact signaling server URL that works
-  const signalingUrl = `ws://34.125.65.245:8085`;
+  // Use the specific signaling server URL for this session
+  const signalingUrl = `ws://${localHostName}:${sessionData.websocket_port}`;
   console.log('Using signaling server URL:', signalingUrl);
   
-  // Enhanced WebRTC configuration that matches the successful connection
+  // Enhanced WebRTC configuration
   const webRtcConfig = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { 
-        urls: 'turn:34.125.65.245:19303',
-        username: 'pixelstreaming',  // Add credentials if required
+        urls: `turn:${localHostName}:19303`,
+        username: 'pixelstreaming',
         credential: 'pixelstreaming'
       }
     ],
     iceTransportPolicy: 'all',
-    bundlePolicy: 'balanced',  // Changed from max-bundle to balanced
+    bundlePolicy: 'balanced',
     rtcpMuxPolicy: 'require',
-    iceCandidatePoolSize: 0,    // Match the successful configuration
+    iceCandidatePoolSize: 0,
     offerExtmapAllowMixed: true
   };
 
   const config = new epic.Config({ 
-    useUrlParams: false,  // Disable URL params to ensure our settings are used
+    useUrlParams: false,
     initialSettings: {
       SignallingServerUrl: signalingUrl,
-      StreamerId: "DefaultStreamer",
+      StreamerId: sessionData.streamer_id,
       PlayerConnectedResponse: "PixelStreamingPlayerId"
     },
     webRtcConfiguration: webRtcConfig
@@ -178,40 +335,68 @@ function initializePixelStreaming() {
   console.log('PixelStreaming config:', config);
   window.pixelStreamingApp = new epic.PixelStreaming(config);
 
-  // ===== EVENT LISTENERS =====
-  // Connecting events
-  window.pixelStreamingApp.addEventListener('webRtcConnecting', () => {
-    console.log('WebRTC connecting...');
+  // Create a promise that will resolve when the connection is established
+  const connectionPromise = new Promise((resolve, reject) => {
+    // Set a timeout for the connection
+    const connectionTimeout = setTimeout(() => {
+      reject(new Error('Connection timeout'));
+    }, 20000); // 20 second timeout
+    
+    // Setup event listeners
+    window.pixelStreamingApp.addEventListener('webRtcConnecting', () => {
+      console.log('WebRTC connecting...');
+    });
+
+    window.pixelStreamingApp.addEventListener('webRtcConnected', () => {
+      console.log('WebRTC connected successfully!');
+      clearTimeout(connectionTimeout);
+      
+      // Wait 3 seconds after connection to check for the stream
+      setTimeout(() => {
+        attachVideoStream();
+        resolve(); // Resolve the promise when connected
+      }, 3000);
+    });
+    
+    window.pixelStreamingApp.addEventListener('streamingStarted', () => {
+      console.log('Streaming started!');
+      window.pixelStreamingApp.dispatchEvent(new Event('videoInitialized'));
+    });
+
+    window.pixelStreamingApp.addEventListener('videoInitialized', () => {
+      console.log('Video initialized event received - stream should be ready');
+      setTimeout(attachVideoStream, 1000); // Wait 1 second after video is initialized
+    });
+
+    window.pixelStreamingApp.addEventListener('webRtcFailed', (event) => {
+      console.error('WebRTC connection failed:', event);
+      
+      // Try reconnecting with TURN only if regular connection fails
+      if (window.pixelStreamingApp._webRtcController && window.pixelStreamingApp._webRtcController.peerConnection) {
+        console.log('Attempting reconnection with TURN only...');
+        window.pixelStreamingApp._webRtcController.peerConnection.iceTransportPolicy = 'relay';
+        window.pixelStreamingApp.reconnect();
+      } else {
+        clearTimeout(connectionTimeout);
+        reject(new Error('WebRTC connection failed'));
+      }
+    });
+
+    window.pixelStreamingApp.addEventListener('webRtcInitialized', () => {
+      console.log('WebRTC initialized');
+    });
+
+    // Add a specific event listener for track added
+    window.pixelStreamingApp.addEventListener('trackAdded', (event) => {
+      console.log('Track added:', event.detail.kind);
+      if (event.detail.kind === 'video') {
+        // Dispatch our custom event when video track is added
+        window.pixelStreamingApp.dispatchEvent(new Event('videoInitialized'));
+      }
+    });
   });
 
-  window.pixelStreamingApp.addEventListener('webRtcConnected', () => {
-    console.log('WebRTC connected successfully!');
-    // Don't try to access the video stream here - it may not be ready yet
-  });
-  
-  // Add a custom event for video initialization that we can listen for
-  window.pixelStreamingApp.addEventListener('streamingStarted', () => {
-    console.log('Streaming started!');
-    window.pixelStreamingApp.dispatchEvent(new Event('videoInitialized'));
-  });
-
-  window.pixelStreamingApp.addEventListener('webRtcFailed', (event) => {
-    console.error('WebRTC connection failed:', event);
-    // Try reconnecting with TURN only if regular connection fails
-    if (window.pixelStreamingApp._webRtcController && window.pixelStreamingApp._webRtcController.peerConnection) {
-      console.log('Attempting reconnection with TURN only...');
-      window.pixelStreamingApp._webRtcController.peerConnection.iceTransportPolicy = 'relay';
-      window.pixelStreamingApp.reconnect();
-    }
-  });
-
-  window.pixelStreamingApp.addEventListener('webRtcInitialized', () => {
-    console.log('WebRTC initialized');
-  });
-
-  // ===== STYLE AND UI =====
-  // These lines may not be necessary for your app since you have your own UI
-  // Comment them out if they cause issues
+  // Style setup
   const style = new epic.PixelStreamingApplicationStyle();
   style.applyStyleSheet();
 
@@ -220,19 +405,17 @@ function initializePixelStreaming() {
     onColorModeChanged: (mode) => style.setColorMode(mode)
   });
 
-  // Decide if you want to append this to your document or not
-  // document.body.appendChild(app.rootElement);
+  // Connect to the signaling server and wait for the connection to establish
+  await window.pixelStreamingApp.connect();
   
-  // This event helps us know when video tracks are added
-  window.pixelStreamingApp.addEventListener('trackAdded', (event) => {
-    console.log('Track added:', event.detail.kind);
-    if (event.detail.kind === 'video') {
-      // Dispatch our custom event when video track is added
-      window.pixelStreamingApp.dispatchEvent(new Event('videoInitialized'));
-    }
-  });
+  // Start monitoring ICE connection state
+  monitorIceConnectionState();
   
-  return window.pixelStreamingApp;
+  // Set a final fallback timer for video attachment
+  setTimeout(attachVideoStream, 5000);
+  
+  // Wait for the connection to be established
+  return connectionPromise;
 }
 function monitorIceConnectionState() {
   if (!window.pixelStreamingApp) {
@@ -432,7 +615,47 @@ function attachVideoStream() {
   videoElement.play()
     .then(() => console.log('Video playback started successfully'));
 }
-
+async function checkUEInstanceStatus(sessionId) {
+  try {
+    const token = sessionStorage.getItem('accessToken');
+    if (!token) return false;
+    
+    const response = await fetch(`${localBackendUrl}/api/session-status?session_id=${sessionId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) return false;
+    
+    const data = await response.json();
+    return data.ue_instance_running;
+  } catch (error) {
+    console.error('Error checking UE instance status:', error);
+    return false;
+  }
+}
+// Function to wait for UE instance to be ready
+async function waitForUEInstance(sessionId, maxAttempts = 10, delayMs = 1000) {
+  showStatusMessage('⏳ Waiting for UE instance to start...');
+  
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const isReady = await checkUEInstanceStatus(sessionId);
+    
+    if (isReady) {
+      showStatusMessage('✅ UE instance is ready!');
+      return true;
+    }
+    
+    showStatusMessage(`⏳ Waiting for UE instance... (${attempt + 1}/${maxAttempts})`);
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+  }
+  
+  showStatusMessage('⚠️ UE instance may not be fully ready, attempting connection anyway.');
+  return false;
+}
 const lectureTranscriptContainer = document.querySelector('.lecture-transcript-container');
 const lectureTranscript = document.getElementById('lecture-transcript');
 const lectureButton = document.getElementById('lecture-button');
@@ -444,6 +667,15 @@ lectureButton.onclick = async () => {
     const token = sessionStorage.getItem('accessToken');
     if (!token) {
       alert('No access token found. Please log in.');
+      lectureButton.disabled = false;
+      return;
+    }
+
+    // Get the current session
+    const sessionData = getSessionData();
+    if (!sessionData || !sessionData.session_id) {
+      alert('No active session found. Please connect first.');
+      lectureButton.disabled = false;
       return;
     }
 
@@ -459,12 +691,19 @@ lectureButton.onclick = async () => {
     const response = await fetch(`${localBackendUrl}/api/lecture`, {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ topic: topic })
+      body: JSON.stringify({ 
+        topic: topic,
+        session_id: sessionData.session_id
+       })
     });
 
-    if (!response.ok) throw new Error('Failed to generate lesson!');
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to generate lesson!');
+    }
 
     const data = await response.json();
 
@@ -548,6 +787,15 @@ voiceButton.onclick = async () => {
       const token = sessionStorage.getItem('accessToken');
       if (!token) {
         alert('No access token found. Please log in.');
+        voiceButton.disabled = false;
+        return;
+      }
+
+      // Get the current session
+      const sessionData = getSessionData();
+      if (!sessionData || !sessionData.session_id) {
+        alert('No active session found. Please connect first.');
+        voiceButton.disabled = false;
         return;
       }
 
@@ -557,8 +805,14 @@ voiceButton.onclick = async () => {
       
       const backendResponse = await fetch(`${localBackendUrl}/api/answer`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question: userQuestion })
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json' 
+          },
+          body: JSON.stringify({ 
+            question: userQuestion,
+            session_id: sessionData.session_id 
+          })
       }).catch(error => {
         throw new Error(`Network error: ${error.message}`);
       });
@@ -591,12 +845,22 @@ sendButton.onclick = async () => {
     const token = sessionStorage.getItem('accessToken');
     if (!token) {
       alert('No access token found. Please log in.');
+      sendButton.diabled = false;
+      return;
+    }
+
+    // Get the current session
+    const sessionData = getSessionData();
+    if (!sessionData || !sessionData.session_id) {
+      alert('No active session found. Please connect first.');
+      sendButton.disabled = false;
       return;
     }
 
     const question = document.getElementById('text-input').value.trim();
     if (!question) {
       alert('Please enter a question.', true);
+      sendButton.diabled = false;
       return;
     }
 
@@ -607,9 +871,13 @@ sendButton.onclick = async () => {
     const response = await fetch(`${localBackendUrl}/api/answer`, {
       method: 'POST',
       headers: {
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ question: question })
+      body: JSON.stringify({ 
+        question: question,
+        session_id: sessionData.session_id 
+      })
     }).catch(error => {
       throw new Error(`Network error: ${error.message}`);
     });
@@ -632,6 +900,75 @@ sendButton.onclick = async () => {
   }
 }
 const msgHistory = document.getElementById('msgHistory');
+async function loadChatHistory() {
+  try {
+    const token = sessionStorage.getItem('accessToken');
+    if (!token) return;
+    
+    const sessionData = getSessionData();
+    if (!sessionData || !sessionData.session_id) return;
+    
+    const response = await fetch(`${localBackendUrl}/api/chat-history?session_id=${sessionData.session_id}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) return;
+    
+    const data = await response.json();
+    
+    if (data.chat_history && Array.isArray(data.chat_history)) {
+      // Clear existing messages
+      msgHistory.innerHTML = '';
+      
+      // Add each message to the UI
+      data.chat_history.forEach(entry => {
+        if (entry.input) addChatMessage(entry.input, 'user');
+        if (entry.response) addChatMessage(entry.response, 'ai');
+      });
+      
+      // Scroll to bottom
+      if (autoScrollChat) {
+        msgHistory.scrollTop = msgHistory.scrollHeight;
+      }
+    }
+  } catch (error) {
+    console.error('Error loading chat history:', error);
+  }
+}
+// Add a function to clear chat history
+async function clearChatHistory() {
+  try {
+    const token = sessionStorage.getItem('accessToken');
+    if (!token) return;
+    
+    const sessionData = getSessionData();
+    if (!sessionData || !sessionData.session_id) return;
+    
+    const response = await fetch(`${localBackendUrl}/api/chat-history?session_id=${sessionData.session_id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to clear chat history');
+    }
+    
+    // Clear the UI
+    msgHistory.innerHTML = '';
+    showStatusMessage('✅ Chat history cleared successfully!');
+  } catch (error) {
+    console.error('Error clearing chat history:', error);
+    showStatusMessage('❌ Failed to clear chat history');
+  }
+}
 function addChatMessage(text, sender = 'ai') {
   const msgDiv = document.createElement('div');
   msgDiv.className = `chat-msg ${sender}`;
@@ -660,6 +997,27 @@ function addChatMessage(text, sender = 'ai') {
     }
   });
 }
+// Add a clear chat history button to the UI
+function addClearChatButton() {
+  const chatContainer = document.querySelector('.chat-container');
+  if (!chatContainer) return;
+  
+  const buttonContainer = document.createElement('div');
+  buttonContainer.className = 'chat-controls';
+  buttonContainer.style.display = 'flex';
+  buttonContainer.style.justifyContent = 'flex-end';
+  buttonContainer.style.padding = '10px';
+  
+  const clearButton = document.createElement('button');
+  clearButton.textContent = 'Clear Chat';
+  clearButton.className = 'btn';
+  clearButton.onclick = clearChatHistory;
+  
+  buttonContainer.appendChild(clearButton);
+  
+  // Insert before the message history
+  chatContainer.insertBefore(buttonContainer, msgHistory);
+}
 msgHistory.addEventListener('scroll', () => {
   const threshold = 50; // px from bottom to reactivate auto-scroll
   const isAtBottom = msgHistory.scrollTop + msgHistory.clientHeight >= msgHistory.scrollHeight - threshold;
@@ -675,12 +1033,31 @@ disconnectButton.onclick = async () => {
     // Disable the button to prevent multiple clicks
     disconnectButton.disabled = true;
     
-    // Send a POST request to the /api/connect endpoint
+    const token = sessionStorage.getItem('accessToken');
+    if (!token) {
+      alert('No access token found. Please log in.');
+      disconnectButton.disabled = false;
+      return;
+    }
+
+    // Get the current session
+    const sessionData = getSessionData();
+    if (!sessionData || !sessionData.session_id) {
+      console.error('No active session found');
+      disconnectButton.disabled = false;
+      return;
+    }
+
+    // Send a DELETE request to the /api/disconnect endpoint
     const response = await fetch(`${localBackendUrl}/api/disconnect`, {
       method: 'DELETE',
       headers: {
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        session_id: sessionData.session_id
+      })
     });
 
     // Check if the request was successful
@@ -691,15 +1068,28 @@ disconnectButton.onclick = async () => {
     const data = await response.json();
     console.log('Disconnected successfully:', data);
 
-    await window.pixelStreamingApp.disconnect();
+    // Disconnect the WebRTC connection
+    if (window.pixelStreamingApp) {
+      await window.pixelStreamingApp.disconnect();
+    }
     closed = true;
 
-    // Optionally, enable the button again or update UI
-    disconnectButton.disabled = false;
-    showStatusMessage('✅ Disconnecting to stream successully!');
+    // Clear the session data
+    clearSessionData();
+
+    // Update UI
+    connectButton.disabled = false;
+    disconnectButton.disabled = true;
+    showStatusMessage('✅ Disconnected from stream successfully!');
+    
+    // Clear the video element
+    if (videoElement) {
+      videoElement.srcObject = null;
+      videoElement.style.display = 'none';
+    }
   } catch (error) {
-    console.error('Error connecting:', error);
-    alert('Disconnect failed!');
+    console.error('Error disconnecting:', error);
+    alert('Disconnect failed: ' + error.message);
     disconnectButton.disabled = false;
   }
 };
@@ -751,6 +1141,13 @@ async function upload(){
     return;
   }
 
+  // Get the current session
+  const sessionData = getSessionData();
+  if (!sessionData || !sessionData.session_id) {
+    alert('No active session found. Please connect first.');
+    return;
+  }
+
   const fileInput = document.getElementById('fileInput');
   const files = Array.from(fileInput.files);
   
@@ -761,11 +1158,17 @@ async function upload(){
 
   const formData = new FormData();
   files.forEach(file => formData.append('files', file));
+  
+  // Add the session_id to the form data
+  formData.append('session_id', sessionData.session_id);
 
   try {
       showStatusMessage('Uploading files...');
       const response = await fetch(`${localBackendUrl}/api/upload`, {
           method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
           body: formData
       });
 
@@ -774,7 +1177,7 @@ async function upload(){
       
       await checkSystemStatus();
 
-      showStatusMessage('✅ Upload successul!');
+      showStatusMessage('✅ Upload successful!');
       
   } catch (error) {
       alert(`Upload failed! ${error.message}`)
@@ -782,42 +1185,54 @@ async function upload(){
 };
 async function checkSystemStatus() {
   try {
-      const response = await fetch(`${localBackendUrl}/health`);
-      const status = await response.json();
-      if (status.initialized) {
-          showStatusMessage('System ready with latest content');
+      const token = sessionStorage.getItem('accessToken');
+      if (!token) return;
+      
+      const sessionData = getSessionData();
+      if (!sessionData || !sessionData.session_id) return;
+      
+      const response = await fetch(`${localBackendUrl}/api/user-sessions`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) return;
+      
+      const data = await response.json();
+      const session = data.sessions.find(s => s.session_id === sessionData.session_id);
+      
+      if (session && session.has_knowledge_db) {
+          showStatusMessage('System ready with your content');
       }
   } catch (error) {
       console.error('Status check failed:', error);
   }
 }
-
   
-window.addEventListener('beforeunload', async () => {
-  if (closed == false){
+window.addEventListener('beforeunload', async (e) => {
+  // Check if we have an active session
+  const sessionData = getSessionData();
+  if (!closed && sessionData && sessionData.session_id) {
     try {
-      // Send a POST request to the /api/connect endpoint
-      const response = await fetch(`${localBackendUrl}/api/disconnect`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      // Check if the request was successful
-      if (!response.ok) {
-        throw new Error('Failed to disconnect');
+      const token = sessionStorage.getItem('accessToken');
+      if (token) {
+        // Create a "keepalive" fetch to ensure it completes even as the page is unloading
+        navigator.sendBeacon(
+          `${localBackendUrl}/api/disconnect`,
+          JSON.stringify({
+            session_id: sessionData.session_id
+          })
+        );
       }
-
-      const data = await response.json();
-
       
-      await window.pixelStreamingApp.disconnect();
-      
-
+      if (window.pixelStreamingApp) {
+        await window.pixelStreamingApp.disconnect();
+      }
     } catch (error) {
-      console.error('Error connecting:', error);
-      disconnectButton.disabled = false;
+      console.error('Error disconnecting on unload:', error);
     }
-}
+  }
 });

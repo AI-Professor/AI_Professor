@@ -3,7 +3,7 @@ import numpy as np
 import struct
 from typing import List
 
-from livelink.connect.livelink_init import create_socket_connection, FaceBlendShape, UDP_IP, LIVELINK_PORT, AUDIO_PORT
+from livelink.connect.livelink_init import create_socket_connection, FaceBlendShape, UDP_IP, LIVELINK_PORT
 from livelink.animations.default_animation import default_animation_data
 from livelink.animations.blending_anims import blend_in, blend_out  
 
@@ -45,7 +45,10 @@ def pre_encode_facial_data(facial_data: List[np.ndarray], py_face, fps: int = 60
     return encoded_data
 
 
-def send_pre_encoded_data_to_unreal(encoded_facial_data: List[bytes], start_event, fps: int, socket_connection=None):
+def send_pre_encoded_data_to_unreal(encoded_facial_data: List[bytes], 
+                                    start_event, 
+                                    fps: int, 
+                                    socket_connection=None):
     try:
         own_socket = False
         if socket_connection is None:
@@ -66,11 +69,14 @@ def send_pre_encoded_data_to_unreal(encoded_facial_data: List[bytes], start_even
                 time.sleep(expected_time - elapsed_time)
             elif elapsed_time > expected_time + frame_duration:
                 continue
-
-            socket_connection.sendto(frame_data, (UDP_IP, LIVELINK_PORT))  # Send the frame
+            
+            socket_connection.sendall(frame_data)  # Send the frame
+            socket_connection.settimeout(1.0)
 
     except KeyboardInterrupt:
         pass
+    except Exception as e:
+        print(f"Error sending data to Unreal: {e}")
     finally:
         if own_socket:
             socket_connection.close()

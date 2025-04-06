@@ -8,7 +8,7 @@ import time
 import numpy as np
 
 from livelink.animations.default_animation import default_animation_data, FaceBlendShape
-from livelink.connect.livelink_init import UDP_IP, LIVELINK_PORT, AUDIO_PORT
+from livelink.connect.livelink_init import UDP_IP, LIVELINK_PORT
 
 
 def play_full_animation(facial_data, fps, py_face, socket_connection, blend_in_frames, blend_out_frames):
