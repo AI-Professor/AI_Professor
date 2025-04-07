@@ -8,8 +8,7 @@ if not openai_api_key:
     raise ValueError("OPENAI_API_KEY not found in environment variables")
 
 #This function will generate lesson script through GPT-4 model identified in answer_question function in src/nlp/qa_system.py. The content is based on the template we defined here and give to GPT-4.
-
-def generate_lesson_script(db, template, length, topic, topic_path, user_id):
+def generate_lesson_script(db, template, length, topic, topic_path, user_id=None):
     """Auto-generates lesson script using GPT-4"""
 
     templates = {
@@ -55,7 +54,7 @@ def generate_lesson_script(db, template, length, topic, topic_path, user_id):
     if template not in templates:
         raise ValueError(f"Invalid template type. Choose one of: {list(templates.keys())}")
     
-    relevant_text = db.similarity_search(topic, k=20)  # Fetch top 5 most relevant passages
+    relevant_text = db.similarity_search(topic, k=20)  # Fetch top 20 most relevant passages
 
     # Concatenate the relevant content to form the context for GPT-4
     relevant_text_content = "\n\n".join([doc.page_content for doc in relevant_text])
@@ -72,14 +71,20 @@ def generate_lesson_script(db, template, length, topic, topic_path, user_id):
         )
         lesson_script = llm.predict(prompt)
 
-        LESSON_DIR = f"data/processed/lesson_script/{user_id}"
+        # Define a user-specific lesson directory if user_id is provided
+        if user_id:
+            LESSON_DIR = f"data/processed/lesson_script/{user_id}"
+        else:
+            LESSON_DIR = "data/processed/lesson_script"
+            
         os.makedirs(LESSON_DIR, exist_ok=True)
 
-        with open(f"{LESSON_DIR}/{topic_path}_lesson_script.txt", "w") as f:
+        lesson_path = f"{LESSON_DIR}/{topic_path}_lesson_script.txt"
+        with open(lesson_path, "w") as f:
             f.write(lesson_script)
 
-        return lesson_script
+        return lesson_script, lesson_path
     
     except Exception as e:
         print(f"Error generating lesson script: {e}")
-        return None
+        return None, None

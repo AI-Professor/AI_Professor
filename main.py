@@ -148,9 +148,9 @@ async def on_shutdown():
         print("Shutting down on Linux...")
     elif platform.system() == "Windows":
         print("Shutting down on Windows...")
-        logger.info("Shutting down Unreal Engine...")
+        logger.info("Cleaning up backend resource...")
         session_manager.cleanup()
-        logger.info("Unreal Engine terminated successfully.")
+        logger.info("Backend source cleaned successfully.")
 
     logger.info("Cleaning audio files...")
     cleanup_audio_files()
@@ -404,6 +404,11 @@ async def connect(request: Request, current_user: schemas.UserResponse = Depends
 
 @app.get("/api/session-status")
 async def check_session_status(request: Request, current_user: schemas.UserResponse = Depends(get_current_user)):
+    """
+    Check the status of a session, including whether it has an active UE instance,
+    knowledge database, etc. This endpoint will return information about the session
+    even if the UE instance is paused.
+    """
     try:
         # Get session_id as a query parameter
         session_id = request.query_params.get("session_id")
@@ -419,21 +424,22 @@ async def check_session_status(request: Request, current_user: schemas.UserRespo
         if str(session.user_id) != str(current_user.user_id):
             raise HTTPException(status_code=403, detail="Not authorized to access this session")
         
-        # Check if the UE instance is running
+        # Check if the UE instance is running - but don't require it for quizzes
         ue_running = False
         if session.ue_instance:
             ue_running = session.ue_instance.is_running()
         
+        # Return detailed session status that includes whether knowledge db exists
         return {
             "session_id": session.session_id,
             "py_face_name": session.py_face_name,
             "livelink_port": session.livelink_port,
-            "py_face_name": session.py_face_name,
             "audio_port": session.audio_port,
             "ue_instance_running": ue_running,
             "status": session.ue_instance.status if session.ue_instance else "no_instance",
             "has_knowledge_db": session.knowledge_db is not None,
-            "has_quiz_engine": session.quiz_engine is not None
+            "has_quiz_engine": session.quiz_engine is not None,
+            "has_lesson_path": session.lesson_path is not None
         }
         
     except Exception as e:
@@ -457,51 +463,6 @@ async def get_user_sessions(current_user: schemas.UserResponse = Depends(get_cur
     
     except Exception as e:
         logger.error("Error in /api/user-sessions: %s", str(e))
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(e)}
-        )
-
-@app.delete("/api/disconnect")
-async def disconnect(request: Request, current_user: schemas.UserResponse = Depends(get_current_user)):
-    try:
-        # Get session_id from request body
-        data = await request.json()
-        session_id = data.get("session_id")
-        
-        if not session_id:
-            return JSONResponse(
-                status_code=400,
-                content={"error": "session_id is required"}
-            )
-        
-        # Get the session
-        session = session_manager.get_session(session_id)
-        if not session:
-            return JSONResponse(
-                status_code=404,
-                content={"error": "Session not found"}
-            )
-        
-        # Check if the session belongs to the current user
-        if str(session.user_id) != str(current_user.user_id):
-            return JSONResponse(
-                status_code=403,
-                content={"error": "Not authorized to disconnect this session"}
-            )
-        
-        # Terminate the session
-        success = session_manager.terminate_session(session_id)
-        if success:
-            return {"status": "Disconnected", "message": "Session terminated successfully"}
-        else:
-            return JSONResponse(
-                status_code=500,
-                content={"error": "Failed to terminate session"}
-            )
-
-    except Exception as e:
-        logger.error("Error in /api/disconnect: %s", str(e))
         return JSONResponse(
             status_code=500,
             content={"error": str(e)}

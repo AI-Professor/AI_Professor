@@ -350,3 +350,4 @@ class SessionManager:
             self.logger.error(f"Error cleaning up UE instances: {str(e)}")
         
         self.logger.info("Cleanup completed")
+    

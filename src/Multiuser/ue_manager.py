@@ -28,6 +28,42 @@ class UEInstance:
             return process.is_running()
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             return False
+    
+    def stop(self) -> bool:
+        """
+        Stop this UE instance without removing it from the manager.
+        This allows the instance to be paused and later reconnected if needed.
+        """
+        if not self.process:
+            return False
+            
+        try:
+            # Get the process
+            process = psutil.Process(self.process.pid)
+            
+            # Terminate child processes
+            for child in process.children(recursive=True):
+                try:
+                    child.terminate()
+                except (psutil.NoSuchProcess, psutil.AccessDenied):
+                    pass
+                    
+            # Terminate the main process
+            process.terminate()
+            process.wait(timeout=5)
+            
+            self.running = False
+            self.status = "paused"
+            return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.TimeoutExpired) as e:
+            # Try to force kill if termination failed
+            try:
+                process.kill()
+                self.running = False
+                self.status = "paused"
+                return True
+            except Exception:
+                return False
 
 class UEManager:
     def __init__(self, logger):
