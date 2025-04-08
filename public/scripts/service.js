@@ -2,6 +2,7 @@ import { initializeVoiceRecognition } from "./voice-ui.js";
 import { loadNavbar } from "./navbar.js";
 import { loadFooter } from "./footer.js";
 import { setupTokenRefresh } from './token-utils.js';
+import { saveLectureTranscript, getLectureHistory } from './lecture-utils.js';
 
 // Initialize global variables and config
 let ENV;
@@ -337,19 +338,16 @@ async function handleConnect() {
     // Clear UI elements before starting a new connection
     clearSessionUI();
     
+    // Create the status div and append it to the video display instead of body
     const statusDiv = document.createElement('div');
     statusDiv.id = 'connection-status';
     statusDiv.innerText = 'Establishing connection...';
-    statusDiv.style.position = 'absolute';
-    statusDiv.style.top = '50%';
-    statusDiv.style.left = '50%';
-    statusDiv.style.transform = 'translate(-50%, -50%)';
-    statusDiv.style.backgroundColor = 'rgba(0,0,0,0.7)';
-    statusDiv.style.color = 'white';
-    statusDiv.style.padding = '20px';
-    statusDiv.style.borderRadius = '5px';
-    statusDiv.style.zIndex = '1000';
-    document.body.appendChild(statusDiv);
+    
+    // Find the video display element and append status to it
+    const videoDisplay = document.querySelector('.video-display');
+    if (videoDisplay) {
+      videoDisplay.appendChild(statusDiv);
+    }
 
     // Check if we already have an active session
     const existingSession = getSessionData();
@@ -365,8 +363,8 @@ async function handleConnect() {
         
         statusDiv.innerText = 'Connection established!';
         setTimeout(() => {
-          if (document.body.contains(statusDiv)) {
-            document.body.removeChild(statusDiv);
+          if (statusDiv && statusDiv.parentNode) {
+            statusDiv.parentNode.removeChild(statusDiv);
           }
         }, 2000);
         
@@ -375,6 +373,7 @@ async function handleConnect() {
         
         // Load chat history for the existing session
         await loadChatHistory();
+        await loadLectureHistory();
       } catch (error) {
         console.error('Error connecting to existing session:', error);
         statusDiv.innerText = 'Retrying connection...';
@@ -385,8 +384,8 @@ async function handleConnect() {
         
         statusDiv.innerText = 'Connection established!';
         setTimeout(() => {
-          if (document.body.contains(statusDiv)) {
-            document.body.removeChild(statusDiv);
+          if (statusDiv && statusDiv.parentNode) {
+            statusDiv.parentNode.removeChild(statusDiv);
           }
         }, 2000);
         
@@ -395,6 +394,7 @@ async function handleConnect() {
         
         // Load chat history for the existing session
         await loadChatHistory();
+        await loadLectureHistory();
       }
       return;
     }
@@ -440,8 +440,8 @@ async function handleConnect() {
     
     statusDiv.innerText = 'Connection established!';
     setTimeout(() => {
-      if (document.body.contains(statusDiv)) {
-        document.body.removeChild(statusDiv);
+      if (statusDiv && statusDiv.parentNode) {
+        statusDiv.parentNode.removeChild(statusDiv);
       }
     }, 2000);
 
@@ -450,13 +450,14 @@ async function handleConnect() {
     
     // We already cleared the chat history, but let's fetch any server-side history
     await loadChatHistory();
+    await loadLectureHistory();
     
   } catch (error) {
     console.error('Error connecting:', error);
     // Remove status div
     const statusDiv = document.getElementById('connection-status');
-    if (statusDiv && document.body.contains(statusDiv)) {
-      document.body.removeChild(statusDiv);
+    if (statusDiv && statusDiv.parentNode) {
+      statusDiv.parentNode.removeChild(statusDiv);
     }
     
     // Even though we got an error, the connection might still be happening in the background
@@ -481,6 +482,7 @@ async function handleConnect() {
         
         // Load chat history for the new session
         await loadChatHistory();
+        await loadLectureHistory();
         return;
       } catch (retryError) {
         console.error('Retry failed:', retryError);
@@ -563,6 +565,28 @@ async function handleLecture() {
     const lesson_script = data.script;
     const chunked_script = chunkScript(lesson_script);
     const grouped_script = groupSentences(chunked_script, 2);
+
+    // Save the complete lecture transcript to session storage
+    saveLectureTranscript(lesson_script, sessionData.user_id, sessionData.session_id);
+    
+    // Also save it to the backend for persistence
+    try {
+      await fetch(`${localBackendUrl}/api/save-lecture-history`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          session_id: sessionData.session_id,
+          topic: topic,
+          content: lesson_script
+        })
+      });
+    } catch (saveError) {
+      console.error('Error saving lecture history to backend:', saveError);
+      // Continue anyway, we have it in session storage
+    }
 
     setTimeout(() => {
       streamScriptChunks(grouped_script);
@@ -882,6 +906,78 @@ async function loadChatHistory() {
   }
 }
 
+async function loadLectureHistory() {
+  try {
+    const token = sessionStorage.getItem('accessToken');
+    if (!token) return;
+    
+    const sessionData = getSessionData();
+    if (!sessionData || !sessionData.session_id) return;
+    
+    // First try to get lecture history from the backend
+    try {
+      const response = await fetch(`${localBackendUrl}/api/lecture-history?session_id=${sessionData.session_id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.lecture_history && Array.isArray(data.lecture_history) && data.lecture_history.length > 0) {
+          // Get the most recent lecture
+          const latestLecture = data.lecture_history[0];
+          
+          // Display it in the lecture transcript
+          if (lectureTranscript) {
+            // Clear existing content first
+            lectureTranscript.innerHTML = '';
+            
+            // Add a header showing this is a previous lecture
+            const headerMsg = document.createElement('div');
+            headerMsg.className = 'lecture-message system';
+            headerMsg.textContent = `Previous lecture on "${latestLecture.topic}" (${new Date(latestLecture.timestamp).toLocaleString()}):`;
+            lectureTranscript.appendChild(headerMsg);
+            
+            // Add the lecture content
+            addLectureMessage(latestLecture.content, 'ai');
+          }
+          
+          return; // Successfully loaded from backend
+        }
+      }
+    } catch (error) {
+      console.error('Error loading lecture history from backend:', error);
+      // Fall back to session storage
+    }
+    
+    // If backend failed or returned no data, try session storage
+    const lectureHistory = getLectureHistory(sessionData.user_id, sessionData.session_id);
+    
+    if (lectureHistory && lectureHistory.length > 0 && lectureTranscript) {
+      // Get the most recent lecture
+      const latestLecture = lectureHistory[lectureHistory.length - 1];
+      
+      // Clear existing content first
+      lectureTranscript.innerHTML = '';
+      
+      // Add a header showing this is a previous lecture
+      const headerMsg = document.createElement('div');
+      headerMsg.className = 'lecture-message system';
+      headerMsg.textContent = `Previous lecture (${new Date(latestLecture.timestamp).toLocaleString()}):`;
+      lectureTranscript.appendChild(headerMsg);
+      
+      // Add the lecture content
+      addLectureMessage(latestLecture.content, 'ai');
+    }
+  } catch (error) {
+    console.error('Error loading lecture history:', error);
+  }
+}
+
 async function upload() {
   try {
     const token = sessionStorage.getItem('accessToken');
@@ -991,6 +1087,10 @@ async function checkExistingSession() {
         // Session exists - update UI to reflect this
         updateUIForActiveSession();
         showStatusMessage('💡 You have an existing session. Click Connect to resume.');
+        
+        // Also load chat and lecture history for the existing session
+        await loadChatHistory();
+        await loadLectureHistory();
       }
     }
   } catch (error) {

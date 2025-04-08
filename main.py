@@ -536,6 +536,98 @@ async def lecture(request: Request, topic: dict, current_user: schemas.UserRespo
             content={"error": str(e)}
         )
 
+@app.post("/api/save-lecture-history")
+async def save_lecture_history(request: Request, lecture_data: dict, current_user: schemas.UserResponse = Depends(get_current_user)):
+    try:
+        # Get session_id from request body
+        session_id = lecture_data.get("session_id")
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id is required")
+        
+        # Get the session
+        session = session_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check if the session belongs to the current user
+        if str(session.user_id) != str(current_user.user_id):
+            raise HTTPException(status_code=403, detail="Not authorized to use this session")
+        
+        # Get lecture content
+        lecture_content = lecture_data.get("content")
+        if not lecture_content:
+            raise HTTPException(status_code=400, detail="Lecture content is required")
+        
+        user_id = str(current_user.user_id)
+        
+        # Create lecture history directory if it doesn't exist
+        lecture_history_dir = f"data/processed/lecture_history/{user_id}/{session_id}"
+        os.makedirs(lecture_history_dir, exist_ok=True)
+        
+        # Save lecture history
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{lecture_history_dir}/lecture_{timestamp}.json"
+        
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump({
+                "timestamp": timestamp,
+                "topic": lecture_data.get("topic", "Unknown Topic"),
+                "content": lecture_content
+            }, f, indent=4)
+        
+        return {"status": "success", "message": "Lecture history saved successfully"}
+    
+    except Exception as e:
+        logger.error(f"Error saving lecture history for user {current_user.user_id}: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+@app.get("/api/lecture-history")
+async def get_lecture_history(request: Request, current_user: schemas.UserResponse = Depends(get_current_user)):
+    try:
+        # Get session_id as a query parameter
+        session_id = request.query_params.get("session_id")
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id is required")
+        
+        # Get the session
+        session = session_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check if the session belongs to the current user
+        if str(session.user_id) != str(current_user.user_id):
+            raise HTTPException(status_code=403, detail="Not authorized to access this lecture history")
+        
+        user_id = str(current_user.user_id)
+        lecture_history_dir = f"data/processed/lecture_history/{user_id}/{session_id}"
+        
+        # If directory doesn't exist, return empty history
+        if not os.path.exists(lecture_history_dir):
+            return {"lecture_history": []}
+        
+        # Get all lecture history files
+        lecture_files = [f for f in os.listdir(lecture_history_dir) if f.endswith('.json')]
+        lecture_files.sort(reverse=True)  # Most recent first
+        
+        # Read lecture history
+        lecture_history = []
+        for file in lecture_files:
+            with open(os.path.join(lecture_history_dir, file), "r", encoding="utf-8") as f:
+                lecture_data = json.load(f)
+                lecture_history.append(lecture_data)
+        
+        return {"lecture_history": lecture_history}
+    
+    except Exception as e:
+        logger.error(f"Error retrieving lecture history for user {current_user.user_id}: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
 @app.post("/api/answer")
 async def answer_endpoint(request: Request, question_data: dict, current_user: schemas.UserResponse = Depends(get_current_user)):
     try:

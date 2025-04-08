@@ -17,25 +17,163 @@ color: #333;
 
 .content{
   display: grid;
-  grid-template-columns: 1fr 3fr 1fr;
+  grid-template-columns: 1fr 3fr;
   height: 86vh;
   margin-top: 30px;
+  margin-right: 5%;
+  margin-left: 5%;
 }
 
 /* Lecture content */
 #lecture-content-container {
-  padding: 16px 24px;
-  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
+  margin: 0 auto;
 }
 
 #lecture-content-container h3 {
   margin-top: 0;
   color: #333;
   font-size: 1.4rem;
-  margin-top: 50px;
+}
+
+#status-message-container{
+  display: flex;
+  flex-direction: column;
+  background: #f7f7f8;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05);
+  align-items: center;
+  justify-content: center;
+}
+
+.status-message-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.status-message {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #333;
+  background-color: #e8e8ec;
+  border: 1px solid #d1d1d6;
+}
+
+.status-message.error {
+  background-color: #ffeef0;
+  border-color: #ffccd5;
+  color: #d0021b;
+}
+
+.status-message.success {
+  background-color: #e6ffed;
+  border-color: #b7eb8f;
+  color: #237804;
+}
+
+.status-message.info {
+  background-color: #e6f7ff;
+  border-color: #91d5ff;
+  color: #096dd9;
+}
+
+.boxes-container {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+  margin-top: 30px;
+  margin-bottom: 30px;
+}
+
+.boxes-container .fixed-box {
+  width: calc(50% - 10px); /* 50% width minus half the gap */
+  height: 100%; /* Equal height */
+  display: flex;
+  flex-direction: column;
+}
+
+.boxes-container .fixed-box a {
+  margin-top: auto; /* Push to bottom */
+  align-self: center; /* Center horizontally */
+}
+
+.fixed-box {
+  width: 100%;
+  max-width: 90%; /* Limit max width */
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 30px;
+}
+
+#quiz-container, 
+#uploaded-files-container {
+  background: #f7f7f8;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05);
+  align-items: center;
+  justify-content: center;
+}
+
+#quiz-container h3, 
+#uploaded-files-container h3,
+#status-message-container h3 {
+  margin-top: 0;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.uploaded-files-list {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.uploaded-file-item {
+  display: flex;
+  align-items: center;
+  background-color: #ffffff;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 0.95rem;
+  color: #555;
+  transition: box-shadow 0.2s ease;
+}
+
+.uploaded-file-item:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.uploaded-file-icon {
+  margin-right: 10px;
+  font-size: 1.2rem;
+}
+
+#start-quiz-btn, .upload-files-btn {
+  display: block;
+  margin: 15px auto 0;
+  padding: 10px 15px;
+  background-color: #007bff;
+  color: white;
+  text-align: center;
+  text-decoration: none;
+  border-radius: 5px;
+  font-weight: 600;
+  transition: background-color 0.3s;
+}
+
+#start-quiz-btn:hover, .upload-files-btn:hover {
+  background-color: #0056b3;
+  cursor: pointer;
 }
 
 .lecture-input-section {
@@ -71,7 +209,7 @@ color: #333;
 
 .lecture-transcript-container {
   width: 100%;
-  max-height: 500px; /* Adjustable height */
+  height: 300px; /* Adjustable height */
   overflow-y: auto;
   border-radius: 8px;
   background-color: #ffffff;
@@ -105,26 +243,87 @@ color: #333;
   background-color: #d9d9e3;
 }
 
+.lecture-message.system {
+  background-color: #f1f1f1;
+  color: #555;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+  font-style: italic;
+  border-left: 4px solid #2196F3;
+}
+
+/* History indicator and controls */
+.lecture-history-controls {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+  padding: 5px 10px;
+  background-color: #f5f5f5;
+  border-radius: 5px;
+}
+
+.lecture-history-indicator {
+  flex-grow: 1;
+  font-size: 0.9em;
+  color: #555;
+}
+
+.lecture-history-clear {
+  background: none;
+  border: none;
+  color: #f44336;
+  cursor: pointer;
+  font-size: 0.9em;
+  padding: 5px 10px;
+  border-radius: 3px;
+}
+
+.lecture-history-clear:hover {
+  background-color: rgba(244, 67, 54, 0.1);
+}
+
+
+
 
 /* Video content */
 #video-content {
   text-align: center;
-  width: 100%;
+  max-width: 80%;
   position: relative;
   margin: 0 auto;
   height: 100%;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  background-color: #fff;
+  background-color: #f7f7f8;
+}
+
+#connection-status {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 20px;
+  border-radius: 5px;
+  z-index: 1000;
+  text-align: center;
+  max-width: 80%;
+  font-weight: 500;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .video-display {
   position: relative;
-  width: 100%;
+  width: 90%;
   height: 50vh;
   background-color: #e0e0e0;
   display: flex;
   justify-content: center;
   align-items: center;
+  overflow: hidden; 
+  margin-left: 5%;
+  margin-right: 5%;
 }
 
 #pixelStreamVideo {
@@ -299,158 +498,5 @@ color: #333;
 
 .send-btn:hover {
   background-color: #0056b3;
-}
-
-
-/* Sidebar content */
-.sidebar {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px; /* Space between boxes */
-  height: 100%;
-  text-align: center;
-  border-right: 1px solid #eee;
-  justify-content: center;
-  align-items: center;
-}
-
-.fixed-box {
-  background: #f7f7f8;
-  border: 1px solid #e0e0e0;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05);
-  width: 80%;
-  margin-bottom: 80px;
-}
-
-/* Title styling inside boxes */
-.fixed-box h3 {
-  margin-top: 0;
-  color: #333;
-  font-size: 1.1rem;
-}
-
-#start-quiz-btn {
-  padding: 10px 14px;
-  text-align: center;
-  border-radius: 8px;
-  background-color: #007bff;
-  color: white;
-  text-decoration: none;
-  font-weight: bold;
-  transition: background-color 0.3s ease;
-  display: block;
-}
-
-#start-quiz-btn:hover {
-  background-color: #0056b3;
-}
-
-#uploaded-files-container {
-  background: #f7f7f8;
-  border: 1px solid #e0e0e0;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-#uploaded-files-container h3 {
-  margin-top: 0;
-  color: #333;
-  font-size: 1.1rem;
-}
-
-.uploaded-files-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.uploaded-file-item {
-  display: flex;
-  align-items: center;
-  background-color: #ffffff;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  font-size: 0.95rem;
-  color: #555;
-  transition: box-shadow 0.2s ease;
-}
-
-.uploaded-file-item:hover {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-.uploaded-file-icon {
-  margin-right: 10px;
-  font-size: 1.2rem;
-}
-
-.upload-files-btn {
-  display: block;
-  margin: 15px auto 0;
-  padding: 10px 15px;
-  background-color: #4CAF50;
-  color: white;
-  text-align: center;
-  text-decoration: none;
-  border-radius: 5px;
-  font-weight: 600;
-  transition: background-color 0.3s;
-}
-
-.upload-files-btn:hover {
-  background-color: #45a049;
-  cursor: pointer;
-}
-
-#status-message-container {
-  background: #f7f7f8;
-  border: 1px solid #e0e0e0;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-#status-message-container h3 {
-  margin-top: 0;
-  color: #333;
-  font-size: 1.1rem;
-}
-
-.status-message-box {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.status-message {
-  padding: 10px 12px;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  color: #333;
-  background-color: #e8e8ec;
-  border: 1px solid #d1d1d6;
-}
-
-.status-message.error {
-  background-color: #ffeef0;
-  border-color: #ffccd5;
-  color: #d0021b;
-}
-
-.status-message.success {
-  background-color: #e6ffed;
-  border-color: #b7eb8f;
-  color: #237804;
-}
-
-.status-message.info {
-  background-color: #e6f7ff;
-  border-color: #91d5ff;
-  color: #096dd9;
 }
 

@@ -17,6 +17,25 @@
   <div class="content">
     <!-- Lecture content here -->
     <div id="lecture-content-container" class="center-box">
+
+      <div id="status-message-container" class="fixed-box">
+        <h3>Status Messages</h3>
+        <div id="status-message-box" class="status-message-box"></div>
+      </div>
+
+      <div class="boxes-container">
+        <div id="quiz-container" class="fixed-box">
+          <h3>Lecture Quiz</h3>
+          <a href="/quiz.html" id="start-quiz-btn">Start Quiz</a>
+        </div>
+        
+        <div id="uploaded-files-container" class="fixed-box">
+          <h3>Uploaded Files</h3>
+          <div id="uploaded-files-list" class="uploaded-files-list"></div>
+          <a href="#" id="upload-files-btn" class="upload-files-btn">Upload Files</a>
+        </div>
+      </div>
+
       <h3>Lecture</h3>
       <div class="lecture-input-section">
         <input type="text" id="topic-input" placeholder="Enter a topic you'd like to learn">
@@ -28,6 +47,7 @@
           <!-- Dynamic script/messages will flow here -->
         </div>
       </div>
+      
     </div>
 
     <!-- added "id=content" -->
@@ -73,21 +93,6 @@
       </div>
     </div>
 
-    <div class="sidebar">
-      <div id="quiz-container" class="fixed-box">
-        <h3>Lecture Quiz</h3>
-        <a href="/quiz.html" id="start-quiz-btn">Start Quiz</a>
-      </div>
-      <div id="status-message-container" class="fixed-box">
-        <h3>Status Messages</h3>
-        <div id="status-message-box" class="status-message-box"></div>
-      </div>
-      <div id="uploaded-files-container" class="fixed-box">
-        <h3>Uploaded Files</h3>
-        <div id="uploaded-files-list" class="uploaded-files-list"></div>
-        <a href="#" id="upload-files-btn" class="upload-files-btn">Upload Files</a>
-      </div>
-    </div>
   </div>
 
   <!-- ---------- Footer ---------- -->

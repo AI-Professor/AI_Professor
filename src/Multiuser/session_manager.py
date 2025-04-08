@@ -298,6 +298,14 @@ class SessionManager:
         except Exception as e:
             self.logger.error(f"Error releasing ports: {str(e)}")
         
+        try:
+            lecture_history_dir = f"data/processed/lecture_history/{session.user_id}/{session.session_id}"
+            if os.path.exists(lecture_history_dir):
+                shutil.rmtree(lecture_history_dir)
+                self.logger.info(f"Cleared lecture history for session {session_id}")
+        except Exception as e:
+            self.logger.error(f"Error clearing lecture history: {str(e)}")
+        
         self.logger.info(f"Completed resource cleanup for session {session_id}")
 
     def _cleanup_inactive_sessions(self):
