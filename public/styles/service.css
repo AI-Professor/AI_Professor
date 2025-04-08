@@ -157,14 +157,6 @@ color: #333;
   background-color: #0056b3;
 }
 
-.control-btn.disconnect {
-  background-color: #dc3545;
-}
-
-.control-btn.disconnect:hover {
-  background-color: #a71d2a;
-}
-
 /* Chat area */
 .chat-area {
   display: flex;

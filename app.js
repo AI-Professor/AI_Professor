@@ -6,25 +6,23 @@ const FormData = require('form-data');
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
 require('dotenv').config()
-const serverHostName = process.env.SERVER_HOST_NAME
-const serverFrontendPort = process.env.SERVER_FRONTEND_PORT
-const serverBackendPort = process.env.SERVER_BACKEND_PORT
-const serverUePort = process.env.SERVER_UE_PORT
-const serverFrontendUrl = `http://${serverHostName}:${serverFrontendPort}`
-const serverBackendUrl = `http://${serverHostName}:${serverBackendPort}`
-const serverUeUrl = `http://${serverHostName}:${serverUePort}`
+
 const localHostName = process.env.LOCAL_HOST_NAME
-const localFrontendPort = process.env.LOCAL_FRONTEND_PORT
-const localBackendPort = process.env.LOCAL_BACKEND_PORT
-const localUePort = process.env.LOCAL_UE_PORT
-const localFrontendUrl = `http://${localHostName}:${localFrontendPort}`
-const localBackendUrl = `http://${localHostName}:${localBackendPort}`
-const localUeUrl = `http://${localHostName}:${localUePort}`
+const externalIp = process.env.EXTERNAL_IP
+const frontendPort = process.env.FRONTEND_PORT
+const backendPort = process.env.BACKEND_PORT
+const uePort = process.env.UE_PORT
+const localFrontendUrl = `http://${localHostName}:${frontendPort}`
+const localBackendUrl = `http://${localHostName}:${backendPort}`
+const localUeUrl = `http://${localHostName}:${uePort}`
+const externalFrontendUrl = `http://${externalIp}:${frontendPort}`
+const externalBackendUrl = `http://${externalIp}:${backendPort}`
+const externalUeUrl = `http://${externalIp}:${uePort}`
 
 
 
 app.use(cors({
-    origin: [serverFrontendUrl, serverBackendUrl, serverUeUrl, localFrontendUrl, localBackendUrl,localUeUrl],
+    origin: [externalFrontendUrl, externalBackendUrl, externalUeUrl, localFrontendUrl, localBackendUrl,localUeUrl],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -96,6 +94,6 @@ app.get('/service.html', (req, res) => res.sendFile(__dirname + '/public/service
 
 
 const server = http.createServer(app);
-server.listen(parseInt(localFrontendPort), () => {
+server.listen(parseInt(frontendPort), () => {
   console.log(`Server running on ${localFrontendUrl}`);
 });

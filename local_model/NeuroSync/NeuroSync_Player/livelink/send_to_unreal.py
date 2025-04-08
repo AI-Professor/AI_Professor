@@ -3,7 +3,7 @@ import numpy as np
 import struct
 from typing import List
 
-from livelink.connect.livelink_init import create_socket_connection, FaceBlendShape, UDP_IP, LIVELINK_PORT
+from livelink.connect.livelink_init import create_socket_connection, FaceBlendShape, UDP_IP
 from livelink.animations.default_animation import default_animation_data
 from livelink.animations.blending_anims import blend_in, blend_out  
 

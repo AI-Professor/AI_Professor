@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from threading import Event
 
-from local_model.NeuroSync.NeuroSync_Player.livelink.connect.livelink_init import FaceBlendShape, UDP_IP, LIVELINK_PORT
+from local_model.NeuroSync.NeuroSync_Player.livelink.connect.livelink_init import FaceBlendShape, UDP_IP
 
 ground_truth_path = r"local_model/NeuroSync/NeuroSync_Player/livelink/animations/default_anim/default.csv"
 columns_to_drop = [

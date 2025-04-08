@@ -10,6 +10,7 @@ from queue import Queue
 from threading import Thread, Event, Lock
 from pythonosc import udp_client
 from src.Multiuser.ue_manager import UEManager, UEInstance
+from local_model.NeuroSync.NeuroSync_Player.utils.chat_utils import clear_chat_log
 
 class UserSession:
     def __init__(self, user_id: str, py_face_name: str, livelink_port: int, audio_port: int, ue_instance: Optional[UEInstance] = None):
@@ -32,17 +33,16 @@ class UserSession:
         self.py_face = None
         self.chat_history = []
         self.lesson_path = None
-        
-        # User-specific database and quiz engine
-        self.knowledge_db = None  # Will be initialized when user uploads content
-        self.quiz_engine = None   # Will be initialized when user requests a quiz
+        self.last_topic = None
+        self.knowledge_db = None  
+        self.quiz_engine = None  
         
     def update_activity(self):
         self.last_activity = time.time()
         if self.ue_instance:
             self.ue_instance.update_activity()
         
-    def is_inactive(self, timeout_seconds=1800):  # 30 minutes default timeout
+    def is_inactive(self, timeout_seconds=900):  # 30 minutes default timeout
         return (time.time() - self.last_activity) > timeout_seconds
     
     def get_session_info(self):
@@ -61,15 +61,6 @@ class UserSession:
             "has_knowledge_db": self.knowledge_db is not None,
             "has_quiz_engine": self.quiz_engine is not None
         }
-    
-    def cleanup_resources(self):
-        """Clean up any resources specific to this session"""
-        # Close the quiz engine if it exists
-        if self.quiz_engine:
-            try:
-                self.quiz_engine.close()
-            except Exception as e:
-                print(f"Error closing quiz engine: {e}")
 
 class SessionManager:
     def __init__(self, logger):
@@ -78,15 +69,13 @@ class SessionManager:
         self.ue_manager = UEManager(logger)
         self.lock = Lock()
         
-        # Port allocation configuration
         self.base_livelink_port = 11111
-        self.base_audio_port = 11222  # Start audio ports from this number
+        self.base_audio_port = 11222  
         self.next_livelink_port = self.base_livelink_port
         self.next_audio_port = self.base_audio_port
         self.used_livelink_ports = set()
         self.used_audio_ports = set()
         
-        # Start cleanup thread
         self.cleanup_thread = Thread(target=self._cleanup_inactive_sessions, daemon=True)
         self.cleanup_thread.start()
     
@@ -189,129 +178,150 @@ class SessionManager:
     
     def terminate_session(self, session_id: str):
         """
-        Terminate a user session and clean up resources
-        Optimized to avoid long execution times
+        Terminate a session with proper cleanup and dictionary removal
         """
+        # First, retrieve the session without removing it
+        session = None
         try:
-            # First, retrieve the session without long-term locking
             session = self.sessions.get(session_id)
             if not session:
                 self.logger.warning(f"Session {session_id} not found for termination")
                 return False
             
             self.logger.info(f"Starting termination for session {session_id}")
-            
-            # Save the final chat history before closing
-            if session.chat_history:
-                try:
-                    from local_model.NeuroSync.NeuroSync_Player.utils.chat_utils import save_chat_log
-                    save_chat_log(
-                        session.chat_history, 
-                        user_id=session.user_id, 
-                        session_id=session_id
-                    )
-                    self.logger.info(f"Saved chat history for session {session_id}")
-                except Exception as e:
-                    self.logger.error(f"Error saving chat history: {str(e)}")
-            
-            # Clean up session-specific resources
-            try:
-                session.cleanup_resources()
-                self.logger.info(f"Cleaned up resources for session {session_id}")
-            except Exception as e:
-                self.logger.error(f"Error cleaning up resources: {str(e)}")
-            
-            # Stop worker threads with timeouts to prevent hanging
-            if session.chunk_queue:
-                try:
-                    session.chunk_queue.put(None)
-                    if session.tts_worker_thread and session.tts_worker_thread.is_alive():
-                        session.tts_worker_thread.join(timeout=2)  # Reduced timeout
-                    self.logger.info(f"Stopped TTS worker for session {session_id}")
-                except Exception as e:
-                    self.logger.error(f"Error stopping TTS worker: {str(e)}")
-            
-            if session.audio_queue:
-                try:
-                    session.audio_queue.put(None)
-                    if session.audio_worker_thread and session.audio_worker_thread.is_alive():
-                        session.audio_worker_thread.join(timeout=2)  # Reduced timeout
-                    self.logger.info(f"Stopped audio worker for session {session_id}")
-                except Exception as e:
-                    self.logger.error(f"Error stopping audio worker: {str(e)}")
-            
-            # Stop animation thread
-            if session.stop_default_animation:
-                try:
-                    session.stop_default_animation.set()
-                    if session.default_animation_thread and session.default_animation_thread.is_alive():
-                        session.default_animation_thread.join(timeout=2)  # Reduced timeout
-                    self.logger.info(f"Stopped animation thread for session {session_id}")
-                except Exception as e:
-                    self.logger.error(f"Error stopping animation thread: {str(e)}")
-            
-            # Close socket connection
-            if session.socket_connection:
-                try:
-                    session.socket_connection.close()
-                    self.logger.info(f"Closed socket connection for session {session_id}")
-                except Exception as e:
-                    self.logger.error(f"Error closing socket connection: {str(e)}")
-
-            # Terminate UE instance
-            if session.ue_instance:
-                try:
-                    self.ue_manager.terminate_instance(session.ue_instance.instance_id)
-                    self.logger.info(f"Terminated UE instance for session {session_id}")
-                except Exception as e:
-                    self.logger.error(f"Error terminating UE instance: {str(e)}")
-            
-            # Release the ports - this was identified as slow, use the optimized version
-            try:
-                # Only release the ports if they exist and are positive
-                if session.livelink_port and session.livelink_port > 0 and session.audio_port and session.audio_port > 0:
-                    self._release_ports(session.livelink_port, session.audio_port)
-                    self.logger.info(f"Released ports for session {session_id}")
-            except Exception as e:
-                self.logger.error(f"Error releasing ports: {str(e)}")
-            
-            # Remove the session from dictionary - use a short lock
-            try:
-                with self.lock:
-                    if session_id in self.sessions:
-                        del self.sessions[session_id]
-                self.logger.info(f"Removed session {session_id} from sessions dictionary")
-            except Exception as e:
-                self.logger.error(f"Error removing session from dictionary: {str(e)}")
-            
-            self.logger.info(f"Successfully terminated session {session_id}")
-            return True
-                
         except Exception as e:
-            self.logger.error(f"Unhandled error terminating session {session_id}: {str(e)}")
+            self.logger.error(f"Error accessing session {session_id}: {str(e)}")
+            return False
+        
+        # Perform cleanup operations on the session
+        self._cleanup_session_resources(session)
+        
+        # After resources are cleaned up, remove from dictionary
+        try:
+            with self.lock:
+                if session_id in self.sessions:
+                    self.logger.info(f"Removing session {session_id} from sessions dictionary")
+                    del self.sessions[session_id]
+                    self.logger.info(f"Removed session {session_id} from sessions dictionary")
+                    return True
+                else:
+                    self.logger.info(f"Session {session_id} already removed from dictionary")
+                    return True
+        except Exception as e:
+            self.logger.error(f"Error removing session from dictionary: {str(e)}")
+            # Last resort: try without the lock
+            try:
+                if session_id in self.sessions:
+                    del self.sessions[session_id]
+                    self.logger.info(f"Force-removed session {session_id} from sessions dictionary")
+                    return True
+            except Exception as inner_e:
+                self.logger.error(f"Failed to force-remove session: {str(inner_e)}")
             return False
     
+    def _cleanup_session_resources(self, session):
+        """
+        Clean up all resources associated with a session without
+        involving dictionary operations.
+        """
+        session_id = session.session_id
+        
+        # 1. Stop worker threads
+        if session.chunk_queue:
+            try:
+                session.chunk_queue.put(None)
+                if session.tts_worker_thread and session.tts_worker_thread.is_alive():
+                    session.tts_worker_thread.join(timeout=1)
+                self.logger.info(f"Signaled TTS worker to stop for session {session_id}")
+            except Exception as e:
+                self.logger.error(f"Error stopping TTS worker: {str(e)}")
+        
+        if session.audio_queue:
+            try:
+                session.audio_queue.put(None)
+                if session.audio_worker_thread and session.audio_worker_thread.is_alive():
+                    session.audio_worker_thread.join(timeout=1)
+                self.logger.info(f"Signaled audio worker to stop for session {session_id}")
+            except Exception as e:
+                self.logger.error(f"Error stopping audio worker: {str(e)}")
+        
+        # 2. Stop animation thread
+        if session.stop_default_animation:
+            try:
+                session.stop_default_animation.set()
+                if session.default_animation_thread and session.default_animation_thread.is_alive():
+                    session.default_animation_thread.join(timeout=1)
+                self.logger.info(f"Signaled animation thread to stop for session {session_id}")
+            except Exception as e:
+                self.logger.error(f"Error stopping animation thread: {str(e)}")
+        
+        # 3. Close socket connection
+        if session.socket_connection:
+            try:
+                session.socket_connection.close()
+                self.logger.info(f"Closed socket connection for session {session_id}")
+            except Exception as e:
+                self.logger.error(f"Error closing socket connection: {str(e)}")
+        
+        # 4. Terminate UE instance
+        if session.ue_instance:
+            try:
+                self.ue_manager.terminate_instance(session.ue_instance.instance_id)
+                self.logger.info(f"Terminated UE instance for session {session_id}")
+            except Exception as e:
+                self.logger.error(f"Error terminating UE instance: {str(e)}")
+        
+        # 5. Clear chat history
+        if session.chat_history:
+            try:
+                clear_chat_log(session.user_id, session.session_id)
+                self.logger.info(f"Cleared chat history for session {session_id}")
+            except Exception as e:
+                self.logger.error(f"Error clearing chat history: {str(e)}")
+        
+        # 6. Clean up quiz database
+        if session.quiz_engine:
+            try:
+                # Just close the connection without clearing questions
+                if session.quiz_engine.conn:
+                    session.quiz_engine.clear_all_questions()
+                    session.quiz_engine.close()
+                    self.logger.info(f"Closed quiz database connection for session {session_id}")
+            except Exception as e:
+                self.logger.error(f"Error closing quiz database: {str(e)}")
+        
+        # 7. Release ports
+        try:
+            if session.livelink_port and session.audio_port:
+                self._release_ports(session.livelink_port, session.audio_port)
+                self.logger.info(f"Released ports for session {session_id}")
+        except Exception as e:
+            self.logger.error(f"Error releasing ports: {str(e)}")
+        
+        self.logger.info(f"Completed resource cleanup for session {session_id}")
+
     def _cleanup_inactive_sessions(self):
         """Periodically check for and clean up inactive sessions"""
         while True:
             try:
-                # Sleep for 5 minutes before checking
-                time.sleep(300)
+                # Sleep for 30 seconds before checking
+                time.sleep(150)
                 
+                # Find inactive sessions WITHOUT holding the lock during termination
+                inactive_sessions = []
                 with self.lock:
-                    # Find inactive sessions
                     inactive_sessions = [
                         session_id for session_id, session in self.sessions.items() 
                         if session.is_inactive()
                     ]
-                    
-                    # Terminate each inactive session
-                    for session_id in inactive_sessions:
-                        self.logger.info(f"Cleaning up inactive session {session_id}")
-                        self.terminate_session(session_id)
-                    
-                    # Also clean up any inactive UE instances
-                    self.ue_manager.cleanup_inactive_instances()
+                
+                # Terminate each inactive session (outside the lock)
+                for session_id in inactive_sessions:
+                    self.logger.info(f"Cleaning up inactive session {session_id}")
+                    self.terminate_session(session_id)
+                
+                # Also clean up any inactive UE instances
+                self.ue_manager.cleanup_inactive_instances()
                     
             except Exception as e:
                 self.logger.error(f"Error in session cleanup: {str(e)}")
@@ -319,13 +329,13 @@ class SessionManager:
     def cleanup(self):
         """
         Clean up all sessions when shutting down
-        Optimized to avoid deadlocks and excessive waiting
         """
         self.logger.info("Starting cleanup of all sessions")
         
-        # Get a list of session IDs first, without holding the lock for too long
+        # Get a list of session IDs first, without holding the lock
         session_ids = []
         try:
+            # Use a copy to avoid modification during iteration
             session_ids = list(self.sessions.keys())
         except Exception as e:
             self.logger.error(f"Error getting session IDs: {str(e)}")
@@ -334,8 +344,13 @@ class SessionManager:
         terminated_count = 0
         for session_id in session_ids:
             try:
-                success = self.terminate_session(session_id)
-                if success:
+                # Use get to check if session still exists (might have been removed already)
+                if session_id in self.sessions:
+                    success = self.terminate_session(session_id)
+                    if success:
+                        terminated_count += 1
+                else:
+                    self.logger.info(f"Session {session_id} already removed, skipping termination")
                     terminated_count += 1
             except Exception as e:
                 self.logger.error(f"Error during termination of session {session_id}: {str(e)}")
@@ -350,4 +365,3 @@ class SessionManager:
             self.logger.error(f"Error cleaning up UE instances: {str(e)}")
         
         self.logger.info("Cleanup completed")
-    

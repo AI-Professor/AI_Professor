@@ -8,26 +8,6 @@ MAX_CONTEXT_LENGTH = 5000
 # Ensure the directory exists
 os.makedirs(CHAT_LOGS_DIR, exist_ok=True)
 
-"""
-def load_chat_history():
-    #Loads chat history from the log file.
-    log_file = os.path.join(CHAT_LOGS_DIR, "chat_history.json")
-    if os.path.exists(log_file):
-        with open(log_file, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return []
-
-def save_chat_log(chat_history):
-    #Saves the chat history, ensuring it stays within context length.
-    log_file = os.path.join(CHAT_LOGS_DIR, "chat_history.json")
-    total_length = sum(len(json.dumps(entry)) for entry in chat_history)
-    while total_length > MAX_CONTEXT_LENGTH and chat_history:
-        chat_history.pop(0)
-        total_length = sum(len(json.dumps(entry)) for entry in chat_history)
-    with open(log_file, "w", encoding="utf-8") as f:
-        json.dump(chat_history, f, indent=4)
-"""
-
 def load_chat_history(user_id=None, session_id=None):
     """
     Loads chat history from the log file.
@@ -90,7 +70,7 @@ def save_chat_log(chat_history, user_id=None, session_id=None):
 
 def clear_chat_log(user_id=None, session_id=None):
     """
-    Clears the chat history.
+    Clears the chat history by deleting the JSON files.
     
     Args:
         user_id: The user ID to clear chat history for
@@ -101,27 +81,29 @@ def clear_chat_log(user_id=None, session_id=None):
     """
     try:
         if user_id and session_id:
-            # Clear specific session chat log
+            # Delete specific session chat log
             log_file = os.path.join(CHAT_LOGS_DIR, str(user_id), f"{session_id}.json")
             if os.path.exists(log_file):
-                with open(log_file, 'w', encoding='utf-8') as f:
-                    json.dump([], f, indent=4)
+                os.remove(log_file)
                 return True
         elif user_id:
-            # Clear all session chat logs for a user
+            # Delete all session chat logs for a user
             user_chat_dir = os.path.join(CHAT_LOGS_DIR, str(user_id))
             if os.path.exists(user_chat_dir):
                 for filename in os.listdir(user_chat_dir):
                     if filename.endswith('.json'):
                         file_path = os.path.join(user_chat_dir, filename)
-                        with open(file_path, 'w', encoding='utf-8') as f:
-                            json.dump([], f, indent=4)
+                        os.remove(file_path)
                 return True
         else:
-            # Clear global chat log (legacy)
+            # Delete global chat log (legacy)
             log_file = os.path.join(CHAT_LOGS_DIR, "chat_history.json")
-            with open(log_file, 'w', encoding='utf-8') as f:
-                json.dump([], f, indent=4)
+            if os.path.exists(log_file):
+                os.remove(log_file)
+            else:
+                # Create empty file if it doesn't exist (legacy behavior)
+                with open(log_file, 'w', encoding='utf-8') as f:
+                    json.dump([], f, indent=4)
             return True
     except Exception as e:
         print(f"Error clearing chat log: {e}")

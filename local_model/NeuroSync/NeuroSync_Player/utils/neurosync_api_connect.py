@@ -7,10 +7,10 @@ import requests
 import json
 from dotenv import load_dotenv
 load_dotenv()
-host_name = os.getenv('LOCAL_HOST_NAME')
-back_port = os.getenv('LOCAL_BACKEND_PORT')
+back_port = os.getenv('BACKEND_PORT')
+udp_ip = os.getenv('UDP_IP')
 
-LOCAL_URL = f"http://{host_name}:{back_port}/api/audio_to_blendshapes"  # Local URL
+LOCAL_URL = f"http://{udp_ip}:{back_port}/api/audio_to_blendshapes"  # Local URL
 
 def send_audio_to_neurosync(audio_bytes):
     try:

@@ -54,6 +54,35 @@ def generate_lesson_script(db, template, length, topic, topic_path, user_id=None
     if template not in templates:
         raise ValueError(f"Invalid template type. Choose one of: {list(templates.keys())}")
     
+    # First, check if the topic is relevant to the database
+    relevant_text = db.similarity_search(topic, k=5)  # First fetch just a few documents
+    
+    # Check if retrieved documents are actually relevant
+    llm_check = ChatOpenAI(
+        model="gpt-4",
+        openai_api_key=openai_api_key,
+        temperature=0
+    )
+    
+    # Prepare a sample of the retrieved content
+    sample_content = "\n\n".join([doc.page_content[:300] + "..." for doc in relevant_text])
+    
+    # Ask LLM to evaluate relevance
+    relevance_prompt = f"""
+    I want to create a lesson about "{topic}". I have retrieved the following content from my database:
+    
+    {sample_content}
+    
+    Is this content relevant to the topic "{topic}"? Answer ONLY "YES" if it's relevant, or "NO" if it's not relevant or contains insufficient information.
+    """
+    
+    relevance_check = llm_check.predict(relevance_prompt).strip().upper()
+    
+    if relevance_check != "YES":
+        # Topic is not relevant - return a specific message
+        return None, None
+    
+    # Topic is relevant, get more content and proceed
     relevant_text = db.similarity_search(topic, k=20)  # Fetch top 20 most relevant passages
 
     # Concatenate the relevant content to form the context for GPT-4

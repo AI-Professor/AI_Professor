@@ -5,7 +5,6 @@ import { loadFooter } from "./footer.js";
 // Initialize global variables and config
 let ENV;
 let localBackendUrl;
-let closed = false;
 let autoScrollChat = true;
 let autoScrollLecture = true;
 let activeSession = null;
@@ -14,7 +13,6 @@ window.pixelStreamingApp = null;
 // Elements will be initialized after DOM is loaded
 let videoElement;
 let connectButton;
-let disconnectButton;
 let msgHistory;
 let statusMessageBox;
 let lectureTranscriptContainer;
@@ -34,20 +32,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Load configuration
     ENV = await (await fetch("/api.json")).json();
-    const serverHostName = ENV.SERVER_HOST_NAME;
-    const serverFrontendPort = ENV.SERVER_FRONTEND_PORT;
-    const serverBackendPort = ENV.SERVER_BACKEND_PORT;
-    const serverUePort = ENV.SERVER_UE_PORT;
-    const serverFrontendUrl = `http://${serverHostName}:${serverFrontendPort}`;
-    const serverBackendUrl = `http://${serverHostName}:${serverBackendPort}`;
-    const serverUeUrl = `ws://${serverHostName}:${serverUePort}`;
-    const localHostName = ENV.LOCAL_HOST_NAME;
-    const localFrontendPort = ENV.LOCAL_FRONTEND_PORT;
-    const localBackendPort = ENV.LOCAL_BACKEND_PORT;
-    const localUePort = ENV.LOCAL_UE_PORT;
-    const localFrontendUrl = `http://${localHostName}:${localFrontendPort}`;
-    localBackendUrl = `http://${localHostName}:${localBackendPort}`;
-    const localUeUrl = `ws://${localHostName}:${localUePort}`;
+    const externalIp = ENV.EXTERNAL_IP
+    const backendPort = ENV.BACKEND_PORT
+    localBackendUrl = `http://${externalIp}:${backendPort}`
     
     console.log("Configuration loaded");
     
@@ -64,11 +51,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Add event listeners
     addEventListeners();
     
-    // Add clear chat button
-    addClearChatButton();
-    
     // Check for existing session
     await checkExistingSession();
+
+    
+    const sessionMonitorInterval = startSessionMonitoring();
+    
+    // Store the interval ID to clear it if needed
+    window.sessionMonitorInterval = sessionMonitorInterval;
     
     console.log("Application initialized successfully");
   } catch (error) {
@@ -81,7 +71,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 function initializeUIElements() {
   videoElement = document.getElementById('pixelStreamVideo');
   connectButton = document.getElementById('connect-button');
-  disconnectButton = document.getElementById('disconnect-button');
   msgHistory = document.getElementById('msgHistory');
   statusMessageBox = document.getElementById('status-message-box');
   lectureTranscriptContainer = document.querySelector('.lecture-transcript-container');
@@ -121,34 +110,25 @@ function initializeUIElements() {
   }
 }
 
-// Add all event listeners
 function addEventListeners() {
   // Connect button
   if (connectButton) {
-    connectButton.addEventListener('click', handleConnect);
+    connectButton.removeEventListener('click', handleConnect); 
+    connectButton.addEventListener('click', modifiedHandleConnect);
   }
   
-  // Disconnect button
-  if (disconnectButton) {
-    disconnectButton.addEventListener('click', handleDisconnect);
-  }
-  
-  // Lecture button
   if (lectureButton) {
     lectureButton.addEventListener('click', handleLecture);
   }
   
-  // Voice input button
   if (voiceButton) {
     voiceButton.addEventListener('click', handleVoiceInput);
   }
   
-  // Send button
   if (sendButton) {
     sendButton.addEventListener('click', handleSendMessage);
   }
   
-  // File upload
   if (fileUploadTrigger && fileInput) {
     fileUploadTrigger.addEventListener('click', () => {
       fileInput.click();
@@ -209,12 +189,51 @@ function showStatusMessage(message, type = 'info') {
 function updateUIForActiveSession() {
   if (activeSession) {
     if (connectButton) connectButton.disabled = false;
-    if (disconnectButton) disconnectButton.disabled = true;
     showStatusMessage('💡 You have an existing session. Click Connect to resume.');
   } else {
     if (connectButton) connectButton.disabled = false;
-    if (disconnectButton) disconnectButton.disabled = true;
   }
+}
+
+function clearSessionUI() {
+  // Clear chat messages
+  if (msgHistory) {
+    msgHistory.innerHTML = '';
+  }
+  
+  // Clear lecture transcript
+  if (lectureTranscript) {
+    lectureTranscript.innerHTML = '';
+  }
+  
+  // Clear uploaded files list
+  if (uploadedFilesList) {
+    uploadedFilesList.innerHTML = '';
+    // Optional: Add a placeholder message
+    const noFileMsg = document.createElement('div');
+    noFileMsg.textContent = 'No files uploaded.';
+    uploadedFilesList.appendChild(noFileMsg);
+  }
+  
+  // Clear text input if any
+  const textInput = document.getElementById('text-input');
+  if (textInput) {
+    textInput.value = '';
+    // Reset the height if using auto-resize
+    textInput.style.height = 'auto';
+  }
+  
+  // Clear topic input if any
+  if (topicInput) {
+    topicInput.value = '';
+  }
+  
+  // Reset file input if any
+  if (fileInput) {
+    fileInput.value = null;
+  }
+  
+  console.log("Cleared all UI elements related to the session");
 }
 
 // Event Handlers
@@ -223,12 +242,19 @@ async function handleConnect() {
     // Disable the button to prevent multiple clicks
     connectButton.disabled = true;
 
+    // Remove expired session message if present
+    const expiredMsg = document.getElementById('expired-session-message');
+    if (expiredMsg) expiredMsg.remove();
+    
     const token = sessionStorage.getItem('accessToken');
     if (!token) {
       alert('No access token found. Please log in.');
       connectButton.disabled = false;
       return;
     }
+    
+    // Clear UI elements before starting a new connection
+    clearSessionUI();
     
     const statusDiv = document.createElement('div');
     statusDiv.id = 'connection-status';
@@ -264,7 +290,6 @@ async function handleConnect() {
         }, 2000);
         
         connectButton.disabled = true;
-        disconnectButton.disabled = false;
         showStatusMessage('✅ Connected to existing session successfully!');
         
         // Load chat history for the existing session
@@ -285,7 +310,6 @@ async function handleConnect() {
         }, 2000);
         
         connectButton.disabled = true;
-        disconnectButton.disabled = false;
         showStatusMessage('✅ Connected to existing session successfully!');
         
         // Load chat history for the existing session
@@ -340,12 +364,10 @@ async function handleConnect() {
       }
     }, 2000);
 
-    // Enable the disconnect button
     connectButton.disabled = true;
-    disconnectButton.disabled = false;
     showStatusMessage('✅ New connection established successfully!');
     
-    // Clear any previous chat history
+    // We already cleared the chat history, but let's fetch any server-side history
     await loadChatHistory();
     
   } catch (error) {
@@ -374,7 +396,6 @@ async function handleConnect() {
         
         // If we get here, the connection was successful
         connectButton.disabled = true;
-        disconnectButton.disabled = false;
         showStatusMessage('✅ Connection established successfully after retry!');
         
         // Load chat history for the new session
@@ -390,60 +411,6 @@ async function handleConnect() {
     }
     
     connectButton.disabled = false;
-  }
-}
-
-async function handleDisconnect() {
-  try {
-    // Disable the button to prevent multiple clicks
-    disconnectButton.disabled = true;
-    
-    const token = sessionStorage.getItem('accessToken');
-    if (!token) {
-      alert('No access token found. Please log in.');
-      disconnectButton.disabled = false;
-      return;
-    }
-
-    // Get the current session
-    const sessionData = getSessionData();
-    if (!sessionData || !sessionData.session_id) {
-      console.error('No active session found');
-      disconnectButton.disabled = false;
-      return;
-    }
-
-    // Only disconnect WebRTC connection - don't terminate or pause anything on the server
-    if (window.pixelStreamingApp) {
-      try {
-        await window.pixelStreamingApp.disconnect();
-        console.log('WebRTC disconnected successfully');
-      } catch (pixelError) {
-        console.warn('Error disconnecting WebRTC:', pixelError);
-      }
-    }
-    closed = true;
-
-    // Mark the WebRTC connection as disconnected but keep session data
-    if (sessionData) {
-      sessionData.webrtc_connected = false;
-      saveSessionData(sessionData);
-    }
-
-    // Update UI
-    connectButton.disabled = false;
-    disconnectButton.disabled = true;
-    showStatusMessage('✅ Disconnected from WebRTC. Session data preserved!');
-    
-    // Clear the video element
-    if (videoElement) {
-      videoElement.srcObject = null;
-      videoElement.style.display = 'none';
-    }
-  } catch (error) {
-    console.error('Error in disconnect process:', error);
-    alert('Disconnect process encountered an error: ' + error.message);
-    disconnectButton.disabled = false;
   }
 }
 
@@ -475,6 +442,8 @@ async function handleLecture() {
 
     addLectureMessage(`You asked for: ${topic}`, 'user');
 
+    showStatusMessage('⏳ Checking topic relevance and generating lecture...');
+
     const response = await fetch(`${localBackendUrl}/api/lecture`, {
       method: 'POST',
       headers: {
@@ -487,12 +456,23 @@ async function handleLecture() {
        })
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to generate lesson!');
-    }
-
     const data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 400 && data.message && data.message.includes("unrelated to the content")) {
+        // Handle irrelevant topic error with a more user-friendly approach
+        addLectureMessage(
+          `I'm sorry, but the topic "${topic}" doesn't appear to be covered in the material you've uploaded. Please try a different topic that's relevant to your content.`, 
+          'ai'
+        );
+        showStatusMessage('⚠️ Topic not found in your materials');
+      } else {
+        // Handle other errors
+        throw new Error(data.error || data.message || 'Failed to generate lesson!');
+      }
+      lectureButton.disabled = false;
+      return;
+    }
 
     showStatusMessage('✅ Lesson generated successfully!');
 
@@ -506,7 +486,7 @@ async function handleLecture() {
 
     lectureButton.disabled = false;
   } catch (error) {
-    alert(`Lesson generation failed! Lecture Error: ${error.message}`);
+    alert(`Lesson generation failed! Error: ${error.message}`);
     lectureButton.disabled = false;
   }
 }
@@ -747,39 +727,28 @@ function groupSentences(sentences, groupSize) {
 }
 
 async function streamScriptChunks(sentences) {
-  for (const sentence of sentences) {
-    addLectureMessage(sentence.trim(), 'ai');
+  // Start a session alive interval during lecture
+  const keepAliveInterval = setInterval(keepSessionAlive, 30000); // Every 30 seconds
+  
+  try {
+    for (const sentence of sentences) {
+      addLectureMessage(sentence.trim(), 'ai');
+      
+      // Calculate delay: 60ms per character plus base delay
+      const delay = sentence.length * 60 + 1000;
+      
+      // Keep session alive at the start of streaming
+      await keepSessionAlive();
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  } finally {
+    // Clear the interval when done
+    clearInterval(keepAliveInterval);
     
-    // Calculate delay: 60ms per character plus base delay
-    const delay = sentence.length * 60 + 1000;
-    
-    await new Promise(resolve => setTimeout(resolve, delay));
+    // One final ping
+    await keepSessionAlive();
   }
-}
-
-// Add a clear chat history button
-function addClearChatButton() {
-  const chatContainer = document.querySelector('.chat-container');
-  if (!chatContainer || !msgHistory) return;
-  
-  // Check if the button already exists
-  if (document.querySelector('.chat-controls')) return;
-  
-  const buttonContainer = document.createElement('div');
-  buttonContainer.className = 'chat-controls';
-  buttonContainer.style.display = 'flex';
-  buttonContainer.style.justifyContent = 'flex-end';
-  buttonContainer.style.padding = '10px';
-  
-  const clearButton = document.createElement('button');
-  clearButton.textContent = 'Clear Chat';
-  clearButton.className = 'btn';
-  clearButton.onclick = clearChatHistory;
-  
-  buttonContainer.appendChild(clearButton);
-  
-  // Insert before the message history
-  chatContainer.insertBefore(buttonContainer, msgHistory);
 }
 
 // Fetch and display chat history
@@ -820,39 +789,6 @@ async function loadChatHistory() {
     }
   } catch (error) {
     console.error('Error loading chat history:', error);
-  }
-}
-
-// Clear chat history
-async function clearChatHistory() {
-  try {
-    const token = sessionStorage.getItem('accessToken');
-    if (!token) return;
-    
-    const sessionData = getSessionData();
-    if (!sessionData || !sessionData.session_id) return;
-    
-    const response = await fetch(`${localBackendUrl}/api/chat-history?session_id=${sessionData.session_id}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to clear chat history');
-    }
-    
-    // Clear the UI
-    if (msgHistory) {
-      msgHistory.innerHTML = '';
-    }
-    showStatusMessage('✅ Chat history cleared successfully!');
-  } catch (error) {
-    console.error('Error clearing chat history:', error);
-    showStatusMessage('❌ Failed to clear chat history');
   }
 }
 
@@ -1008,6 +944,105 @@ async function waitForUEInstance(sessionId, maxAttempts = 10, delayMs = 1000) {
   return false;
 }
 
+async function keepSessionAlive() {
+  try {
+    const sessionData = getSessionData();
+    if (!sessionData || !sessionData.session_id) return;
+    
+    const token = sessionStorage.getItem('accessToken');
+    if (!token) return;
+    
+    // Ping the session status endpoint to update activity timestamp
+    const response = await fetch(`${localBackendUrl}/api/session-status?session_id=${sessionData.session_id}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const data = await response.json();
+      // If session not found, it might have expired
+      if (response.status === 404 || (data && data.detail === "Session not found")) {
+        handleExpiredSession();
+        return;
+      }
+    }
+    
+    console.log("Session activity updated");
+  } catch (error) {
+    console.error("Error keeping session alive:", error);
+    // Check if error indicates session expiration
+    if (error.message.includes("Session not found") || error.message.includes("Not authorized")) {
+      handleExpiredSession();
+    }
+  }
+}
+
+// Function to handle expired sessions
+function handleExpiredSession() {
+  console.log("Session expired or terminated");
+  
+  // Clear existing session data
+  clearSessionData();
+  
+  // Clear all UI elements
+  clearSessionUI();
+  
+  // Display persistent message
+  const persistentMsg = document.createElement('div');
+  persistentMsg.id = 'expired-session-message';
+  persistentMsg.className = 'status-message error persistent';
+  persistentMsg.textContent = 'Your session has expired. Please press Connect to start a new session.';
+  persistentMsg.style.backgroundColor = '#f44336';
+  persistentMsg.style.color = 'white';
+  persistentMsg.style.padding = '10px';
+  persistentMsg.style.borderRadius = '5px';
+  persistentMsg.style.margin = '10px 0';
+  persistentMsg.style.textAlign = 'center';
+  persistentMsg.style.position = 'sticky';
+  persistentMsg.style.top = '0';
+  persistentMsg.style.zIndex = '1000';
+  
+  // Add to status message box
+  if (statusMessageBox) {
+    // Remove any existing expired session messages
+    const existingMsg = document.getElementById('expired-session-message');
+    if (existingMsg) existingMsg.remove();
+    
+    statusMessageBox.prepend(persistentMsg);
+  }
+  
+  // Reset UI
+  if (connectButton) connectButton.disabled = false;
+  
+  // Clear video display
+  if (videoElement) {
+    videoElement.srcObject = null;
+    videoElement.style.display = 'none';
+  }
+  
+  // If WebRTC is connected, disconnect it
+  if (window.pixelStreamingApp) {
+    try {
+      window.pixelStreamingApp.disconnect();
+    } catch (error) {
+      console.error("Error disconnecting WebRTC:", error);
+    }
+  }
+}
+
+// Modify the handleConnect function to clear any expired session message
+function modifiedHandleConnect() {
+  // Remove expired session message if present
+  const expiredMsg = document.getElementById('expired-session-message');
+  if (expiredMsg) expiredMsg.remove();
+  
+  // Continue with normal connect logic
+  return handleConnect();
+}
+
 // Initialize PixelStreaming for a session
 async function initializePixelStreamingForSession(sessionData) {
   const epic = window["epicgames-frontend"];
@@ -1018,7 +1053,7 @@ async function initializePixelStreamingForSession(sessionData) {
   console.log('Initializing PixelStreaming for session:', sessionData);
   
   // Use the specific signaling server URL for this session
-  const signalingUrl = `ws://${ENV.LOCAL_HOST_NAME}:${sessionData.websocket_port}`;
+  const signalingUrl = `ws://34.125.125.158:${sessionData.websocket_port}`;
   console.log('Using signaling server URL:', signalingUrl);
   
   // Enhanced WebRTC configuration
@@ -1026,7 +1061,7 @@ async function initializePixelStreamingForSession(sessionData) {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
       { 
-        urls: `turn:${ENV.LOCAL_HOST_NAME}:19303`,
+        urls: `turn:${ENV.EXTERNAL_IP}:19303`,
         username: 'pixelstreaming',
         credential: 'pixelstreaming'
       }
@@ -1335,4 +1370,32 @@ function attachVideoStream() {
   videoElement.play()
     .then(() => console.log('Video playback started successfully'))
     .catch(err => console.error('Error starting video playback:', err));
+}
+
+// Add a periodic session check to the page that runs every minute
+function startSessionMonitoring() {
+  // Check once immediately
+  checkSessionStatus();
+  
+  // Then set up regular interval
+  return setInterval(checkSessionStatus, 60000); // Every minute
+}
+
+// Function to check session status
+async function checkSessionStatus() {
+  const sessionData = getSessionData();
+  if (!sessionData || !sessionData.session_id) return;
+  
+  try {
+    const result = await checkUEInstanceStatus(sessionData.session_id);
+    
+    // If session check fails, handle as expired
+    if (result === false) {
+      handleExpiredSession();
+    }
+  } catch (error) {
+    console.error("Error checking session status:", error);
+    // If there's an error checking status, assume session might be expired
+    handleExpiredSession();
+  }
 }

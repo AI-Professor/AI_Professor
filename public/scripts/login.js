@@ -3,9 +3,9 @@ import { loadCaptcha } from "./captcha.js";
 import { loadFooter } from "./footer.js";
 
 const ENV = await (await fetch("/api.json")).json();
-const localHostName = ENV.LOCAL_HOST_NAME;
-const localBackendPort = ENV.LOCAL_BACKEND_PORT;
-const localBackendUrl = `http://${localHostName}:${localBackendPort}`;
+const externalIp = ENV.EXTERNAL_IP
+const backendPort = ENV.BACKEND_PORT
+const localBackendUrl = `http://${externalIp}:${backendPort}`
 
 document.addEventListener('DOMContentLoaded', loadNavbar());
 document.addEventListener('DOMContentLoaded', loadFooter());

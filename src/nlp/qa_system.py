@@ -13,12 +13,12 @@ if not openai_api_key:
     raise ValueError("OPENAI_API_KEY not found in environment variables")
 
 #This function will use OpenAI model to generate a knowledge graph based on our input material. It will be stored in data/processed/knowledge_graph folder.
-def initialize_qa_system(text_chunks: list, user_id: str) -> FAISS:  
+def initialize_qa_system(text_chunks: list, user_id: str, input_name) -> FAISS:  
     # Initialize embeddings with explicit API key
     embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
     
     # Create user-specific directory
-    DB_DIR = f"data/processed/knowledge_graph/{user_id}"
+    DB_DIR = f"data/processed/knowledge_graph/{user_id}/{input_name}"
     os.makedirs(DB_DIR, exist_ok=True)
     
     # Create FAISS index with error handling

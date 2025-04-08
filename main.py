@@ -1,5 +1,6 @@
 import atexit
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 from datetime import timedelta
 import datetime
@@ -22,6 +23,7 @@ from queue import Queue, Empty
 from sqlalchemy.orm import Session
 from subprocess import Popen, PIPE
 from threading import Event, Thread
+import time
 import torch
 from typing import Dict, List, Optional
 import base64
@@ -35,11 +37,11 @@ from src.data_ingestion.video_parser import extract_text_from_video
 from src.data_ingestion.text_splitter import split_text  
 from src.nlp.qa_system import initialize_qa_system
 from src.avatar.script_generator import generate_lesson_script
-from src.nlp.quiz_system import BasicQuizEngine
+from src.nlp.quiz_system import BasicQuizEngine, get_quiz_engine
 
 from local_model.NeuroSync.NeuroSync_Player.livelink.connect.livelink_init import create_socket_connection, initialize_py_face
 from local_model.NeuroSync.NeuroSync_Player.livelink.animations.default_animation import default_animation_loop
-from local_model.NeuroSync.NeuroSync_Player.utils.chat_utils import load_chat_history, save_chat_log
+from local_model.NeuroSync.NeuroSync_Player.utils.chat_utils import load_chat_history, save_chat_log, clear_chat_log
 from local_model.NeuroSync.NeuroSync_Player.utils.audio_workers import tts_worker, audio_queue_worker
 from local_model.NeuroSync.NeuroSync_Player.utils.llm_utils import stream_llm_chunks
 from local_model.NeuroSync.NeuroSync_Local_API.utils.model.model import load_model
@@ -51,20 +53,18 @@ from src.Multiuser.session_manager import SessionManager
 
 warnings.filterwarnings("ignore")
 load_dotenv()
-server_host_name = os.getenv('SERVER_HOST_NAME')
-server_front_port = os.getenv('SERVER_FRONTEND_PORT')
-server_back_port = os.getenv('SERVER_BACKEND_PORT')
-server_ue_port = os.getenv('SERVER_UE_PORT')
-server_front_url = f"http://{server_host_name}:{server_front_port}"
-server_back_url = f"http://{server_host_name}:{server_back_port}"
-server_ue_url = f"http://{server_host_name}:{server_ue_port}"
 local_host_name = os.getenv('LOCAL_HOST_NAME')
-local_front_port = os.getenv('LOCAL_FRONTEND_PORT')
-local_back_port = os.getenv('LOCAL_BACKEND_PORT')
-local_ue_port = os.getenv('LOCAL_UE_PORT')
-local_front_url = f"http://{local_host_name}:{local_front_port}"
-local_back_url = f"http://{local_host_name}:{local_back_port}"
-local_ue_url = f"http://{local_host_name}:{local_ue_port}"
+external_ip = os.getenv('EXTERNAL_IP')
+udp_ip = os.getenv('UDP_IP')
+front_port = os.getenv('FRONTEND_PORT')
+back_port = os.getenv('BACKEND_PORT')
+ue_port = os.getenv('UE_PORT')
+local_front_url = f"http://{local_host_name}:{front_port}"
+local_back_url = f"http://{local_host_name}:{back_port}"
+local_ue_url = f"http://{local_host_name}:{ue_port}"
+external_front_url = f"http://{external_ip}:{front_port}"
+external_back_url = f"http://{external_ip}:{back_port}"
+external_ue_url = f"http://{external_ip}:{ue_port}"
 info_port = int(os.getenv('INFO_PORT'))
 SECRET_KEY = os.environ["ENCRYPTION_KEY"]
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
@@ -95,13 +95,14 @@ session_manager = SessionManager(logger)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_path = 'local_model/NeuroSync/NeuroSync_Local_API/utils/model/model.pth'
 blendshape_model = load_model(model_path, config, device, use_half_precision=True)
+gpu_executor = ThreadPoolExecutor(max_workers=1)
 
 
 #FastAPI middleware handles any request before it is processed by any path or functions
 #Our backend API will be running on localhost:5001, our frontend API will be running on localhost:3000
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[server_front_url, server_back_url, server_ue_url, local_front_url, local_back_url, local_ue_url],
+    allow_origins=[external_front_url, external_back_url, external_ue_url, local_front_url, local_back_url, local_ue_url],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -116,7 +117,7 @@ async def health_check():
 @app.on_event("startup")
 async def startup_event():
     global  info_sender, pipeline
-    info_sender = udp_client.SimpleUDPClient(local_host_name, info_port)
+    info_sender = udp_client.SimpleUDPClient(udp_ip, info_port)
     pipeline = KPipeline(lang_code='a')
 
 
@@ -134,31 +135,15 @@ def cleanup_audio_files():
         except Exception as e:
             print(f"Error deleting {file_path}: {e}")
 
-def clear_chatlog():
-    chat_path = "local_model/NeuroSync/NeuroSync_Player/chat_logs/chat_history.json"
-    with open(chat_path, 'w', encoding='utf-8') as f:
-        json.dump([], f, indent=4)
-    print(f"Chat log in {chat_path} has been cleared.")
-
 @app.on_event("shutdown")
 async def on_shutdown():
-    if platform.system() == "Darwin":
-        print("Shutting down on macOS...")
-    elif platform.system() == "Linux":
-        print("Shutting down on Linux...")
-    elif platform.system() == "Windows":
-        print("Shutting down on Windows...")
-        logger.info("Cleaning up backend resource...")
-        session_manager.cleanup()
-        logger.info("Backend source cleaned successfully.")
+    logger.info("Cleaning up backend resource...")
+    session_manager.cleanup()
+    logger.info("Backend source cleaned successfully.")
 
     logger.info("Cleaning audio files...")
     cleanup_audio_files()
     logger.info("Audio files cleaned successfully.")
-
-    logger.info("Clearing chat history...")
-    clear_chatlog()
-    logger.info("Chat history cleaned successfully.")
 
 
 
@@ -326,7 +311,7 @@ async def connect(request: Request, current_user: schemas.UserResponse = Depends
             if attempt == max_attempts - 1:
                 logger.warning(f"UE instance may not be fully started for session {session.session_id} after {max_attempts} attempts")
 
-        await asyncio.sleep(10)
+        await asyncio.sleep(15)
 
         info_sender.send_message(f'/Game/LivelinkPresets/Preset_{session.livelink_port}', (session.audio_port, session.py_face_name))
 
@@ -335,7 +320,7 @@ async def connect(request: Request, current_user: schemas.UserResponse = Depends
         # Initialize PyFace and connections
         py_face = initialize_py_face(name=session.py_face_name)
         socket_connection = create_socket_connection(session.livelink_port)
-        audio_sender = udp_client.SimpleUDPClient(local_host_name, session.audio_port)
+        audio_sender = udp_client.SimpleUDPClient(udp_ip, session.audio_port)
         
         # Load user-specific chat history for this session
         chat_history = load_chat_history(user_id=user_id, session_id=session.session_id)
@@ -505,11 +490,40 @@ async def lecture(request: Request, topic: dict, current_user: schemas.UserRespo
             user_id=user_id
         )
         
+        # Check if the topic is relevant to the content
         if not lesson_script or not lesson_script_path:
-            raise HTTPException(status_code=500, detail="Failed to generate lesson script")
+            logger.warning(f"Topic '{topic_value}' is not relevant to the uploaded content.")
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "status": "Failed", 
+                    "message": f"The topic '{topic_value}' appears to be unrelated to the content you've uploaded. Please choose a topic that's relevant to your material."
+                }
+            )
         
         # Store the lesson path in the session
         session.lesson_path = lesson_script_path
+        
+        # Generate quiz questions for this topic
+        try:
+            session.quiz_engine.generate_quiz_from_script(session.lesson_path, topic_path)
+            # Store the current topic
+            session.last_topic = topic_path
+        except Exception as quiz_error:
+            logger.error(f"Error generating quiz: {str(quiz_error)}")
+            # Continue even if quiz generation fails
+            
+        # Calculate approximate lecture duration (chars * avg ms per char)
+        chars_count = len(lesson_script)
+        estimated_duration_ms = chars_count * 60 + 10000  # 60ms per char + 10s base
+        
+        # Ensure session won't expire during playback by updating last_activity with future time
+        # This guarantees the session won't be cleaned up as inactive during playback
+        buffer_time = 300  # 5 additional minutes as buffer
+        future_time = time.time() + (estimated_duration_ms / 1000) + buffer_time
+        session.last_activity = future_time
+        
+        logger.info(f"Extended session {session_id} activity time to prevent timeout during lecture playback")
         
         # Stream the script to the frontend
         stream_llm_chunks(lesson_script, session.chat_history, session.chunk_queue, db=session.knowledge_db, is_lesson=True)
@@ -596,43 +610,6 @@ async def get_chat_history(request: Request, current_user: schemas.UserResponse 
             content={"error": str(e)}
         )
 
-@app.delete("/api/chat-history")
-async def clear_chat_history(request: Request, current_user: schemas.UserResponse = Depends(get_current_user)):
-    try:
-        # Get session_id as a query parameter
-        session_id = request.query_params.get("session_id")
-        if not session_id:
-            raise HTTPException(status_code=400, detail="session_id is required")
-        
-        # Get the session
-        session = session_manager.get_session(session_id)
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
-        
-        # Check if the session belongs to the current user
-        if str(session.user_id) != str(current_user.user_id):
-            raise HTTPException(status_code=403, detail="Not authorized to clear this chat history")
-        
-        user_id = str(current_user.user_id)
-        
-        # Clear the chat history
-        from local_model.NeuroSync.NeuroSync_Player.utils.chat_utils import clear_chat_log
-        success = clear_chat_log(user_id=user_id, session_id=session_id)
-        
-        if success:
-            # Also clear the in-memory chat history
-            session.chat_history = []
-            return {"status": "success", "message": "Chat history cleared successfully"}
-        else:
-            raise HTTPException(status_code=500, detail="Failed to clear chat history")
-        
-    except Exception as e:
-        logger.error(f"Error clearing chat history for user {current_user.user_id}: {str(e)}")
-        return JSONResponse(
-            status_code=500,
-            content={"error": str(e)}
-        )
-
 @app.post("/api/upload")
 async def upload_file(request: Request, files: List[UploadFile] = File(...), current_user: schemas.UserResponse = Depends(get_current_user)):
     try:
@@ -663,6 +640,7 @@ async def upload_file(request: Request, files: List[UploadFile] = File(...), cur
         # Save file
         for file in files:
             file_path = os.path.join(user_upload_dir, file.filename)
+            input_name, extension = os.path.splitext(file.filename)
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
             
@@ -676,10 +654,11 @@ async def upload_file(request: Request, files: List[UploadFile] = File(...), cur
         
         # Initialize QA system with new content, user-specific
         chunks = split_text(text)
-        user_db = initialize_qa_system(chunks, user_id)
+        user_db = initialize_qa_system(chunks, user_id, input_name)
         
         # Store the database in the session
         session.knowledge_db = user_db
+        session.quiz_engine = get_quiz_engine(session.knowledge_db, user_id)
         
         logger.info(f"Files processed successfully for user {user_id}: {[f.filename for f in files]}")
         return {"status": "success", "message": f"Processed {len(files)} file(s) for user {user_id}"}
@@ -697,7 +676,14 @@ async def upload_file(request: Request, files: List[UploadFile] = File(...), cur
 @app.post('/api/audio_to_blendshapes')
 async def audio_to_blendshapes_route(request: Request):
     audio_bytes = await request.body()
-    generated_facial_data = generate_facial_data_from_bytes(audio_bytes, blendshape_model, device, config)
+    future = gpu_executor.submit(
+        generate_facial_data_from_bytes, 
+        audio_bytes, 
+        blendshape_model, 
+        device, 
+        config
+    )
+    generated_facial_data = future.result()
     generated_facial_data_list = generated_facial_data.tolist() if isinstance(generated_facial_data, np.ndarray) else generated_facial_data
 
     return {'blendshapes': generated_facial_data_list}
@@ -727,20 +713,15 @@ async def generate_quiz(request: Request, current_user: schemas.UserResponse = D
         if not session.knowledge_db:
             raise HTTPException(status_code=400, detail="No knowledge database found. Please upload content first.")
         
+        if not session.quiz_engine:
+            raise HTTPException(status_code=400, detail="No quiz engine found. Please take a lesson first.")
+        
         user_id = str(current_user.user_id)
         logger.info(f"Generating quiz for user {user_id}.")
         
-        # Create a quiz engine for this user if it doesn't exist yet
-        if not session.quiz_engine:
-            from src.nlp.quiz_system import get_quiz_engine
-            session.quiz_engine = get_quiz_engine(session.knowledge_db, user_id)
-        
-        # Generate quiz using the user's lesson script
-        session.quiz_engine.generate_quiz_from_script(session.lesson_path)
-        
         # Retrieve all questions
         cursor = session.quiz_engine.conn.cursor()
-        cursor.execute("SELECT * FROM questions ORDER BY RANDOM() LIMIT 10")
+        cursor.execute("SELECT * FROM questions WHERE topic = ? ORDER BY RANDOM() LIMIT 10", (session.last_topic,))
         questions = cursor.fetchall()
 
         return [
@@ -749,7 +730,8 @@ async def generate_quiz(request: Request, current_user: schemas.UserResponse = D
                 "question": q[1],
                 "options": json.loads(q[2]),
                 "answer": q[3],
-                "concept": q[4]
+                "concept": q[4],
+                "topic": q[5]
             } for q in questions
         ]
     
@@ -760,40 +742,7 @@ async def generate_quiz(request: Request, current_user: schemas.UserResponse = D
             content={"error": f"Quiz generation failed: {str(e)}"}
         )
 
-@app.delete("/api/clear-quiz")
-async def clear_quiz(request: Request, current_user: schemas.UserResponse = Depends(get_current_user)):
-    try:
-        # Get session_id as a query parameter
-        session_id = request.query_params.get("session_id")
-        if not session_id:
-            raise HTTPException(status_code=400, detail="session_id is required")
-        
-        # Get the session
-        session = session_manager.get_session(session_id)
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
-        
-        # Check if the session belongs to the current user
-        if str(session.user_id) != str(current_user.user_id):
-            raise HTTPException(status_code=403, detail="Not authorized to use this session")
-        
-        # Check if the user has a quiz engine
-        if not session.quiz_engine:
-            return {"status": "success", "message": "No quiz to clear"}
-        
-        # Clear the quiz
-        session.quiz_engine.clear_all_questions()
-        
-        return {"status": "success", "message": "Quiz cleared successfully"}
-    
-    except Exception as e:
-        logger.error(f"Error clearing quiz for user {current_user.user_id}: {str(e)}")
-        return JSONResponse(
-            status_code=500,
-            content={"error": f"Error clearing quiz: {str(e)}"}
-        )
 atexit.register(cleanup_audio_files)
-atexit.register(clear_chatlog)
 
 #This is a backend complete testing function. Nothing will happen at the frontend, we can test our implementations and functions here. All of the output will be shown in your terminal for testing purposes. 
 def main():  
@@ -912,6 +861,6 @@ if __name__ == "__main__":
         main()
     else:
         #This will start our backend API and connect with frontend functions. Run this command whenever you want to see backend API calls and frontend reactions: python main.py
-        logger.info(f"Starting API server on port {local_back_port}.")
-        print(f"Allowed origins for CORS middleware: {[server_front_url, server_back_url, server_ue_url, local_front_url, local_back_url, local_ue_url]}")
-        uvicorn.run(app, host=local_host_name, port=int(local_back_port))
+        logger.info(f"Starting API server on port {back_port}.")
+        print(f"Allowed origins for CORS middleware: {[external_front_url, external_back_url, external_ue_url, local_front_url, local_back_url, local_ue_url]}")
+        uvicorn.run(app, host=local_host_name, port=int(back_port))

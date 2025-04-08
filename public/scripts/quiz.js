@@ -28,9 +28,9 @@ try {
   function initializePage() {
     try {
       console.log("Initializing quiz page");
-      const localHostName = ENV.LOCAL_HOST_NAME;
-      const localBackendPort = ENV.LOCAL_BACKEND_PORT;
-      const localBackendUrl = `http://${localHostName}:${localBackendPort}`;
+      const externalIp = ENV.EXTERNAL_IP
+      const backendPort = ENV.BACKEND_PORT
+      const localBackendUrl = `http://${externalIp}:${backendPort}`
       console.log("Backend URL:", localBackendUrl);
 
       // Quiz State
@@ -323,52 +323,6 @@ try {
         }
       }
 
-      // Clear Quiz from Backend
-      async function clearQuiz() {
-        try {
-          const token = sessionStorage.getItem('accessToken');
-          if (!token) {
-            console.error('No access token found');
-            return;
-          }
-          
-          if (!quizState.sessionId) {
-            console.error('No active session found');
-            return;
-          }
-          
-          const response = await fetch(`${localBackendUrl}/api/clear-quiz?session_id=${quizState.sessionId}`, {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          if (!response.ok) {
-            if (response.status === 401) {
-              alert('Your session has expired. Please log in again.');
-              sessionStorage.removeItem('accessToken');
-              window.location.href = '/login.html';
-              return;
-            }
-            
-            let errorMessage = `HTTP error! Status: ${response.status}`;
-            try {
-              const errorData = await response.json();
-              errorMessage = errorData.error || errorMessage;
-            } catch (e) {
-              console.error("Error parsing error response:", e);
-            }
-            throw new Error(errorMessage);
-          }
-          
-          console.log('Quiz cleared successfully');
-        } catch (error) {
-          console.error('Error clearing quiz:', error);
-        }
-      }
-
       // Load a question by index
       function loadQuestion(index) {
         try {
@@ -614,9 +568,6 @@ try {
           if (restartButton) {
             restartButton.addEventListener('click', async () => {
               showScreen('loading-screen');
-              
-              // Clear the quiz from backend
-              await clearQuiz();
               
               // Reset state
               quizState.questions = [];

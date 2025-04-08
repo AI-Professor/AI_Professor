@@ -15,8 +15,7 @@ import socket
 from livelink.connect.pylivelinkface import PyLiveLinkFace, FaceBlendShape
 
 load_dotenv()
-UDP_IP = os.getenv('LOCAL_HOST_NAME')
-LIVELINK_PORT = 1
+UDP_IP = os.getenv('UDP_IP')
 
 def create_socket_connection(livelink_port: int):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
