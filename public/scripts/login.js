@@ -1,6 +1,7 @@
 import { loadNavbar, setupNavbarUserState } from "./navbar.js";
 import { loadCaptcha } from "./captcha.js";
 import { loadFooter } from "./footer.js";
+import { setupTokenRefresh } from './token-utils.js';
 
 const ENV = await (await fetch("/api.json")).json();
 const externalIp = ENV.EXTERNAL_IP
@@ -62,6 +63,8 @@ loginButton.onclick = async () => {
       sessionStorage.setItem('accessToken', data.access_token);
       document.getElementById('login-message').textContent = 'Login successful!';
       console.log('Access Token:', data.access_token);
+
+      setupTokenRefresh(localBackendUrl);
       
       const userResponse = await fetch(`${localBackendUrl}/api/user-info`, {
         method: 'GET',

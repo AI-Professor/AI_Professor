@@ -17,7 +17,7 @@ color: #333;
 
 .content{
   display: grid;
-  grid-template-columns: 1fr 2fr 1fr;
+  grid-template-columns: 1fr 3fr 1fr;
   height: 86vh;
   margin-top: 30px;
 }
@@ -35,7 +35,7 @@ color: #333;
   margin-top: 0;
   color: #333;
   font-size: 1.4rem;
-  margin-top: 100px;
+  margin-top: 50px;
 }
 
 .lecture-input-section {
@@ -387,6 +387,24 @@ color: #333;
 .uploaded-file-icon {
   margin-right: 10px;
   font-size: 1.2rem;
+}
+
+.upload-files-btn {
+  display: block;
+  margin: 15px auto 0;
+  padding: 10px 15px;
+  background-color: #4CAF50;
+  color: white;
+  text-align: center;
+  text-decoration: none;
+  border-radius: 5px;
+  font-weight: 600;
+  transition: background-color 0.3s;
+}
+
+.upload-files-btn:hover {
+  background-color: #45a049;
+  cursor: pointer;
 }
 
 #status-message-container {

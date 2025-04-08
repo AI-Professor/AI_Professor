@@ -145,7 +145,7 @@ async def on_shutdown():
     cleanup_audio_files()
     logger.info("Audio files cleaned successfully.")
 
-
+atexit.register(cleanup_audio_files)
 
 # Users
 def get_userdb():
@@ -742,7 +742,18 @@ async def generate_quiz(request: Request, current_user: schemas.UserResponse = D
             content={"error": f"Quiz generation failed: {str(e)}"}
         )
 
-atexit.register(cleanup_audio_files)
+@app.post("/api/refresh-token", response_model=schemas.Token)
+async def refresh_access_token(current_user: schemas.UserResponse = Depends(get_current_user)):
+    """
+    Refresh access token endpoint. 
+    This creates a new token for an authenticated user without requiring re-authentication.
+    """
+    # Create new access token with updated expiration
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": current_user.email}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
 
 #This is a backend complete testing function. Nothing will happen at the frontend, we can test our implementations and functions here. All of the output will be shown in your terminal for testing purposes. 
 def main():  

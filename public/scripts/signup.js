@@ -1,6 +1,7 @@
 import { loadNavbar, setupNavbarUserState } from "./navbar.js";
 import { loadCaptcha } from "./captcha.js";
 import { loadFooter } from "./footer.js";
+import { setupTokenRefresh } from './token-utils.js';
 
 const ENV = await (await fetch("/api.json")).json();
 const externalIp = ENV.EXTERNAL_IP
@@ -87,6 +88,8 @@ registerButton.onclick = async () => {
 
         sessionStorage.setItem('accessToken', loginData.access_token); // Store token in localStorage
         console.log('Access Token:', loginData.access_token);
+
+        setupTokenRefresh(localBackendUrl);
         
         const userResponse = await fetch(`${localBackendUrl}/api/user-info`, {
           method: 'GET',

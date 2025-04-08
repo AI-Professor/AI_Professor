@@ -45,8 +45,24 @@ background-color: #6A7BCF;
 color: #fff;
 }
 
+.btn-logout {
+background-color: red;
+color: white;
+padding: 8px 16px;
+border-radius: 4px;
+transition: background-color 0.3s;
+}
+
+.btn-logout:hover {
+background-color: #d32f2f;
+text-decoration: none;
+}
+
+.hidden {
+display: none !important;
+}
+
 .nav-username {
-padding: 0 1rem;
-font-weight: bold;
-color: #333;
+margin-right: 15px;
+font-weight: 500;
 }

@@ -61,6 +61,7 @@ try {
       const prevButton = getElement('prev-button');
       const nextButton = getElement('next-button');
       const restartButton = getElement('restart-button');
+      const returnButton = getElement('return-button')
 
       const questionNumber = getElement('question-number');
       const questionText = getElement('question-text');
@@ -581,6 +582,19 @@ try {
               }, 1000);
             });
             console.log("Restart button event listener added");
+          }
+
+          if (returnButton) {
+            returnButton.addEventListener('click', async () => {              
+              // Reset state
+              quizState.questions = [];
+              quizState.currentQuestionIndex = 0;
+              quizState.userAnswers = [];
+              quizState.score = 0;
+              
+              window.location.href = '/service.html';
+            });
+            console.log("Return button event listener added");
           }
           
           // Initialize the quiz

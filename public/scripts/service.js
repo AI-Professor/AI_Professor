@@ -1,6 +1,7 @@
 import { initializeVoiceRecognition } from "./voice-ui.js";
 import { loadNavbar } from "./navbar.js";
 import { loadFooter } from "./footer.js";
+import { setupTokenRefresh } from './token-utils.js';
 
 // Initialize global variables and config
 let ENV;
@@ -24,6 +25,7 @@ let fileInput;
 let uploadedFilesList;
 let sendButton;
 let voiceButton;
+let fileUploadButton;
 
 // Initialize the application after DOM content is loaded
 document.addEventListener('DOMContentLoaded', async () => {
@@ -44,6 +46,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       loadFooter()
     ]);
     console.log("Navbar and footer loaded");
+
+    const refreshInterval = setupTokenRefresh(localBackendUrl);
+
+    window.tokenRefreshInterval = refreshInterval;
     
     // Initialize UI elements
     initializeUIElements();
@@ -82,6 +88,7 @@ function initializeUIElements() {
   uploadedFilesList = document.getElementById('uploaded-files-list');
   sendButton = document.getElementById('send-button');
   voiceButton = document.getElementById('voice-input-btn');
+  fileUploadButton = document.getElementById('upload-files-btn')
   
   // Initialize text input auto-resize
   const textInput = document.getElementById('text-input');
@@ -132,8 +139,15 @@ function addEventListeners() {
   if (fileUploadTrigger && fileInput) {
     fileUploadTrigger.addEventListener('click', () => {
       fileInput.click();
+    });    
+    fileInput.addEventListener('change', handleFileChange);
+  }
+
+  if (fileUploadButton && fileInput) {
+    fileUploadButton.addEventListener('click', (e) => {
+      e.preventDefault(); // Prevent default link behavior
+      fileInput.click();
     });
-    
     fileInput.addEventListener('change', handleFileChange);
   }
   
@@ -234,6 +248,73 @@ function clearSessionUI() {
   }
   
   console.log("Cleared all UI elements related to the session");
+}
+
+function showLastingStatusMessage(message, type = 'info', id = null) {
+  if (!statusMessageBox) return null;
+  
+  // Generate a unique ID if none provided
+  const messageId = id || `status-${Date.now()}`;
+  
+  // Create message element
+  const msg = document.createElement('div');
+  msg.className = `status-message ${type} lasting`;
+  msg.id = messageId;
+  msg.textContent = message;
+  
+  // Add a loading spinner for ongoing processes
+  const spinner = document.createElement('div');
+  spinner.className = 'status-spinner';
+  msg.appendChild(spinner);
+  
+  statusMessageBox.prepend(msg);
+  
+  return messageId;
+}
+
+// Function to update a lasting status message
+function updateLastingStatusMessage(messageId, message, type = null) {
+  const msg = document.getElementById(messageId);
+  if (!msg) return;
+  
+  // Update text content
+  msg.textContent = message;
+  
+  // Add the spinner back
+  const spinner = document.createElement('div');
+  spinner.className = 'status-spinner';
+  msg.appendChild(spinner);
+  
+  // Update type if provided
+  if (type) {
+    msg.className = `status-message ${type} lasting`;
+  }
+}
+
+function removeLastingStatusMessage(messageId, finalMessage = null, type = 'success') {
+  const msg = document.getElementById(messageId);
+  if (!msg) return;
+  
+  if (finalMessage) {
+    // Convert to a standard message with a final status
+    msg.textContent = finalMessage;
+    msg.className = `status-message ${type}`;
+    
+    // Remove the lasting class and spinner
+    msg.classList.remove('lasting');
+    const spinner = msg.querySelector('.status-spinner');
+    if (spinner) spinner.remove();
+    
+    // Set a timeout to remove this message after a few seconds
+    setTimeout(() => {
+      if (msg && msg.parentNode) {
+        msg.remove();
+      }
+    }, 5000);
+  } else {
+    // Simply remove the message
+    msg.remove();
+  }
 }
 
 // Event Handlers
@@ -442,7 +523,8 @@ async function handleLecture() {
 
     addLectureMessage(`You asked for: ${topic}`, 'user');
 
-    showStatusMessage('⏳ Checking topic relevance and generating lecture...');
+    // Show a lasting status message for the lecture generation process
+    const lectureStatusId = showLastingStatusMessage('Generating lecture... This process may take a minute or two.', 'info');
 
     const response = await fetch(`${localBackendUrl}/api/lecture`, {
       method: 'POST',
@@ -465,7 +547,8 @@ async function handleLecture() {
           `I'm sorry, but the topic "${topic}" doesn't appear to be covered in the material you've uploaded. Please try a different topic that's relevant to your content.`, 
           'ai'
         );
-        showStatusMessage('⚠️ Topic not found in your materials');
+        // Update status message
+        removeLastingStatusMessage(lectureStatusId, '⚠️ Topic not found in your materials', 'error');
       } else {
         // Handle other errors
         throw new Error(data.error || data.message || 'Failed to generate lesson!');
@@ -474,7 +557,8 @@ async function handleLecture() {
       return;
     }
 
-    showStatusMessage('✅ Lesson generated successfully!');
+    // Update status message to indicate lecture is ready
+    removeLastingStatusMessage(lectureStatusId, '✅ Lecture generated successfully! Now playing...', 'success');
 
     const lesson_script = data.script;
     const chunked_script = chunkScript(lesson_script);
@@ -486,7 +570,13 @@ async function handleLecture() {
 
     lectureButton.disabled = false;
   } catch (error) {
-    alert(`Lesson generation failed! Error: ${error.message}`);
+    // If there was an error, show an error message
+    const lectureStatusId = document.querySelector('.status-message.lasting')?.id;
+    if (lectureStatusId) {
+      removeLastingStatusMessage(lectureStatusId, `❌ Lecture generation failed! Error: ${error.message}`, 'error');
+    } else {
+      alert(`Lesson generation failed! Error: ${error.message}`);
+    }
     lectureButton.disabled = false;
   }
 }
@@ -792,7 +882,6 @@ async function loadChatHistory() {
   }
 }
 
-// Upload files to the backend
 async function upload() {
   try {
     const token = sessionStorage.getItem('accessToken');
@@ -821,7 +910,9 @@ async function upload() {
     // Add the session_id to the form data
     formData.append('session_id', sessionData.session_id);
 
-    showStatusMessage('Uploading files...');
+    // Show a lasting status message for the upload process
+    const uploadStatusId = showLastingStatusMessage('Uploading files... This may take a while depending on file size.', 'info');
+
     const response = await fetch(`${localBackendUrl}/api/upload`, {
       method: 'POST',
       headers: {
@@ -835,10 +926,17 @@ async function upload() {
     
     await checkSystemStatus();
 
-    showStatusMessage('✅ Upload successful!');
+    // Remove the lasting message and show a success message
+    removeLastingStatusMessage(uploadStatusId, '✅ Upload successful! Your files are now processed and ready for use.', 'success');
       
   } catch (error) {
-    alert(`Upload failed! ${error.message}`);
+    // If there was an error, show an error message
+    const uploadStatusId = document.querySelector('.status-message.lasting')?.id;
+    if (uploadStatusId) {
+      removeLastingStatusMessage(uploadStatusId, `❌ Upload failed! ${error.message}`, 'error');
+    } else {
+      alert(`Upload failed! ${error.message}`);
+    }
   }
 }
 
