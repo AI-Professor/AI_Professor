@@ -1,181 +1,49 @@
 /* ---------- Global Reset & Fonts ---------- */
 * {
-margin: 0;
-padding: 0;
-box-sizing: border-box;
-font-family: Arial, sans-serif;
-}
-body {
-background-color: #f5f5f5;
-color: #333;
-line-height: 1.5;
-}
-a {
-text-decoration: none;
-color: #333;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Mulish', Arial, sans-serif;
 }
 
-.content{
+body {
+  background-color: #f5f5f5;
+  color: #333;
+  line-height: 1.5;
+}
+
+a {
+  text-decoration: none;
+  color: #333;
+}
+
+/* ---------- Layout ---------- */
+.content {
   display: grid;
   grid-template-columns: 1fr 3fr;
-  height: 86vh;
+  max-height: 85vh;
   margin-top: 30px;
-  margin-right: 5%;
   margin-left: 5%;
 }
 
-/* Lecture content */
+/* ---------- Lecture Content Section ---------- */
 #lecture-content-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   width: 100%;
   margin: 0 auto;
+  max-height: 85vh;
 }
 
 #lecture-content-container h3 {
   margin-top: 0;
   color: #333;
   font-size: 1.4rem;
+  margin-bottom: 10px;
 }
 
-#status-message-container{
-  display: flex;
-  flex-direction: column;
-  background: #f7f7f8;
-  border: 1px solid #e0e0e0;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05);
-  align-items: center;
-  justify-content: center;
-}
-
-.status-message-box {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.status-message {
-  padding: 10px 12px;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  color: #333;
-  background-color: #e8e8ec;
-  border: 1px solid #d1d1d6;
-}
-
-.status-message.error {
-  background-color: #ffeef0;
-  border-color: #ffccd5;
-  color: #d0021b;
-}
-
-.status-message.success {
-  background-color: #e6ffed;
-  border-color: #b7eb8f;
-  color: #237804;
-}
-
-.status-message.info {
-  background-color: #e6f7ff;
-  border-color: #91d5ff;
-  color: #096dd9;
-}
-
-.boxes-container {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  width: 100%;
-  margin-top: 30px;
-  margin-bottom: 30px;
-}
-
-.boxes-container .fixed-box {
-  width: calc(50% - 10px); /* 50% width minus half the gap */
-  height: 100%; /* Equal height */
-  display: flex;
-  flex-direction: column;
-}
-
-.boxes-container .fixed-box a {
-  margin-top: auto; /* Push to bottom */
-  align-self: center; /* Center horizontally */
-}
-
-.fixed-box {
-  width: 100%;
-  max-width: 90%; /* Limit max width */
-  margin-left: auto;
-  margin-right: auto;
-  margin-bottom: 30px;
-}
-
-#quiz-container, 
-#uploaded-files-container {
-  background: #f7f7f8;
-  border: 1px solid #e0e0e0;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05);
-  align-items: center;
-  justify-content: center;
-}
-
-#quiz-container h3, 
-#uploaded-files-container h3,
-#status-message-container h3 {
-  margin-top: 0;
-  color: #333;
-  font-size: 1.1rem;
-}
-
-.uploaded-files-list {
-  max-height: 150px;
-  overflow-y: auto;
-}
-
-.uploaded-file-item {
-  display: flex;
-  align-items: center;
-  background-color: #ffffff;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-  font-size: 0.95rem;
-  color: #555;
-  transition: box-shadow 0.2s ease;
-}
-
-.uploaded-file-item:hover {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-.uploaded-file-icon {
-  margin-right: 10px;
-  font-size: 1.2rem;
-}
-
-#start-quiz-btn, .upload-files-btn {
-  display: block;
-  margin: 15px auto 0;
-  padding: 10px 15px;
-  background-color: #007bff;
-  color: white;
-  text-align: center;
-  text-decoration: none;
-  border-radius: 5px;
-  font-weight: 600;
-  transition: background-color 0.3s;
-}
-
-#start-quiz-btn:hover, .upload-files-btn:hover {
-  background-color: #0056b3;
-  cursor: pointer;
-}
-
+/* Lecture Input */
 .lecture-input-section {
   display: flex;
   gap: 12px;
@@ -207,9 +75,11 @@ color: #333;
   background-color: #0056b3;
 }
 
+/* Lecture Transcript */
 .lecture-transcript-container {
   width: 100%;
-  height: 300px; /* Adjustable height */
+  min-height:20vh;
+  max-height: 50vh;
   overflow-y: auto;
   border-radius: 8px;
   background-color: #ffffff;
@@ -253,7 +123,7 @@ color: #333;
   border-left: 4px solid #2196F3;
 }
 
-/* History indicator and controls */
+/* History controls */
 .lecture-history-controls {
   display: flex;
   align-items: center;
@@ -283,18 +153,324 @@ color: #333;
   background-color: rgba(244, 67, 54, 0.1);
 }
 
+/* ---------- Status Messages ---------- */
+#status-message-container {
+  display: flex;
+  flex-direction: column;
+  background: #f7f7f8;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05);
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  width: 100%;
+}
 
+.status-message-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
 
+.status-message {
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #333;
+  background-color: #e8e8ec;
+  border: 1px solid #d1d1d6;
+}
 
-/* Video content */
+.status-message.error {
+  background-color: #ffeef0;
+  border-color: #ffccd5;
+  color: #d0021b;
+}
+
+.status-message.success {
+  background-color: #e6ffed;
+  border-color: #b7eb8f;
+  color: #237804;
+}
+
+.status-message.info {
+  background-color: #e6f7ff;
+  border-color: #91d5ff;
+  color: #096dd9;
+}
+
+.status-message.lasting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #2196F3;
+  color: white;
+  padding: 10px 15px;
+  margin-bottom: 10px;
+  border-radius: 5px;
+  font-weight: 500;
+  position: relative;
+}
+
+/* Spinner animation for status messages */
+.status-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  margin-left: 10px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---------- Containers & Boxes ---------- */
+.boxes-container {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+  margin: 15px 0;
+}
+
+.boxes-container .fixed-box {
+  width: calc(50% - 10px);
+  display: flex;
+  flex-direction: column;
+}
+
+.boxes-container .fixed-box a {
+  margin-top: auto;
+  align-self: center;
+}
+
+.fixed-box {
+  width: 100%;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 30px;
+}
+
+/* Quiz and Files boxes */
+#quiz-container, 
+#uploaded-files-container,
+#status-message-container {
+  background: #f7f7f8;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+#quiz-container h3, 
+#uploaded-files-container h3,
+#status-message-container h3 {
+  margin-top: 0;
+  color: #333;
+  font-size: 1.1rem;
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+/* ---------- Quiz Selection Dropdown ---------- */
+.quiz-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 15px;
+}
+
+.lesson-dropdown {
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  background-color: white;
+  font-size: 14px;
+  width: 100%;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.lesson-dropdown:hover {
+  border-color: #007bff;
+}
+
+.lesson-dropdown:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.no-lessons-message {
+  color: #888;
+  font-style: italic;
+  text-align: center;
+  margin-top: 15px;
+  font-size: 14px;
+  display: none;
+}
+
+/* ---------- File Upload Section ---------- */
+.file-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin: 15px 0;
+}
+
+.file-dropdown {
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  background-color: white;
+  font-size: 14px;
+  width: 100%;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.file-dropdown:hover {
+  border-color: #007bff;
+}
+
+.file-dropdown:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.file-action-buttons {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.no-files-message {
+  color: #888;
+  font-style: italic;
+  text-align: center;
+  margin-top: 15px;
+  font-size: 14px;
+  display: none;
+}
+
+.uploaded-files-list {
+  max-height: 5vh;
+  overflow-y: auto;
+  margin-bottom: 5px;
+}
+
+.uploaded-file-item {
+  display: flex;
+  align-items: center;
+  background-color: #ffffff;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 0.95rem;
+  color: #555;
+  transition: box-shadow 0.2s ease;
+}
+
+.uploaded-file-item:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.uploaded-file-icon {
+  margin-right: 10px;
+  font-size: 1.2rem;
+}
+
+/* ---------- Buttons ---------- */
+.use-file-btn {
+  display: block;
+  padding: 10px 15px;
+  background-color: #28a745;
+  color: white;
+  text-align: center;
+  text-decoration: none;
+  border-radius: 5px;
+  font-weight: 600;
+  transition: background-color 0.3s;
+  flex-grow: 1;
+}
+
+.use-file-btn:hover {
+  background-color: #218838;
+  cursor: pointer;
+}
+
+.upload-files-btn {
+  flex-grow: 1;
+  margin: 0;
+  padding: 10px 15px;
+  background-color: #007bff;
+  color: white;
+  text-align: center;
+  text-decoration: none;
+  border-radius: 5px;
+  font-weight: 600;
+  transition: background-color 0.3s;
+}
+
+.upload-files-btn:hover {
+  background-color: #0056b3;
+  cursor: pointer;
+}
+
+#start-quiz-btn {
+  display: block;
+  margin: 15px auto 0;
+  padding: 10px 15px;
+  background-color: #007bff;
+  color: white;
+  text-align: center;
+  text-decoration: none;
+  border-radius: 5px;
+  font-weight: 600;
+  transition: background-color 0.3s;
+}
+
+#start-quiz-btn:hover {
+  background-color: #0056b3;
+  cursor: pointer;
+}
+
+.start-quiz-btn.disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.start-quiz-btn.disabled:hover {
+  background-color: #cccccc;
+}
+
+.file-action-buttons a {
+  flex-basis: 0;
+  flex-grow: 1;
+  text-align: center;
+}
+
+/* ---------- Video Content Section ---------- */
 #video-content {
   text-align: center;
-  max-width: 80%;
+  width: 80%;
+  max-height: 85vh;
   position: relative;
   margin: 0 auto;
-  height: 100%;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
   background-color: #f7f7f8;
+  display: flex;
+  flex-direction: column;
 }
 
 #connection-status {
@@ -315,15 +491,14 @@ color: #333;
 
 .video-display {
   position: relative;
-  width: 90%;
-  height: 50vh;
+  width: 80%;
+  height: 45vh;
   background-color: #e0e0e0;
   display: flex;
   justify-content: center;
   align-items: center;
   overflow: hidden; 
-  margin-left: 5%;
-  margin-right: 5%;
+  margin: 0 10%;
 }
 
 #pixelStreamVideo {
@@ -356,7 +531,7 @@ color: #333;
   background-color: #0056b3;
 }
 
-/* Chat area */
+/* ---------- Chat Area ---------- */
 .chat-area {
   display: flex;
   flex-direction: column;
@@ -378,7 +553,6 @@ color: #333;
   padding-bottom: 10px;
 }
 
-/* Individual chat message styling */
 .chat-msg {
   display: flex;
   gap: 12px;
@@ -431,20 +605,21 @@ color: #333;
 }
 
 .chat-msg.ai .avatar {
-  background-color: #10a37f; /* OpenAI green */
+  background-color: #10a37f;
 }
 
 .chat-msg.user .avatar {
-  background-color: #007bff; /* User blue */
+  background-color: #007bff;
 }
 
-
-/* Message input area */
+/* ---------- Message Input Area ---------- */
 .message-input-container {
   display: flex;
   padding: 15px;
   border-top: 1px solid #eee;
   background-color: #fff;
+  position: relative;
+  height: 10vh;
   position: relative;
 }
 
@@ -461,10 +636,13 @@ color: #333;
 
 .input-actions {
   position: absolute;
-  right: 25px;
-  bottom: 25px;
+  right: 15px; /* Consistent right spacing */
+  top: 50%; /* Center vertically */
+  transform: translateY(-50%); /* Perfectly center vertically */
   display: flex;
-  gap: 15px;
+  align-items: center;
+  gap: 15px; /* Space between buttons */
+  z-index: 10; /* Ensure buttons are above textarea */
 }
 
 .input-action-btn {
@@ -474,6 +652,9 @@ color: #333;
   width: 24px;
   height: 24px;
   color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .input-action-btn svg {
@@ -481,22 +662,50 @@ color: #333;
   height: 100%;
 }
 
-#file-upload-trigger:hover {
-  background-color: #d9d9e3;
-}
-
 .send-btn {
   background-color: #007bff;
   color: white;
   border: none;
   border-radius: 8px;
-  padding: 10px 16px;
+  padding: 8px 16px;
   cursor: pointer;
   font-weight: 600;
   transition: background-color 0.3s;
+  margin-left: 5px;
+  margin-right: 10px;
+  height: fit-content;
 }
 
 .send-btn:hover {
   background-color: #0056b3;
 }
 
+#text-input {
+  padding-right: 120px; /* Adjust based on total width of buttons */
+}
+
+/* ---------- Utility classes ---------- */
+.hidden {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .input-actions {
+    right: 10px;
+    gap: 10px;
+  }
+  
+  .input-action-btn {
+    width: 20px;
+    height: 20px;
+  }
+  
+  .send-btn {
+    padding: 6px 12px;
+    margin-left: 10px;
+  }
+  
+  #text-input {
+    padding-right: 100px;
+  }
+}

@@ -21,7 +21,6 @@ let lectureTranscriptContainer;
 let lectureTranscript;
 let lectureButton;
 let topicInput;
-let fileUploadTrigger;
 let fileInput;
 let uploadedFilesList;
 let sendButton;
@@ -84,7 +83,6 @@ function initializeUIElements() {
   lectureTranscript = document.getElementById('lecture-transcript');
   lectureButton = document.getElementById('lecture-button');
   topicInput = document.getElementById('topic-input');
-  fileUploadTrigger = document.getElementById('file-upload-trigger');
   fileInput = document.getElementById('fileInput');
   uploadedFilesList = document.getElementById('uploaded-files-list');
   sendButton = document.getElementById('send-button');
@@ -137,13 +135,6 @@ function addEventListeners() {
     sendButton.addEventListener('click', handleSendMessage);
   }
   
-  if (fileUploadTrigger && fileInput) {
-    fileUploadTrigger.addEventListener('click', () => {
-      fileInput.click();
-    });    
-    fileInput.addEventListener('change', handleFileChange);
-  }
-
   if (fileUploadButton && fileInput) {
     fileUploadButton.addEventListener('click', (e) => {
       e.preventDefault(); // Prevent default link behavior
@@ -374,6 +365,9 @@ async function handleConnect() {
         // Load chat history for the existing session
         await loadChatHistory();
         await loadLectureHistory();
+        await loadUploadedFiles();
+        await loadLessonTopics();
+        await loadUserFileHistory();
       } catch (error) {
         console.error('Error connecting to existing session:', error);
         statusDiv.innerText = 'Retrying connection...';
@@ -395,6 +389,9 @@ async function handleConnect() {
         // Load chat history for the existing session
         await loadChatHistory();
         await loadLectureHistory();
+        await loadUploadedFiles();
+        await loadLessonTopics();
+        await loadUserFileHistory();
       }
       return;
     }
@@ -451,7 +448,9 @@ async function handleConnect() {
     // We already cleared the chat history, but let's fetch any server-side history
     await loadChatHistory();
     await loadLectureHistory();
-    
+    await loadUploadedFiles();
+    await loadLessonTopics();
+    await loadUserFileHistory();
   } catch (error) {
     console.error('Error connecting:', error);
     // Remove status div
@@ -483,6 +482,9 @@ async function handleConnect() {
         // Load chat history for the new session
         await loadChatHistory();
         await loadLectureHistory();
+        await loadUploadedFiles();
+        await loadLessonTopics();
+        await loadUserFileHistory();
         return;
       } catch (retryError) {
         console.error('Retry failed:', retryError);
@@ -590,6 +592,7 @@ async function handleLecture() {
 
     setTimeout(() => {
       streamScriptChunks(grouped_script);
+      setTimeout(() => loadLessonTopics(), 5000);
     }, 4000);
 
     lectureButton.disabled = false;
@@ -815,28 +818,89 @@ function addLectureMessage(messageText, sender = 'ai') {
 }
 
 function chunkScript(script) {
-  // Split on periods, exclamation marks, and question marks followed by a space or end of line
-  return script.match(/[^.!?]+[.!?]+(\s|$)/g) || [script];
+  // Common abbreviations and titles that contain periods but aren't sentence endings
+  const commonAbbreviations = [
+    'Mr\\.', 'Mrs\\.', 'Ms\\.', 'Dr\\.', 'Prof\\.', 'Gov\\.', 'Sen\\.', 'Rep\\.', 
+    'Lt\\.', 'Col\\.', 'Gen\\.', 'Sgt\\.', 'Capt\\.', 'Cmdr\\.', 'Admin\\.', 'Adm\\.', 
+    'Rev\\.', 'Ph\\.D\\.', 'M\\.D\\.', 'B\\.A\\.', 'M\\.A\\.', 'B\\.S\\.', 'M\\.S\\.',
+    'Jr\\.', 'Sr\\.', 'Inc\\.', 'Ltd\\.', 'Co\\.', 'Corp\\.', 'P\\.C\\.', 'LLC\\.', 'LLP\\.',
+    'Assn\\.', 'Bros\\.', 'Dept\\.', 'Est\\.', 'Univ\\.', 'Intl\\.', 'Dist\\.', 'Mt\\.',
+    'St\\.', 'Ave\\.', 'Blvd\\.', 'Rd\\.', 'Ln\\.', 'Dr\\.', 'Ctr\\.', 'Ct\\.',
+    'e\\.g\\.', 'i\\.e\\.', 'etc\\.', 'vs\\.', 'v\\.', 'Jan\\.', 'Feb\\.', 'Mar\\.', 
+    'Apr\\.', 'Jun\\.', 'Jul\\.', 'Aug\\.', 'Sep\\.', 'Sept\\.', 'Oct\\.', 'Nov\\.', 'Dec\\.',
+    'a\\.m\\.', 'p\\.m\\.', 'U\\.S\\.', 'U\\.K\\.', 'U\\.N\\.', 'E\\.U\\.', 'fig\\.', 'ca\\.',
+    'i\\.e\\.', 'e\\.g\\.', 'al\\.', 'seq\\.', 'no\\.'
+  ];
+  
+  // Create a regex pattern for all abbreviations with word boundaries
+  const abbreviationsPattern = `\\b(${commonAbbreviations.join('|')})\\s+`;
+  
+  // Replace abbreviations with a temporary marker
+  const tempMarker = "###ABBR###";
+  let processedText = script;
+  
+  // Find all abbreviations and replace their periods with a temporary marker
+  const abbreviationRegex = new RegExp(abbreviationsPattern, 'g');
+  processedText = processedText.replace(abbreviationRegex, (match) => {
+    return match.replace('.', tempMarker);
+  });
+  
+  // Find numerical markers (like 1. 2. 3.) and replace them
+  const numericalMarkersRegex = /(\d+)\.\s+/g;
+  processedText = processedText.replace(numericalMarkersRegex, (match, number) => {
+    return `${number}${tempMarker} `;
+  });
+  
+  // Now split on actual sentence boundaries: .!? followed by space or end of line
+  const sentenceRegex = /[.!?]+(?=\s|$)/g;
+  const sentences = [];
+  let lastIndex = 0;
+  
+  let match;
+  while ((match = sentenceRegex.exec(processedText)) !== null) {
+    // Extract the sentence including the punctuation
+    let sentence = processedText.substring(lastIndex, match.index + match[0].length);
+    
+    // Restore abbreviation periods
+    sentence = sentence.replace(new RegExp(tempMarker, 'g'), '.');
+    
+    sentences.push(sentence);
+    lastIndex = match.index + match[0].length;
+  }
+  
+  // Add any remaining text as the last sentence if there is any
+  if (lastIndex < processedText.length) {
+    let finalSentence = processedText.substring(lastIndex);
+    finalSentence = finalSentence.replace(new RegExp(tempMarker, 'g'), '.');
+    sentences.push(finalSentence);
+  }
+  
+  // Handle case where no sentences were found (return original script)
+  if (sentences.length === 0) {
+    return [script];
+  }
+  
+  return sentences;
 }
 
 function groupSentences(sentences, groupSize) {
   const groupedChunks = [];
   let buffer = [];
-
+  
   for (let i = 0; i < sentences.length; i++) {
     buffer.push(sentences[i]);
-
-    if (buffer.length >= groupSize) {
-      groupedChunks.push(buffer.join(" "));
+    
+    // If buffer reaches groupSize or this is the last sentence, create a group
+    if (buffer.length >= groupSize || i === sentences.length - 1) {
+      // Trim any extra whitespace but preserve internal spaces
+      const chunk = buffer.join(" ").trim();
+      if (chunk) {
+        groupedChunks.push(chunk);
+      }
       buffer = [];
     }
   }
-
-  // Add any remaining sentences in the buffer
-  if (buffer.length > 0) {
-    groupedChunks.push(buffer.join(" "));
-  }
-
+  
   return groupedChunks;
 }
 
@@ -978,6 +1042,436 @@ async function loadLectureHistory() {
   }
 }
 
+async function loadUploadedFiles() {
+  try {
+    const token = sessionStorage.getItem('accessToken');
+    if (!token) return;
+    
+    const sessionData = getSessionData();
+    if (!sessionData || !sessionData.session_id) return;
+    
+    // Check if the session has a knowledge database (uploaded files)
+    const response = await fetch(`${localBackendUrl}/api/session-status?session_id=${sessionData.session_id}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) return;
+    
+    const data = await response.json();
+    
+    // If the session has a knowledge database, fetch file information
+    if (data.has_knowledge_db) {
+      // Get more detailed session information including files
+      const sessionInfoResponse = await fetch(`${localBackendUrl}/api/user-sessions`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!sessionInfoResponse.ok) return;
+      
+      const sessionsData = await sessionInfoResponse.json();
+      const currentSession = sessionsData.sessions.find(s => s.session_id === sessionData.session_id);
+      
+      if (!currentSession) return;
+      
+      // Now fetch the file list for this session
+      const filesResponse = await fetch(`${localBackendUrl}/api/session-files?session_id=${sessionData.session_id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      // If the endpoint doesn't exist or fails, show a generic file entry
+      if (!filesResponse.ok) {
+        if (uploadedFilesList) {
+          uploadedFilesList.innerHTML = '';
+          
+          const fileItem = document.createElement('div');
+          fileItem.className = 'uploaded-file-item';
+          
+          const fileIcon = document.createElement('div');
+          fileIcon.className = 'uploaded-file-icon';
+          fileIcon.textContent = '📄';
+          
+          const fileName = document.createElement('div');
+          fileName.textContent = `Content has been uploaded to this session`;
+          
+          fileItem.appendChild(fileIcon);
+          fileItem.appendChild(fileName);
+          
+          uploadedFilesList.appendChild(fileItem);
+        }
+        return;
+      }
+      
+      // If the endpoint exists and succeeds, parse the response
+      const filesData = await filesResponse.json();
+      
+      if (filesData.files && Array.isArray(filesData.files) && filesData.files.length > 0) {
+        // Display the files in the UI
+        if (uploadedFilesList) {
+          uploadedFilesList.innerHTML = '';
+          
+          filesData.files.forEach(file => {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'uploaded-file-item';
+            
+            const fileIcon = document.createElement('div');
+            fileIcon.className = 'uploaded-file-icon';
+            fileIcon.textContent = '📄';
+            
+            const fileName = document.createElement('div');
+            fileName.textContent = file.name || "Uploaded file";
+            
+            fileItem.appendChild(fileIcon);
+            fileItem.appendChild(fileName);
+            
+            uploadedFilesList.appendChild(fileItem);
+          });
+        }
+      } else {
+        // If no specific files are returned but we know content exists
+        if (uploadedFilesList) {
+          uploadedFilesList.innerHTML = '';
+          
+          const fileItem = document.createElement('div');
+          fileItem.className = 'uploaded-file-item';
+          
+          const fileIcon = document.createElement('div');
+          fileIcon.className = 'uploaded-file-icon';
+          fileIcon.textContent = '📄';
+          
+          const fileName = document.createElement('div');
+          fileName.textContent = `Content has been uploaded to this session`;
+          
+          fileItem.appendChild(fileIcon);
+          fileItem.appendChild(fileName);
+          
+          uploadedFilesList.appendChild(fileItem);
+        }
+      }
+    } else {
+      // No knowledge database, so clear the files list
+      if (uploadedFilesList) {
+        uploadedFilesList.innerHTML = '';
+        const noFileMsg = document.createElement('div');
+        noFileMsg.textContent = 'No files uploaded.';
+        uploadedFilesList.appendChild(noFileMsg);
+      }
+    }
+  } catch (error) {
+    console.error('Error loading uploaded files:', error);
+    // Show a fallback message
+    if (uploadedFilesList) {
+      uploadedFilesList.innerHTML = '';
+      const errorMsg = document.createElement('div');
+      errorMsg.textContent = 'Unable to retrieve file information.';
+      uploadedFilesList.appendChild(errorMsg);
+    }
+  }
+}
+
+async function loadLessonTopics() {
+  try {
+    const token = sessionStorage.getItem('accessToken');
+    if (!token) return;
+    
+    const sessionData = getSessionData();
+    if (!sessionData || !sessionData.session_id) return;
+    
+    // Get the dropdown and quiz button elements
+    const lessonSelect = document.getElementById('lesson-select');
+    const startQuizBtn = document.getElementById('start-quiz-btn');
+    const noLessonsMessage = document.getElementById('no-lessons-message');
+    
+    if (!lessonSelect || !startQuizBtn || !noLessonsMessage) return;
+    
+    // Clear existing options
+    lessonSelect.innerHTML = '<option value="" disabled selected>Select a lesson</option>';
+    
+    // Fetch lesson topics from the backend
+    const response = await fetch(`${localBackendUrl}/api/lesson-topics?session_id=${sessionData.session_id}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch lesson topics: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data.topics && Array.isArray(data.topics) && data.topics.length > 0) {
+      // Hide the no lessons message
+      noLessonsMessage.style.display = 'none';
+      lessonSelect.style.display = 'block';
+      
+      // Add options for each topic
+      data.topics.forEach(topic => {
+        const option = document.createElement('option');
+        option.value = topic.topic.toLowerCase().replace(/\s+/g, '_'); // Convert to snake_case for value
+        option.textContent = topic.topic;
+        option.dataset.id = topic.id; // Store the file ID as a data attribute
+        lessonSelect.appendChild(option);
+      });
+      
+      // Enable the dropdown
+      lessonSelect.disabled = false;
+      
+      // Add event listener to the dropdown
+      lessonSelect.addEventListener('change', function() {
+        if (this.value) {
+          // Enable the quiz button
+          startQuizBtn.classList.remove('disabled');
+          startQuizBtn.href = `/quiz.html?topic=${encodeURIComponent(this.value)}&session_id=${sessionData.session_id}`;
+        } else {
+          // Disable the quiz button
+          startQuizBtn.classList.add('disabled');
+          startQuizBtn.href = '#';
+        }
+      });
+      
+      // Initially disable the quiz button
+      startQuizBtn.classList.add('disabled');
+      startQuizBtn.href = '#';
+    } else {
+      // Show the no lessons message
+      noLessonsMessage.style.display = 'block';
+      lessonSelect.style.display = 'none';
+      startQuizBtn.classList.add('disabled');
+      startQuizBtn.href = '#';
+    }
+  } catch (error) {
+    console.error('Error loading lesson topics:', error);
+    
+    // Show the no lessons message as a fallback
+    const noLessonsMessage = document.getElementById('no-lessons-message');
+    const lessonSelect = document.getElementById('lesson-select');
+    const startQuizBtn = document.getElementById('start-quiz-btn');
+    
+    if (noLessonsMessage && lessonSelect && startQuizBtn) {
+      noLessonsMessage.style.display = 'block';
+      noLessonsMessage.textContent = 'Error loading lessons. Please try again later.';
+      lessonSelect.style.display = 'none';
+      startQuizBtn.classList.add('disabled');
+      startQuizBtn.href = '#';
+    }
+  }
+}
+
+async function loadUserFileHistory() {
+  try {
+    const token = sessionStorage.getItem('accessToken');
+    if (!token) return;
+    
+    const sessionData = getSessionData();
+    if (!sessionData || !sessionData.session_id) return;
+    
+    // Get DOM elements
+    const fileSelect = document.getElementById('file-select');
+    const uploadBtn = document.getElementById('upload-files-btn');
+    const useFileBtn = document.getElementById('use-file-btn');
+    const noFilesMessage = document.getElementById('no-files-message');
+    const uploadedFilesList = document.getElementById('uploaded-files-list');
+    
+    if (!fileSelect || !uploadBtn || !useFileBtn || !noFilesMessage || !uploadedFilesList) return;
+    
+    // Clear existing options
+    fileSelect.innerHTML = '<option value="" disabled selected>Select a file</option> <option value="upload_new">Upload New File</option>';
+    
+    // Fetch user's file history from the backend
+    const response = await fetch(`${localBackendUrl}/api/user-file-history`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch file history: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data.files && Array.isArray(data.files) && data.files.length > 0) {
+      // Hide the no files message
+      noFilesMessage.style.display = 'none';
+      fileSelect.style.display = 'block';
+      
+      // Add options for each file
+      data.files.forEach(file => {
+        const option = document.createElement('option');
+        option.value = file.id;
+        option.textContent = file.name;
+        
+        // Add file details as data attributes if available
+        if (file.file) {
+          option.dataset.fileName = file.file.name;
+          option.dataset.fileSize = file.file.size;
+          option.dataset.fileModified = file.file.last_modified;
+        }
+        
+        fileSelect.appendChild(option);
+      });
+      
+      // Enable the dropdown
+      fileSelect.disabled = false;
+      
+      // Add event listener to the dropdown
+      fileSelect.addEventListener('change', function() {
+        if (this.value != 'upload_new') {
+          // Show the "Use this file" button and hide the "Upload" button
+          useFileBtn.classList.remove('hidden');
+          uploadBtn.classList.add('hidden');
+          
+          // Display the selected file details in the list
+          displaySelectedFileDetails(this);
+        } else {
+          // Show the "Upload" button and hide the "Use this file" button
+          useFileBtn.classList.add('hidden');
+          uploadBtn.classList.remove('hidden');
+          
+          // Clear the file details
+          uploadedFilesList.innerHTML = '';
+        }
+      });
+      
+      // Set up the "Use this file" button
+      useFileBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        
+        const selectedFileId = fileSelect.value.toLowerCase();
+        if (!selectedFileId) return;
+        
+        // Show loading state
+        useFileBtn.textContent = 'Loading...';
+        useFileBtn.style.backgroundColor = '#cccccc';
+        useFileBtn.style.pointerEvents = 'none';
+        
+        // Call the API to load the knowledge graph
+        try {
+          const response = await fetch(`${localBackendUrl}/api/use-knowledge-graph`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              session_id: sessionData.session_id,
+              knowledge_graph_id: selectedFileId
+            })
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Failed to load knowledge graph: ${response.status}`);
+          }
+          
+          const result = await response.json();
+          
+          // Show success message
+          showStatusMessage(`✅ ${result.message}`, 'success');
+          
+          // Reset button state
+          useFileBtn.textContent = 'Use Selected File';
+          useFileBtn.style.backgroundColor = '';
+          useFileBtn.style.pointerEvents = '';
+          
+          // Also refresh lesson topics since we might have a new knowledge graph
+          await loadLessonTopics();
+          
+        } catch (error) {
+          console.error('Error using knowledge graph:', error);
+          
+          // Show error message
+          showStatusMessage(`❌ Failed to load file: ${error.message}`, 'error');
+          
+          // Reset button state
+          useFileBtn.textContent = 'Use Selected File';
+          useFileBtn.style.backgroundColor = '';
+          useFileBtn.style.pointerEvents = '';
+        }
+      });
+      
+      // Initially keep the upload button visible and use file button hidden
+      useFileBtn.classList.add('hidden');
+      uploadBtn.classList.remove('hidden');
+      
+    } else {
+      // Show the no files message
+      noFilesMessage.style.display = 'block';
+      fileSelect.style.display = 'none';
+      useFileBtn.classList.add('hidden');
+      uploadBtn.classList.remove('hidden');
+    }
+  } catch (error) {
+    console.error('Error loading file history:', error);
+    
+    // Show the no files message as a fallback
+    const noFilesMessage = document.getElementById('no-files-message');
+    const fileSelect = document.getElementById('file-select');
+    const useFileBtn = document.getElementById('use-file-btn');
+    const uploadBtn = document.getElementById('upload-files-btn');
+    
+    if (noFilesMessage && fileSelect && useFileBtn && uploadBtn) {
+      noFilesMessage.style.display = 'block';
+      noFilesMessage.textContent = 'Error loading files. Please try again later.';
+      fileSelect.style.display = 'none';
+      useFileBtn.classList.add('hidden');
+      uploadBtn.classList.remove('hidden');
+    }
+  }
+}
+
+function displaySelectedFileDetails(selectElement) {
+  const uploadedFilesList = document.getElementById('uploaded-files-list');
+  if (!uploadedFilesList) return;
+  
+  uploadedFilesList.innerHTML = '';
+  
+  const selectedOption = selectElement.options[selectElement.selectedIndex];
+  const fileName = selectedOption.dataset.fileName || selectedOption.textContent;
+  const fileSize = selectedOption.dataset.fileSize ? Math.round(selectedOption.dataset.fileSize / 1024) + ' KB' : 'Unknown size';
+  
+  const fileItem = document.createElement('div');
+  fileItem.className = 'uploaded-file-item';
+  
+  const fileIcon = document.createElement('div');
+  fileIcon.className = 'uploaded-file-icon';
+  fileIcon.textContent = '📄';
+  
+  const fileDetails = document.createElement('div');
+  fileDetails.className = 'file-details';
+  
+  const fileNameElement = document.createElement('div');
+  fileNameElement.className = 'file-name';
+  fileNameElement.textContent = fileName;
+  
+  const fileSizeElement = document.createElement('div');
+  fileSizeElement.className = 'file-size';
+  fileSizeElement.textContent = fileSize;
+  
+  fileDetails.appendChild(fileNameElement);
+  fileDetails.appendChild(fileSizeElement);
+  
+  fileItem.appendChild(fileIcon);
+  fileItem.appendChild(fileDetails);
+  
+  uploadedFilesList.appendChild(fileItem);
+}
+
 async function upload() {
   try {
     const token = sessionStorage.getItem('accessToken');
@@ -1024,6 +1518,8 @@ async function upload() {
 
     // Remove the lasting message and show a success message
     removeLastingStatusMessage(uploadStatusId, '✅ Upload successful! Your files are now processed and ready for use.', 'success');
+
+    await loadUserFileHistory();
       
   } catch (error) {
     // If there was an error, show an error message
@@ -1088,16 +1584,18 @@ async function checkExistingSession() {
         updateUIForActiveSession();
         showStatusMessage('💡 You have an existing session. Click Connect to resume.');
         
-        // Also load chat and lecture history for the existing session
+        // Also load chat history, lecture history, and uploaded files for the existing session
         await loadChatHistory();
         await loadLectureHistory();
+        await loadUploadedFiles(); // Add this line to load uploaded files
+        await loadLessonTopics();
+        await loadUserFileHistory();
       }
     }
   } catch (error) {
     console.error('Error checking session on page load:', error);
   }
 }
-
 // Check UE instance status
 async function checkUEInstanceStatus(sessionId) {
   try {

@@ -173,7 +173,7 @@ cython_debug/
 #api.json
 api.json
 
-data/processed
+data/
 local_model/NeuroSync/NeuroSync_Player/chat_logs
 
 node_modules/

@@ -12,6 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import glob
 from jose import JWTError, jwt
 import json , os, sys, shutil, warnings, argparse, uvicorn, logging
+from langchain_community.vectorstores import FAISS  
+from langchain_community.embeddings import OpenAIEmbeddings
 from logging.handlers import RotatingFileHandler
 import numpy as np
 from pathlib import Path
@@ -68,6 +70,7 @@ external_ue_url = f"http://{external_ip}:{ue_port}"
 info_port = int(os.getenv('INFO_PORT'))
 SECRET_KEY = os.environ["ENCRYPTION_KEY"]
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+openai_api_key = os.getenv("OPENAI_API_KEY")
 
 #Initialize log functions to create system logs whenever APIs are called
 LOG_DIR = "logs"
@@ -746,7 +749,7 @@ async def upload_file(request: Request, files: List[UploadFile] = File(...), cur
         
         # Initialize QA system with new content, user-specific
         chunks = split_text(text)
-        user_db = initialize_qa_system(chunks, user_id, input_name)
+        user_db = initialize_qa_system(chunks, user_id, input_name.lower())
         
         # Store the database in the session
         session.knowledge_db = user_db
@@ -765,6 +768,170 @@ async def upload_file(request: Request, files: List[UploadFile] = File(...), cur
         for file in files:
             file.file.close()
 
+@app.get("/api/session-files")
+async def get_session_files(request: Request, current_user: schemas.UserResponse = Depends(get_current_user)):
+    try:
+        # Get session_id as a query parameter
+        session_id = request.query_params.get("session_id")
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id is required")
+        
+        # Get the session
+        session = session_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check if the session belongs to the current user
+        if str(session.user_id) != str(current_user.user_id):
+            raise HTTPException(status_code=403, detail="Not authorized to access this session")
+        
+        # Check if the knowledge database exists
+        if not session.knowledge_db:
+            return {"files": []}
+        
+        user_id = str(current_user.user_id)
+        
+        # Find uploaded files in the data/raw/{user_id} directory
+        upload_dir = f"data/raw/{user_id}"
+        if not os.path.exists(upload_dir):
+            return {"files": []}
+        
+        # Get a list of all files in the directory
+        files = []
+        for filename in os.listdir(upload_dir):
+            file_path = os.path.join(upload_dir, filename)
+            if os.path.isfile(file_path):
+                file_stats = os.stat(file_path)
+                files.append({
+                    "name": filename,
+                    "size": file_stats.st_size,
+                    "last_modified": file_stats.st_mtime
+                })
+        
+        return {"files": files}
+    
+    except Exception as e:
+        logger.error(f"Error retrieving session files for user {current_user.user_id}: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+@app.get("/api/user-file-history")
+async def get_user_file_history(request: Request, current_user: schemas.UserResponse = Depends(get_current_user)):
+    try:
+        user_id = str(current_user.user_id)
+        
+        # Check if files directory exists for user
+        user_files_dir = f"data/raw/{user_id}"
+        if not os.path.exists(user_files_dir):
+            return {"files": []}
+        
+        # Check for knowledge graph directories
+        knowledge_graph_dir = f"data/processed/knowledge_graph/{user_id}"
+        if not os.path.exists(knowledge_graph_dir):
+            return {"files": []}
+        
+        # Get all directories in knowledge_graph_dir, each representing a file or dataset
+        knowledge_sets = []
+        for dirname in os.listdir(knowledge_graph_dir):
+            kg_path = os.path.join(knowledge_graph_dir, dirname)
+            if os.path.isdir(kg_path) and os.path.exists(os.path.join(kg_path, "index.faiss")):
+                # This is a valid knowledge graph directory
+                
+                # Try to find matching file in raw dir to get file details
+                matching_files = []
+                for filename in os.listdir(user_files_dir):
+                    name_without_ext = os.path.splitext(filename)[0]
+                    if name_without_ext.lower() == dirname.lower():
+                        file_path = os.path.join(user_files_dir, filename)
+                        if os.path.isfile(file_path):
+                            file_stats = os.stat(file_path)
+                            matching_files.append({
+                                "name": filename,
+                                "size": file_stats.st_size,
+                                "last_modified": file_stats.st_mtime
+                            })
+                
+                # Even if we don't find a matching file, still include the knowledge set
+                knowledge_sets.append({
+                    "id": dirname,
+                    "name": dirname.replace("_", " ").title(),  # Friendly display name
+                    "file": matching_files[0] if matching_files else None,
+                    "has_knowledge_graph": True
+                })
+        
+        # Sort by last_modified (most recent first) if available, otherwise by name
+        knowledge_sets.sort(
+            key=lambda x: (
+                -x["file"]["last_modified"] if x["file"] and "last_modified" in x["file"] else 0, 
+                x["name"]
+            )
+        )
+        
+        return {"files": knowledge_sets}
+        
+    except Exception as e:
+        logger.error(f"Error retrieving file history for user {current_user.user_id}: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+
+@app.post("/api/use-knowledge-graph")
+async def use_knowledge_graph(request: Request, data: Dict[str, str], current_user: schemas.UserResponse = Depends(get_current_user)):
+    try:
+        user_id = str(current_user.user_id)
+        session_id = data.get("session_id")
+        knowledge_graph_id = data.get("knowledge_graph_id")
+        
+        if not session_id or not knowledge_graph_id:
+            raise HTTPException(status_code=400, detail="session_id and knowledge_graph_id are required")
+        
+        # Get the session
+        session = session_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check if the session belongs to the current user
+        if str(session.user_id) != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized to use this session")
+        
+        # Check if the knowledge graph exists
+        knowledge_graph_path = f"data/processed/knowledge_graph/{user_id}/{knowledge_graph_id}"
+        if not os.path.exists(knowledge_graph_path) or not os.path.exists(os.path.join(knowledge_graph_path, "index.faiss")):
+            raise HTTPException(status_code=404, detail="Knowledge graph not found")
+        
+        # Load the knowledge graph
+        try:
+            from src.nlp.qa_system import get_user_qa_system
+            from src.nlp.quiz_system import get_quiz_engine
+            
+            # Create embeddings and load the FAISS index
+            embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key)
+            knowledge_db = FAISS.load_local(knowledge_graph_path, embeddings=embeddings, allow_dangerous_deserialization=True)
+            
+            # Update the session with the loaded knowledge graph
+            session.knowledge_db = knowledge_db
+            
+            # Create a new quiz engine for this knowledge graph
+            session.quiz_engine = get_quiz_engine(session.knowledge_db, user_id)
+            
+            return {"status": "success", "message": f"Knowledge graph '{knowledge_graph_id}' loaded successfully"}
+            
+        except Exception as e:
+            logger.error(f"Error loading knowledge graph: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error loading knowledge graph: {str(e)}")
+        
+    except HTTPException as http_ex:
+        raise http_ex
+    except Exception as e:
+        logger.error(f"Error using knowledge graph: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
+        )
+     
 @app.post('/api/audio_to_blendshapes')
 async def audio_to_blendshapes_route(request: Request):
     audio_bytes = await request.body()
@@ -787,6 +954,9 @@ async def generate_quiz(request: Request, current_user: schemas.UserResponse = D
         session_id = request.query_params.get("session_id")
         if not session_id:
             raise HTTPException(status_code=400, detail="session_id is required")
+        
+        # Get optional topic parameter
+        topic = request.query_params.get("topic")
         
         # Get the session
         session = session_manager.get_session(session_id)
@@ -811,10 +981,64 @@ async def generate_quiz(request: Request, current_user: schemas.UserResponse = D
         user_id = str(current_user.user_id)
         logger.info(f"Generating quiz for user {user_id}.")
         
-        # Retrieve all questions
+        # Retrieve questions based on topic (if specified) or last topic
         cursor = session.quiz_engine.conn.cursor()
-        cursor.execute("SELECT * FROM questions WHERE topic = ? ORDER BY RANDOM() LIMIT 10", (session.last_topic,))
+        
+        if topic:
+            # Use the provided topic
+            logger.info(f"Generating quiz for specific topic: {topic}")
+            cursor.execute("SELECT * FROM questions WHERE topic = ? ORDER BY RANDOM() LIMIT 10", (topic,))
+        else:
+            # Use the last topic
+            logger.info(f"Generating quiz for last topic: {session.last_topic}")
+            cursor.execute("SELECT * FROM questions WHERE topic = ? ORDER BY RANDOM() LIMIT 10", (session.last_topic,))
+            
         questions = cursor.fetchall()
+        
+        # If no questions found for the specified topic, try to generate some
+        if not questions and topic and session.quiz_engine:
+            logger.info(f"No existing questions found for topic {topic}, generating new ones...")
+            
+            # Find the lesson script for this topic
+            lecture_history_dir = f"data/processed/lecture_history/{user_id}/{session_id}"
+            if os.path.exists(lecture_history_dir):
+                for filename in os.listdir(lecture_history_dir):
+                    if filename.endswith('.json'):
+                        try:
+                            with open(os.path.join(lecture_history_dir, filename), "r", encoding="utf-8") as f:
+                                lecture_data = json.load(f)
+                                lecture_topic = lecture_data.get("topic", "").lower().replace(" ", "_")
+                                
+                                if lecture_topic == topic:
+                                    # Found matching lecture, generate questions from its content
+                                    logger.info(f"Found matching lecture for topic {topic}, generating questions...")
+                                    
+                                    # Create a temporary file with the lecture content
+                                    temp_script_path = f"data/processed/temp_{user_id}_{topic}.txt"
+                                    with open(temp_script_path, "w", encoding="utf-8") as temp_f:
+                                        temp_f.write(lecture_data.get("content", ""))
+                                    
+                                    # Generate quiz questions
+                                    session.quiz_engine.generate_quiz_from_script(temp_script_path, topic)
+                                    
+                                    # Cleanup temp file
+                                    if os.path.exists(temp_script_path):
+                                        os.remove(temp_script_path)
+                                    
+                                    # Fetch the newly generated questions
+                                    cursor.execute("SELECT * FROM questions WHERE topic = ? ORDER BY RANDOM() LIMIT 10", (topic,))
+                                    questions = cursor.fetchall()
+                                    break
+                        except Exception as e:
+                            logger.error(f"Error processing lecture file {filename}: {str(e)}")
+                            continue
+
+        # If still no questions, return appropriate error
+        if not questions:
+            if topic:
+                raise HTTPException(status_code=404, detail=f"No questions found for topic '{topic}'. Please generate a lecture on this topic first.")
+            else:
+                raise HTTPException(status_code=404, detail="No questions found. Please generate a lecture first.")
 
         return [
             {
@@ -832,6 +1056,70 @@ async def generate_quiz(request: Request, current_user: schemas.UserResponse = D
         return JSONResponse(
             status_code=500,
             content={"error": f"Quiz generation failed: {str(e)}"}
+        )
+
+@app.get("/api/lesson-topics")
+async def get_lesson_topics(request: Request, current_user: schemas.UserResponse = Depends(get_current_user)):
+    try:
+        # Get session_id as a query parameter
+        session_id = request.query_params.get("session_id")
+        if not session_id:
+            raise HTTPException(status_code=400, detail="session_id is required")
+        
+        # Get the session
+        session = session_manager.get_session(session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Check if the session belongs to the current user
+        if str(session.user_id) != str(current_user.user_id):
+            raise HTTPException(status_code=403, detail="Not authorized to access this session")
+        
+        user_id = str(current_user.user_id)
+        
+        # Check if lecture history directory exists
+        lecture_history_dir = f"data/processed/lecture_history/{user_id}/{session_id}"
+        if not os.path.exists(lecture_history_dir):
+            return {"topics": []}
+        
+        # Get all lecture history files
+        lecture_files = [f for f in os.listdir(lecture_history_dir) if f.endswith('.json')]
+        
+        # If no lecture files found, return empty list
+        if not lecture_files:
+            return {"topics": []}
+        
+        # Read lecture history to extract topics
+        topics = []
+        for file in lecture_files:
+            try:
+                with open(os.path.join(lecture_history_dir, file), "r", encoding="utf-8") as f:
+                    lecture_data = json.load(f)
+                    
+                    # Create a topic object with file as ID and topic as display name
+                    topic_obj = {
+                        "id": os.path.splitext(file)[0],  # Remove .json extension
+                        "topic": lecture_data.get("topic", "Unknown Topic"),
+                        "timestamp": lecture_data.get("timestamp", "")
+                    }
+                    
+                    # Add to topics list if not already present (avoid duplicates)
+                    if not any(t["topic"] == topic_obj["topic"] for t in topics):
+                        topics.append(topic_obj)
+            except Exception as e:
+                logger.error(f"Error reading lecture file {file}: {str(e)}")
+                continue
+        
+        # Sort topics by timestamp (most recent first)
+        topics.sort(key=lambda x: x["timestamp"], reverse=True)
+        
+        return {"topics": topics}
+        
+    except Exception as e:
+        logger.error(f"Error retrieving lesson topics for user {current_user.user_id}: {str(e)}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(e)}
         )
 
 @app.post("/api/refresh-token", response_model=schemas.Token)

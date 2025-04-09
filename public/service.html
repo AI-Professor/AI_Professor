@@ -1,105 +1,123 @@
-<!--This is our main frontend HTML file-->
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Professor</title>
-    <!-- added google fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@300;400;700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="/public/styles/service.css"/>
+    <!-- Google fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Mulish:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/public/styles/service.css">
   </head>
 
   <body>
-    <!-- ---------- Navigation ---------- -->
-  <div id="navbar-container"></div>
+    <!-- Navigation -->
+    <div id="navbar-container"></div>
 
-  <div class="content">
-    <!-- Lecture content here -->
-    <div id="lecture-content-container" class="center-box">
+    <div class="content">
+      <!-- Left panel - Lecture content -->
+      <div id="lecture-content-container" class="center-box">
+        <!-- Status messages section -->
+        <div id="status-message-container" class="fixed-box">
+          <h3>Status Messages</h3>
+          <div id="status-message-box" class="status-message-box"></div>
+        </div>
 
-      <div id="status-message-container" class="fixed-box">
-        <h3>Status Messages</h3>
-        <div id="status-message-box" class="status-message-box"></div>
+        <!-- Quiz and File upload section - side by side -->
+        <div class="boxes-container">
+          <!-- Quiz container -->
+          <div id="quiz-container" class="fixed-box">
+            <h3>Lecture Quiz</h3>
+            <div class="quiz-selection">
+              <select id="lesson-select" class="lesson-dropdown">
+                <option value="" disabled selected>Select a lesson</option>
+                <!-- Lesson options will be added dynamically -->
+              </select>
+              <a href="/quiz.html" id="start-quiz-btn" class="start-quiz-btn disabled">Start Quiz</a>
+            </div>
+            <div id="no-lessons-message" class="no-lessons-message">
+              No lessons available. Please take a lecture first.
+            </div>
+          </div>
+          
+          <!-- File upload container -->
+          <div id="uploaded-files-container" class="fixed-box">
+            <h3>Uploaded Files</h3>
+            <div class="file-selection">
+              <select id="file-select" class="file-dropdown">
+                <option value="" disabled selected>Select a file</option>
+                <option value="upload_new">Upload New File</option>
+                <!-- File options will be added dynamically -->
+              </select>
+              <div class="file-action-buttons">
+                <a href="#" id="upload-files-btn" class="upload-files-btn">Upload New File</a>
+                <a href="#" id="use-file-btn" class="use-file-btn hidden">Use Selected File</a>
+              </div>
+            </div>
+            <div id="no-files-message" class="no-files-message">
+              No files available. Please upload a file first.
+            </div>
+            <div id="uploaded-files-list" class="uploaded-files-list"></div>
+          </div>
+        </div>
+
+        <!-- Lecture section -->
+        <h3>Lecture</h3>
+        <div class="lecture-input-section">
+          <input type="text" id="topic-input" placeholder="Enter a topic you'd like to learn">
+          <button id="lecture-button" type="button">Learn a short lesson</button>
+        </div>
+      
+        <div class="lecture-transcript-container">
+          <div id="lecture-transcript" class="lecture-transcript">
+            <!-- Dynamic script/messages will flow here -->
+          </div>
+        </div>
       </div>
 
-      <div class="boxes-container">
-        <div id="quiz-container" class="fixed-box">
-          <h3>Lecture Quiz</h3>
-          <a href="/quiz.html" id="start-quiz-btn">Start Quiz</a>
+      <!-- Right panel - Video and Chat -->
+      <div id="video-content">
+        <!-- Video display area -->
+        <div class="video-display">
+          <video id="pixelStreamVideo" autoplay volume="1.0" playsinline></video>
+          <div class="video-controls">
+            <button class="control-btn" id="connect-button">Connect</button>
+          </div>
         </div>
         
-        <div id="uploaded-files-container" class="fixed-box">
-          <h3>Uploaded Files</h3>
-          <div id="uploaded-files-list" class="uploaded-files-list"></div>
-          <a href="#" id="upload-files-btn" class="upload-files-btn">Upload Files</a>
-        </div>
-      </div>
-
-      <h3>Lecture</h3>
-      <div class="lecture-input-section">
-        <input type="text" id="topic-input" placeholder="Enter a topic you'd like to learn">
-        <button id="lecture-button" type="button">Learn a short lesson</button>
-      </div>
-    
-      <div class="lecture-transcript-container">
-        <div id="lecture-transcript" class="lecture-transcript">
-          <!-- Dynamic script/messages will flow here -->
-        </div>
-      </div>
-      
-    </div>
-
-    <!-- added "id=content" -->
-    <div id="video-content">
-      <div class="video-display">
-        <video id="pixelStreamVideo" autoplay volume="1.0" playsinline style="opacity: 1"></video>
-        <div class="video-controls">
-          <button class="control-btn" id="connect-button">Connect</button>
-        </div>
-      </div>
-      <!-- Chat message area -->
-      <div class="chat-area">
+        <!-- Chat message area -->
         <div class="chat-area">
           <div id="msgHistory" class="chat-history"></div>
         </div>
-      </div>
 
-      <!-- Message input area -->
-      <div class="message-input-container">
-        <textarea id="text-input" placeholder="Type your question here..."></textarea>
-        <div class="input-actions">
-          <button id="voice-input-btn" class="input-action-btn">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 15.5c2.21 0 4-1.79 4-4V6c0-2.21-1.79-4-4-4S8 3.79 8 6v5.5c0 2.21 1.79 4 4 4z" fill="currentColor"/>
-              <path d="M19 10v1.5c0 3.87-3.13 7-7 7s-7-3.13-7-7V10H3v1.5c0 4.55 3.4 8.3 7.8 8.9v1.6H8v2h8v-2h-2.8v-1.6c4.4-.6 7.8-4.35 7.8-8.9V10h-2z" fill="currentColor"/>
-            </svg>
-          </button>
-          <button id="file-upload-trigger" class="input-action-btn">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z" fill="currentColor"/>
-            </svg>
-          </button>
-          <button id="send-button" class="send-btn">Send</button>
-          <input type="file" id="fileInput" hidden />
+        <!-- Message input area -->
+        <div class="message-input-container">
+          <textarea id="text-input" placeholder="Type your question here..."></textarea>
+          <div class="input-actions">
+            <!-- Voice input button -->
+            <button id="voice-input-btn" class="input-action-btn" aria-label="Voice input">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 15.5c2.21 0 4-1.79 4-4V6c0-2.21-1.79-4-4-4S8 3.79 8 6v5.5c0 2.21 1.79 4 4 4z" fill="currentColor"/>
+                <path d="M19 10v1.5c0 3.87-3.13 7-7 7s-7-3.13-7-7V10H3v1.5c0 4.55 3.4 8.3 7.8 8.9v1.6H8v2h8v-2h-2.8v-1.6c4.4-.6 7.8-4.35 7.8-8.9V10h-2z" fill="currentColor"/>
+              </svg>
+            </button>
+            
+            <!-- Send button -->
+            <button id="send-button" class="send-btn">Send</button>
+            
+            <!-- Hidden file input -->
+            <input type="file" id="fileInput" hidden>
+          </div>
         </div>
-      </div>
-
-      <!-- Hidden original buttons for functionality -->
-      <div id="buttons" style="display: none;">
-        <button id="connect-button" type="button">Connect</button>
-        <button id="start-button">Start Speaking</button>
-        <button id="text-submit-button">Submit</button>
       </div>
     </div>
 
-  </div>
-
-  <!-- ---------- Footer ---------- -->
-  <div id="footer-container"></div>
-  
-  <script src="/public/scripts/player.js"></script>
-  <script type="module" src="/public/scripts/service.js"></script>
-      
+    <!-- Footer -->
+    <div id="footer-container"></div>
+    
+    <!-- Scripts -->
+    <script src="/public/scripts/player.js"></script>
+    <script type="module" src="/public/scripts/service.js"></script>
   </body>
 </html>

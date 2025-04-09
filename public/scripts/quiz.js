@@ -277,7 +277,25 @@ try {
             return;
           }
           
-          const response = await fetch(`${localBackendUrl}/api/generate-quiz?session_id=${quizState.sessionId}`, {
+          // Get topic from URL parameter
+          const topic = getUrlParameter('topic');
+          
+          // Build the request URL
+          let apiUrl = `${localBackendUrl}/api/generate-quiz?session_id=${quizState.sessionId}`;
+          
+          // Add topic parameter if available
+          if (topic) {
+            apiUrl += `&topic=${encodeURIComponent(topic)}`;
+            
+            // Update the quiz title with the topic
+            const quizTitle = document.querySelector('.screen#start-screen h2');
+            if (quizTitle) {
+              const formattedTopic = topic.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+              quizTitle.textContent = `${formattedTopic} Quiz`;
+            }
+          }
+          
+          const response = await fetch(apiUrl, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -500,10 +518,27 @@ try {
             resultsMessage.textContent = "You should review the material more thoroughly before trying again.";
           }
           
+          // Get the return button (if it exists)
+          const returnButton = document.getElementById('return-button');
+          if (returnButton) {
+            // If we came from a specific topic, make sure the button knows where to return to
+            const session_id = getUrlParameter('session_id');
+            if (session_id) {
+              returnButton.onclick = () => {
+                window.location.href = `/service.html`;
+              };
+            }
+          }
+          
           showScreen('results-screen');
         } catch (error) {
           console.error("Error showing results:", error);
         }
+      }
+
+      function getUrlParameter(name) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
       }
 
       // Set up event listeners when DOM is fully loaded
