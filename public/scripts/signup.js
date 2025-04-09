@@ -38,12 +38,14 @@ registerButton.onclick = async () => {
     const captchaId = document.getElementById('captcha-id').value;
 
     if (!firstname || !lastname || !username || !university || !confirmPassword || !email || !password || !captchaText) {
-        document.getElementById('register-message').textContent = 'Please fill in all fields.';
+        alert('Please fill in all fields.');
+        registerButton.disabled = false;
         return;
     }
 
     if (password != confirmPassword) {
-        document.getElementById('register-message').textContent = 'Passwards do not match. Please reenter password.';
+        alert('Passwards do not match. Please reenter password.');
+        registerButton.disabled = false;
         return;
     }
 
@@ -64,12 +66,11 @@ registerButton.onclick = async () => {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API Error ${response.status}: ${errorText}`);
+        const errorText = await response.json();
+        throw new Error(errorText.detail);
       }
 
       const data = await response.json();
-      document.getElementById('register-message').textContent = 'Registration successful!';
 
       const loginResponse = await fetch(`${localBackendUrl}/api/token`, {
         method: 'POST',
@@ -80,8 +81,8 @@ registerButton.onclick = async () => {
       });
 
       if (!loginResponse.ok) {
-        const errorText = await loginResponse.text();
-        throw new Error(`API Error ${loginResponse.status}: ${errorText}`);
+        const errorText = await loginResponse.json();
+        throw new Error(errorText.detail);
       }
 
         const loginData = await loginResponse.json();
@@ -100,8 +101,8 @@ registerButton.onclick = async () => {
         });
 
         if (!userResponse.ok) {
-          const errorText = await userResponse.text();
-          throw new Error(`API Error ${userResponse.status}: ${errorText}`);
+          const errorText = await userResponse.json();
+          throw new Error(errorText.detail);
         }
 
         const userdata = await userResponse.json();
@@ -117,7 +118,7 @@ registerButton.onclick = async () => {
         window.location.href = "/my-account.html";
       } catch (error) {
         sessionStorage.removeItem('accessToken');
-        document.getElementById('register-message').textContent = 'Registration failed: ' + error.message;
+        alert(error.message);
         registerButton.disabled = false;
         await refreshCaptcha(); // Refresh captcha on error
       }

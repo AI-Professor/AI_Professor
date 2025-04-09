@@ -33,7 +33,8 @@ loginButton.onclick = async () => {
     const captchaId = document.getElementById('captcha-id').value;
 
     if (!email || !password || !captchaText) {
-      document.getElementById('login-message').textContent = 'Please fill in all fields.';
+      alert('Please fill in all fields.');
+      loginButton.disabled = false;
       return;
     }
 
@@ -54,14 +55,13 @@ loginButton.onclick = async () => {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API Error ${response.status}: ${errorText}`);
+        const errorText = await response.json();
+        throw new Error(errorText.detail);
       }
 
       const data = await response.json();
 
       sessionStorage.setItem('accessToken', data.access_token);
-      document.getElementById('login-message').textContent = 'Login successful!';
       console.log('Access Token:', data.access_token);
 
       setupTokenRefresh(localBackendUrl);
@@ -75,8 +75,8 @@ loginButton.onclick = async () => {
       });
 
       if (!userResponse.ok) {
-        const errorText = await userResponse.text();
-        throw new Error(`API Error ${userResponse.status}: ${errorText}`);
+        const errorText = await userResponse.json();
+        throw new Error(errorText.detail);
       }
 
       const userdata = await userResponse.json();
@@ -91,7 +91,7 @@ loginButton.onclick = async () => {
       window.location.href = "/";
     } catch (error) {
       sessionStorage.removeItem('accessToken');
-      document.getElementById('login-message').textContent = 'Login failed: ' + error.message;
+      alert(`Login failed: ${error.message}`);
       loginButton.disabled = false;
       await refreshCaptcha(); // Refresh captcha on error
     }

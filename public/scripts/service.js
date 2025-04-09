@@ -22,10 +22,10 @@ let lectureTranscript;
 let lectureButton;
 let topicInput;
 let fileInput;
-let uploadedFilesList;
 let sendButton;
 let voiceButton;
 let fileUploadButton;
+let existingId;
 
 // Initialize the application after DOM content is loaded
 document.addEventListener('DOMContentLoaded', async () => {
@@ -84,7 +84,6 @@ function initializeUIElements() {
   lectureButton = document.getElementById('lecture-button');
   topicInput = document.getElementById('topic-input');
   fileInput = document.getElementById('fileInput');
-  uploadedFilesList = document.getElementById('uploaded-files-list');
   sendButton = document.getElementById('send-button');
   voiceButton = document.getElementById('voice-input-btn');
   fileUploadButton = document.getElementById('upload-files-btn')
@@ -195,7 +194,7 @@ function showStatusMessage(message, type = 'info') {
 function updateUIForActiveSession() {
   if (activeSession) {
     if (connectButton) connectButton.disabled = false;
-    showStatusMessage('💡 You have an existing session. Click Connect to resume.');
+    existingId = showLastingStatusMessage('💡 You have an existing session. Click Connect to resume.', 'info');
   } else {
     if (connectButton) connectButton.disabled = false;
   }
@@ -210,15 +209,6 @@ function clearSessionUI() {
   // Clear lecture transcript
   if (lectureTranscript) {
     lectureTranscript.innerHTML = '';
-  }
-  
-  // Clear uploaded files list
-  if (uploadedFilesList) {
-    uploadedFilesList.innerHTML = '';
-    // Optional: Add a placeholder message
-    const noFileMsg = document.createElement('div');
-    noFileMsg.textContent = 'No files uploaded.';
-    uploadedFilesList.appendChild(noFileMsg);
   }
   
   // Clear text input if any
@@ -262,25 +252,6 @@ function showLastingStatusMessage(message, type = 'info', id = null) {
   statusMessageBox.prepend(msg);
   
   return messageId;
-}
-
-// Function to update a lasting status message
-function updateLastingStatusMessage(messageId, message, type = null) {
-  const msg = document.getElementById(messageId);
-  if (!msg) return;
-  
-  // Update text content
-  msg.textContent = message;
-  
-  // Add the spinner back
-  const spinner = document.createElement('div');
-  spinner.className = 'status-spinner';
-  msg.appendChild(spinner);
-  
-  // Update type if provided
-  if (type) {
-    msg.className = `status-message ${type} lasting`;
-  }
 }
 
 function removeLastingStatusMessage(messageId, finalMessage = null, type = 'success') {
@@ -360,16 +331,16 @@ async function handleConnect() {
         }, 2000);
         
         connectButton.disabled = true;
-        showStatusMessage('✅ Connected to existing session successfully!');
-        
+        removeLastingStatusMessage(existingId, '✅ Connected to existing session successfully!', 'success');
+
         // Load chat history for the existing session
         await loadChatHistory();
         await loadLectureHistory();
-        await loadUploadedFiles();
         await loadLessonTopics();
         await loadUserFileHistory();
       } catch (error) {
         console.error('Error connecting to existing session:', error);
+        removeLastingStatusMessage(existingId, `❌ Reconnect to existing session failed! ${error.message}`, 'error');
         statusDiv.innerText = 'Retrying connection...';
         
         // Add a longer delay and retry once
@@ -389,7 +360,6 @@ async function handleConnect() {
         // Load chat history for the existing session
         await loadChatHistory();
         await loadLectureHistory();
-        await loadUploadedFiles();
         await loadLessonTopics();
         await loadUserFileHistory();
       }
@@ -448,7 +418,6 @@ async function handleConnect() {
     // We already cleared the chat history, but let's fetch any server-side history
     await loadChatHistory();
     await loadLectureHistory();
-    await loadUploadedFiles();
     await loadLessonTopics();
     await loadUserFileHistory();
   } catch (error) {
@@ -482,7 +451,6 @@ async function handleConnect() {
         // Load chat history for the new session
         await loadChatHistory();
         await loadLectureHistory();
-        await loadUploadedFiles();
         await loadLessonTopics();
         await loadUserFileHistory();
         return;
@@ -729,13 +697,9 @@ async function handleSendMessage() {
 async function handleFileChange() {
   const files = Array.from(fileInput.files);
 
-  // Clear previous file list
-  uploadedFilesList.innerHTML = '';
-
   if (files.length === 0) {
     const noFileMsg = document.createElement('div');
     noFileMsg.textContent = 'No file selected.';
-    uploadedFilesList.appendChild(noFileMsg);
     return;
   }
 
@@ -753,8 +717,6 @@ async function handleFileChange() {
 
     fileItem.appendChild(fileIcon);
     fileItem.appendChild(fileName);
-
-    uploadedFilesList.appendChild(fileItem);
   });
 
   await upload();
@@ -1042,143 +1004,6 @@ async function loadLectureHistory() {
   }
 }
 
-async function loadUploadedFiles() {
-  try {
-    const token = sessionStorage.getItem('accessToken');
-    if (!token) return;
-    
-    const sessionData = getSessionData();
-    if (!sessionData || !sessionData.session_id) return;
-    
-    // Check if the session has a knowledge database (uploaded files)
-    const response = await fetch(`${localBackendUrl}/api/session-status?session_id=${sessionData.session_id}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!response.ok) return;
-    
-    const data = await response.json();
-    
-    // If the session has a knowledge database, fetch file information
-    if (data.has_knowledge_db) {
-      // Get more detailed session information including files
-      const sessionInfoResponse = await fetch(`${localBackendUrl}/api/user-sessions`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!sessionInfoResponse.ok) return;
-      
-      const sessionsData = await sessionInfoResponse.json();
-      const currentSession = sessionsData.sessions.find(s => s.session_id === sessionData.session_id);
-      
-      if (!currentSession) return;
-      
-      // Now fetch the file list for this session
-      const filesResponse = await fetch(`${localBackendUrl}/api/session-files?session_id=${sessionData.session_id}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      // If the endpoint doesn't exist or fails, show a generic file entry
-      if (!filesResponse.ok) {
-        if (uploadedFilesList) {
-          uploadedFilesList.innerHTML = '';
-          
-          const fileItem = document.createElement('div');
-          fileItem.className = 'uploaded-file-item';
-          
-          const fileIcon = document.createElement('div');
-          fileIcon.className = 'uploaded-file-icon';
-          fileIcon.textContent = '📄';
-          
-          const fileName = document.createElement('div');
-          fileName.textContent = `Content has been uploaded to this session`;
-          
-          fileItem.appendChild(fileIcon);
-          fileItem.appendChild(fileName);
-          
-          uploadedFilesList.appendChild(fileItem);
-        }
-        return;
-      }
-      
-      // If the endpoint exists and succeeds, parse the response
-      const filesData = await filesResponse.json();
-      
-      if (filesData.files && Array.isArray(filesData.files) && filesData.files.length > 0) {
-        // Display the files in the UI
-        if (uploadedFilesList) {
-          uploadedFilesList.innerHTML = '';
-          
-          filesData.files.forEach(file => {
-            const fileItem = document.createElement('div');
-            fileItem.className = 'uploaded-file-item';
-            
-            const fileIcon = document.createElement('div');
-            fileIcon.className = 'uploaded-file-icon';
-            fileIcon.textContent = '📄';
-            
-            const fileName = document.createElement('div');
-            fileName.textContent = file.name || "Uploaded file";
-            
-            fileItem.appendChild(fileIcon);
-            fileItem.appendChild(fileName);
-            
-            uploadedFilesList.appendChild(fileItem);
-          });
-        }
-      } else {
-        // If no specific files are returned but we know content exists
-        if (uploadedFilesList) {
-          uploadedFilesList.innerHTML = '';
-          
-          const fileItem = document.createElement('div');
-          fileItem.className = 'uploaded-file-item';
-          
-          const fileIcon = document.createElement('div');
-          fileIcon.className = 'uploaded-file-icon';
-          fileIcon.textContent = '📄';
-          
-          const fileName = document.createElement('div');
-          fileName.textContent = `Content has been uploaded to this session`;
-          
-          fileItem.appendChild(fileIcon);
-          fileItem.appendChild(fileName);
-          
-          uploadedFilesList.appendChild(fileItem);
-        }
-      }
-    } else {
-      // No knowledge database, so clear the files list
-      if (uploadedFilesList) {
-        uploadedFilesList.innerHTML = '';
-        const noFileMsg = document.createElement('div');
-        noFileMsg.textContent = 'No files uploaded.';
-        uploadedFilesList.appendChild(noFileMsg);
-      }
-    }
-  } catch (error) {
-    console.error('Error loading uploaded files:', error);
-    // Show a fallback message
-    if (uploadedFilesList) {
-      uploadedFilesList.innerHTML = '';
-      const errorMsg = document.createElement('div');
-      errorMsg.textContent = 'Unable to retrieve file information.';
-      uploadedFilesList.appendChild(errorMsg);
-    }
-  }
-}
 
 async function loadLessonTopics() {
   try {
@@ -1284,9 +1109,8 @@ async function loadUserFileHistory() {
     const uploadBtn = document.getElementById('upload-files-btn');
     const useFileBtn = document.getElementById('use-file-btn');
     const noFilesMessage = document.getElementById('no-files-message');
-    const uploadedFilesList = document.getElementById('uploaded-files-list');
     
-    if (!fileSelect || !uploadBtn || !useFileBtn || !noFilesMessage || !uploadedFilesList) return;
+    if (!fileSelect || !uploadBtn || !useFileBtn || !noFilesMessage) return;
     
     // Clear existing options
     fileSelect.innerHTML = '<option value="" disabled selected>Select a file</option> <option value="upload_new">Upload New File</option>';
@@ -1336,16 +1160,10 @@ async function loadUserFileHistory() {
           // Show the "Use this file" button and hide the "Upload" button
           useFileBtn.classList.remove('hidden');
           uploadBtn.classList.add('hidden');
-          
-          // Display the selected file details in the list
-          displaySelectedFileDetails(this);
         } else {
           // Show the "Upload" button and hide the "Use this file" button
           useFileBtn.classList.add('hidden');
           uploadBtn.classList.remove('hidden');
-          
-          // Clear the file details
-          uploadedFilesList.innerHTML = '';
         }
       });
       
@@ -1385,7 +1203,7 @@ async function loadUserFileHistory() {
           showStatusMessage(`✅ ${result.message}`, 'success');
           
           // Reset button state
-          useFileBtn.textContent = 'Use Selected File';
+          useFileBtn.textContent = 'Use';
           useFileBtn.style.backgroundColor = '';
           useFileBtn.style.pointerEvents = '';
           
@@ -1399,7 +1217,7 @@ async function loadUserFileHistory() {
           showStatusMessage(`❌ Failed to load file: ${error.message}`, 'error');
           
           // Reset button state
-          useFileBtn.textContent = 'Use Selected File';
+          useFileBtn.textContent = 'Use';
           useFileBtn.style.backgroundColor = '';
           useFileBtn.style.pointerEvents = '';
         }
@@ -1433,43 +1251,6 @@ async function loadUserFileHistory() {
       uploadBtn.classList.remove('hidden');
     }
   }
-}
-
-function displaySelectedFileDetails(selectElement) {
-  const uploadedFilesList = document.getElementById('uploaded-files-list');
-  if (!uploadedFilesList) return;
-  
-  uploadedFilesList.innerHTML = '';
-  
-  const selectedOption = selectElement.options[selectElement.selectedIndex];
-  const fileName = selectedOption.dataset.fileName || selectedOption.textContent;
-  const fileSize = selectedOption.dataset.fileSize ? Math.round(selectedOption.dataset.fileSize / 1024) + ' KB' : 'Unknown size';
-  
-  const fileItem = document.createElement('div');
-  fileItem.className = 'uploaded-file-item';
-  
-  const fileIcon = document.createElement('div');
-  fileIcon.className = 'uploaded-file-icon';
-  fileIcon.textContent = '📄';
-  
-  const fileDetails = document.createElement('div');
-  fileDetails.className = 'file-details';
-  
-  const fileNameElement = document.createElement('div');
-  fileNameElement.className = 'file-name';
-  fileNameElement.textContent = fileName;
-  
-  const fileSizeElement = document.createElement('div');
-  fileSizeElement.className = 'file-size';
-  fileSizeElement.textContent = fileSize;
-  
-  fileDetails.appendChild(fileNameElement);
-  fileDetails.appendChild(fileSizeElement);
-  
-  fileItem.appendChild(fileIcon);
-  fileItem.appendChild(fileDetails);
-  
-  uploadedFilesList.appendChild(fileItem);
 }
 
 async function upload() {
@@ -1582,12 +1363,10 @@ async function checkExistingSession() {
       if (response.ok) {
         // Session exists - update UI to reflect this
         updateUIForActiveSession();
-        showStatusMessage('💡 You have an existing session. Click Connect to resume.');
         
         // Also load chat history, lecture history, and uploaded files for the existing session
         await loadChatHistory();
         await loadLectureHistory();
-        await loadUploadedFiles(); // Add this line to load uploaded files
         await loadLessonTopics();
         await loadUserFileHistory();
       }

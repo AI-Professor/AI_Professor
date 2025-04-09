@@ -78,8 +78,8 @@ a {
 /* Lecture Transcript */
 .lecture-transcript-container {
   width: 100%;
+  height: 100%;
   min-height:20vh;
-  max-height: 50vh;
   overflow-y: auto;
   border-radius: 8px;
   background-color: #ffffff;
@@ -225,6 +225,7 @@ a {
   border-radius: 50%;
   border-top-color: #fff;
   animation: spin 1s ease-in-out infinite;
+  aspect-ratio: 1 / 1;
 }
 
 @keyframes spin {
@@ -237,7 +238,7 @@ a {
   justify-content: center;
   gap: 20px;
   width: 100%;
-  margin: 15px 0;
+  margin-top: 15px;
 }
 
 .boxes-container .fixed-box {
@@ -256,7 +257,7 @@ a {
   max-width: 100%;
   margin-left: auto;
   margin-right: auto;
-  margin-bottom: 30px;
+  margin-bottom: 15px;
 }
 
 /* Quiz and Files boxes */
@@ -285,7 +286,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: 15px;
-  margin-top: 15px;
+  margin: 5px 0;
 }
 
 .lesson-dropdown {
@@ -323,7 +324,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: 15px;
-  margin: 15px 0;
+  margin: 5px 0;
 }
 
 .file-dropdown {
@@ -360,12 +361,6 @@ a {
   margin-top: 15px;
   font-size: 14px;
   display: none;
-}
-
-.uploaded-files-list {
-  max-height: 5vh;
-  overflow-y: auto;
-  margin-bottom: 5px;
 }
 
 .uploaded-file-item {
@@ -428,7 +423,6 @@ a {
 
 #start-quiz-btn {
   display: block;
-  margin: 15px auto 0;
   padding: 10px 15px;
   background-color: #007bff;
   color: white;
@@ -446,12 +440,8 @@ a {
 
 .start-quiz-btn.disabled {
   background-color: #cccccc;
-  cursor: not-allowed;
   opacity: 0.7;
-}
-
-.start-quiz-btn.disabled:hover {
-  background-color: #cccccc;
+  pointer-events: none;
 }
 
 .file-action-buttons a {
