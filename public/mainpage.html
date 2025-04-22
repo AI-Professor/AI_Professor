@@ -2,110 +2,619 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>AI Lecturer Landing Page</title>
-  <link rel="stylesheet" href="/public/styles/mainpage.css"/>
-</head>
-<body>
-  <!-- ---------- Navigation ---------- -->
-  <div id="navbar-container"></div>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Lecturer - Main</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: 'DM Sans', sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      scroll-behavior: smooth;
+      
+      overflow-y: scroll;
+      scroll-padding-top: 60px;
+    }
 
-  <!-- ---------- Hero Section ---------- -->
+    section {
+      min-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 50px 20px;
+      opacity: 0;
+      transform: translateY(35px);
+      transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+    }
+
+    section.visible {
+      opacity: 1;
+      transform: translateY(0);
+      transition-delay: 0.05s;
+    }
+
+    .navbar {
+      position: fixed;
+      top: 0;
+      width: 100%;
+      background: white;
+      z-index: 1000;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    .nav-container {
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 0 3rem; 
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 60px;
+    }
+
+    .nav-logo {
+      font-weight: bold;
+      font-size: 2rem; 
+      background: linear-gradient(to right, #00FFFF, #8A2BE2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .nav-links a {
+      margin-left: 1rem;
+      color: #1E5FD6;
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 1.1rem;
+    }
+
+    .nav-links a:hover {
+      text-decoration: underline;
+    }
+
+    .intro, .features, .pricing, .contact {
+      background-color: white;
+    }
+
+    .hero {
+      background: linear-gradient(to right, #7A3DE7, #1E5FD6);
+      color: white;
+      position: relative;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: url('images/Home_background.png') no-repeat center center;
+      background-size: cover;
+      width: 100%;
+      height: 100%;
+      opacity: 0.5;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .hero h1 {
+      font-size: 4rem;
+      margin-bottom: 20px;
+      z-index: 1;
+      position: relative;
+      font-weight: 400;
+      letter-spacing: 1px;
+    }
+
+    .hero button {
+      padding: 14px 28px;
+      font-size: 1rem;
+      background: white;
+      border: none;
+      color: #1E5FD6;
+      cursor: pointer;
+      border-radius: 2px;
+      font-weight: bold;
+      z-index: 1;
+      position: relative;
+      letter-spacing: 1px;
+      box-shadow: 0px 4px 6px rgba(0,0,0,0.1);
+    }
+
+    .start-button {
+      margin-top: 30px;
+      margin-bottom: 50px;
+      padding: 22px 50px;
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(to right, #00FFFF, #8A2BE2);
+      color: white;
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      z-index: 2;
+      position: relative;
+    }
+
+    .start-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.25);
+    }
+
+
+    .section-title {
+      text-align: center;
+      font-size: 4rem; 
+      margin-bottom: 5px; 
+      color: #0039e6; 
+      font-weight: 800; 
+      letter-spacing: 1px; 
+    }
+
+    .subtitle {
+      font-size: 1.25rem;
+      font-weight: 500;
+      color: #666;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    .circle-img {
+      position: absolute;
+      width: 220px;
+      z-index: 0;
+    }
+
+    .circle1 { top: 300px; left: 25px; }
+    .circle2 { top: 960px; right: 480px; }
+    .circle3 { top: 340px; right: 50px; }
+
+    .bubble-text {
+      position: absolute;
+      color: white;
+      font-weight: 700;
+      text-align: center;
+      width: 180px;
+      line-height: 1.5;
+      font-size: 1.15rem;
+      z-index: 1;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .bubble-right2 { top: 1050px; right: 500px; }
+    .bubble-left { top: 390px; left: 45px; }
+    .bubble-right { top: 425px; right: 70px; }
+
+    @media (max-width: 768px) {
+      .bubble-text {
+        position: static;
+        margin: 20px auto;
+        background: rgba(30, 95, 214, 0.9);
+        width: 80%;
+      }
+    }
+
+    .intro {
+      padding: 50px 20px;
+    }
+
+    .features {
+      padding: 30px 40px;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 40px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .feature-grid h3 {
+      color: #0A32A3;
+      font-weight: 800;
+      font-size: 2rem;
+      margin-bottom: 12px;
+      line-height: 1.3;
+    }
+
+    .feature-grid p {
+      font-size: 1.1rem;   
+      line-height: 1.6;
+      color: #333;       
+    }
+
+    .plan-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .plan-title {
+      font-size: 2rem;
+      font-weight: 900;
+      color: #0039e6;
+      margin-bottom: 20px;
+      letter-spacing: 1px;
+    }
+
+    .pricing {
+      background: white;
+      padding: 30px 40px;
+      text-align: center;
+    }
+
+    .price-tier {
+      background: linear-gradient(to bottom right, #7A3DE7, #1E5FD6);
+      color: white;
+      border-radius: 30px;
+      padding: 5px 30px 30px;
+      width: 280px;
+      height: 500px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      text-align: left;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      margin-top: auto;
+    }
+
+    .price-tier h3 {
+      font-size: 1.8rem;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+
+    .price-tier ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .price-tier ul li {
+      padding: 5px 0;
+      font-weight: 500;
+    }
+
+    .price-tier p {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+
+    .price-tier button {
+      margin-top: 30px;
+      padding: 15px 20px;
+      border: none;
+      border-radius: 20px;
+      font-weight: bold;
+      background: #ffffff;
+      color: #1E5FD6;
+      cursor: pointer;
+      font-size: 1rem;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      transition: background 0.3s ease;
+    }
+
+    .price-tier button:hover {
+      background: #e6e6ff;
+    }
+
+    .price-tier.plus button {
+      background-color: #FFD700;
+      color: #1E5FD6;
+    }
+
+
+    .price-tier.pro button {
+      background: linear-gradient(to right, #00FFFF, #8A2BE2);
+      color: white;
+    }
+
+    .price-tier .price-amount {
+      font-size: 2.2rem;
+      font-weight: 900;
+      margin-top: 4px;
+      margin-bottom: 6px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .price-tier.plus .price-amount {
+      color: #FFD700;
+    }
+
+    .price-tier.pro .price-amount {
+      color: #00FFFF;
+    }
+
+    .description {
+      margin-top: 1px;
+    }
+
+    .upper-content {
+      flex-grow: 1;             
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start; 
+      margin-top: 1px;
+    }
+
+    .plan-title.free {
+      font-size: 2.3rem;
+      color: #ffffff;
+      border-radius: 20px;
+      display: inline-block;
+    }
+
+    .plan-title.plus {
+      font-size: 2.3rem;
+      color: #FFD700;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+      letter-spacing: 2px;
+    }
+
+    .plan-title.pro {
+      font-size: 2.3rem;
+      color: #00FFFF;
+      font-style: italic;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .plan-wrapper {
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 40px;
+      padding: 40px 0;
+    }
+
+    .plan-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+
+    .plan-title {
+      font-size: 2rem;
+      font-weight: 900;
+      color: #0039e6;
+      margin-bottom: 20px;
+      letter-spacing: 1px;
+    }
+
+
+    .contact {
+      background: #1E5FD6;
+      color: white;
+      text-align: center;
+      padding: 100px 20px;
+    }
+
+    .contact h2 {
+      font-size: 3.5rem;
+      font-weight: 800;
+      margin-bottom: 20px;
+      letter-spacing: 1px;
+    }
+
+    .contact p {
+      font-size: 1.3rem;
+      font-weight: 400;
+      max-width: 800px;
+      margin: 0 auto 30px;
+      line-height: 1.6;
+    }
+
+    .contact button {
+      margin-top: 20px;
+      padding: 14px 30px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      background: white;
+      color: #1E5FD6;
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+
+    .contact button:hover {
+      background: #e0e0ff;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header class="navbar">
+    <div class="nav-container">
+      <a class="nav-logo" id="logo" href="#intro">AI Lecturer</a>
+      <nav class="nav-links">
+        <a href="#">Products</a>
+        <a href="#features">Service</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#contact">Contact Us</a>
+        <span id="auth-link"></span>
+      </nav>
+    </div>
+  </header>
+
   <section class="hero">
     <h1>AI Lecturer</h1>
-    <p>Personalized elite education accessible anytime, anywhere, for anyone</p>
-    <a href="/service.html" class="cta-btn">Start Here</a>
+    <a href="login.html" style="text-decoration: none;">
+      <button>START NOW</button>
+    </a>
   </section>
 
-  <!-- ---------- Features Section ---------- -->
-  <section class="features">
-    <h2>Unlock Limitless Learning with AI Lecturer</h2>
-    
+  <section class="intro" id="intro">
+    <h2 class="section-title">Welcome to the Future of Learning</h2>
+    <p class="subtitle">Your personalized AI lecturer with custom materials you choose!</p>
+    <button class="start-button">Let’s Start!</button>
+    <img src="/public/images/lecture_demo.png" alt="Lecture Demo" style="max-width: 85%; border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.1);">
+    <img src="/public/images/trimmed_circle1.png" class="circle-img circle1">
+    <img src="/public/images/trimmed_circle2.png" class="circle-img circle2">
+    <img src="/public/images/trimmed_circle3.png" class="circle-img circle3">
+    <div class="bubble-text bubble-left">Want to learn on your own?</div>
+    <div class="bubble-text bubble-right2">Need to prep for an test?</div>
+    <div class="bubble-text bubble-right">Got stuck on materials?</div>
+  </section>
+
+  <section class="features" id="features">
+    <h2 class="section-title">What We Offer</h2>
     <div class="feature-grid">
-      <!-- 1. Personalized AI Educator -->
-      <div class="feature-item">
-        <img src="public/images/personalized.png" alt="Personalized AI Educator" class="feature-icon" />
-        <div class="feature-content">
-          <h3>Your Personal AI Educator</h3>
-          <p>Experience adaptive, engaging education with AI-powered learning.</p>
-        </div>
-      </div>
-      <!-- 2. Elite Education -->
-      <div class="feature-item">
-        <img src="public/images/graduation_cap.png" alt="Elite Education" class="feature-icon" />
-        <div class="feature-content">
-          <h3>Elite Education for Everyone</h3>
-          <p>High-quality learning accessible to all with AI-driven courses.</p>
-        </div>
-      </div>
-      <!-- 3. Real-Time Support -->
-      <div class="feature-item">
-        <img src="public/images/realtimesupport.png" alt="Real-Time Support" class="feature-icon" />
-        <div class="feature-content">
-          <h3>Real-Time Interaction & Support</h3>
-          <p>Instant feedback and assistance to boost your progress.</p>
-        </div>
-      </div>
-      <!-- 4. Smarter, Sustainable Learning -->
-      <div class="feature-item">
-        <img src="public/images/sustainability.png" alt="Smarter, Sustainable Learning" class="feature-icon" />
-        <div class="feature-content">
-          <h3>Smarter, Sustainable Learning</h3>
-          <p>Innovative methods for long-term, effective education.</p>
-        </div>
-      </div>
-      <!-- 5. Tailored to Your Learning Style -->
-      <div class="feature-item">
-        <img src="public/images/tailored.png" alt="Tailored to Your Learning Style" class="feature-icon" />
-        <div class="feature-content">
-          <h3>Tailored to Your Learning Style</h3>
-          <p>Customized learning paths designed just for you.</p>
-        </div>
-      </div>
-      <!-- 6. Revolutionizing Education -->
-      <div class="feature-item">
-        <img src="public/images/revolutionary.png" alt="Revolutionizing Education" class="feature-icon" />
-        <div class="feature-content">
-          <h3>Revolutionizing Education</h3>
-          <p>Transforming traditional learning with advanced AI technology.</p>
-        </div>
-      </div>
+      <div><h3>Your Personal AI Educator</h3><p>Experience education that’s engaging, personalized, and always available.</p></div>
+      <div><h3>Real-Time Interaction & Support</h3><p>AI Lecturer engages with you 24/7, responding to frustration, confusion, and curiosity—just like a real teacher.</p></div>
+      <div><h3>Elite Education for Everyone</h3><p>Gain Ivy League–level knowledge without the hefty price tag.</p></div>
+      <div><h3>Smarter, Sustainable Learning</h3><p>No more outdated textbooks or inefficient classroom structures. Let’s reduce waste and optimize resources for a greener future.</p></div>
+      <div><h3>Tailored to Your Learning Style</h3><p>Your AI lecturer adjusts pacing, explains in multiple ways, and creates custom assessments just for you.</p></div>
+      <div><h3>Revolutionizing Education</h3><p>The future of learning is here. AI Lecturer makes education more engaging, effective, and accessible than ever before.</p></div>
     </div>
   </section>
 
-  <!-- ---------- Pricing Section (Quotes) ---------- -->
-  <section class="pricing">
-    <h2>Pricing</h2>
-    <p class="subtitle">Subheading</p>
-    <div class="quote-grid">
-      <div class="quote-card">
-        <h4>"Quote"</h4>
-        <p>Title</p>
-        <p>Subheading</p>
-      </div>
-      <div class="quote-card">
-        <h4>"Quote"</h4>
-        <p>Title</p>
-        <p>Subheading</p>
-      </div>
-      <div class="quote-card">
-        <h4>"Quote"</h4>
-        <p>Title</p>
-        <p>Subheading</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ---------- Footer ---------- -->
-  <div id="footer-container"></div>
-  <script type="module">
-    import { loadNavbar } from '/public/scripts/navbar.js';
-    import { loadFooter } from '/public/scripts/footer.js';
+  <section class="pricing" id="pricing">
+    <h2 class="section-title">Plans That Fit Every Learner</h2>
   
-    // When the page loads, load the navbar
-    window.addEventListener('DOMContentLoaded', () => {
-      loadNavbar();
-      loadFooter();
+    <div class="plan-wrapper">
+
+      <div class="price-tier">
+
+        <h3 class="plan-title free">FREE</h3>
+
+        <div class="upper-content">
+          <div class="description">
+            <p>Explore your AI lecturer with personalized materials</p>
+          </div>
+          <ul>
+            <li><strong>- Limited Lectures</strong></li>
+            <li><strong>- Limited Quizzes</strong></li>
+          </ul>
+        </div>
+
+        <p class="price-amount"><strong>0$ / month</strong></p>
+        <button>Get FREE</button>
+      </div>
+  
+      <div class="price-tier plus">
+
+        <h3 class="plan-title plus">PLUS</h3>
+
+        <div class="upper-content">
+          <div class="description">   
+            <p>Expanded access for productivity and creativity</p>
+          </div>
+          <ul>
+            <li><strong>- Unlimited Lectures</strong></li>
+            <li><strong>- Unlimited Quizzes</strong></li>
+          </ul>
+        </div>
+
+        <p class="price-amount"><strong>9.99$ / month</strong></p>
+        <button>Get PLUS</button>
+      </div>
+  
+      <div class="price-tier pro">
+
+        <h3 class="plan-title pro">PRO</h3>
+
+        <div class="upper-content">
+          <div class="description"> 
+            <p>Get the best with highest level of access</p>
+          </div>
+          <ul>
+            <li><strong>- Unlimited Lectures</strong></li>
+            <li><strong>- Unlimited Quizzes</strong></li>
+            <li><strong>- Personalized Teaching Style</strong></li>
+          </ul>
+        </div>
+
+        <p class="price-amount"><strong>19.99$ / month</strong></p>
+        <button>Get PRO</button>
+      </div>
+
+    </div>
+  </section>
+  
+  
+
+  <section class="contact" id="contact">
+    <h2>Talk To Us</h2>
+    <p>Feel free to call, email, or hit us up on our social media accounts.</p>
+    <button>CONTACT US</button>
+  </section>
+
+  <script>
+    const sections = document.querySelectorAll('section');
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        } else {
+          entry.target.classList.remove('visible');
+        }
+      });
+    }, { threshold: 0.3 });
+
+    sections.forEach(section => observer.observe(section));
+  </script>
+
+  <script>
+    document.getElementById("logo").addEventListener("click", function (e) {
+      e.preventDefault();  
+      window.location.href = window.location.origin + window.location.pathname + "#intro";
+      window.location.reload(true); 
     });
   </script>
+
+  <script>
+    function renderAuthLink() {
+      const authLink = document.getElementById("auth-link");
+      const loggedIn = localStorage.getItem("loggedIn") === "true"; // 或你用 sessionStorage 也可以
+
+      if (authLink) {
+        if (loggedIn) {
+          authLink.innerHTML = `
+            <a href="#">My Account</a>
+            <a href="#" onclick="logout()">Logout</a>
+          `;
+        } else {
+          authLink.innerHTML = `
+            <a href="login.html">Log in / Sign up</a>
+          `;
+        }
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem("loggedIn"); 
+      window.location.reload();
+    }
+
+    renderAuthLink();
+  </script>
+
+  <script>
+    document.querySelector('.start-button').addEventListener('click', function () {
+      const loggedIn = localStorage.getItem("loggedIn") === "true";
+
+      if (loggedIn) {
+        window.location.href = "service.html"; 
+      } else {
+        window.location.href = "login.html";
+      }
+    });
+  </script>
+
+  
 </body>
 </html>
