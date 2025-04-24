@@ -1,10 +1,17 @@
 // Debug version of quiz.js with error handling
 console.log("Quiz.js starting to load");
 
+import { loadNavbar } from "./navbar.js";
+import { loadFooter } from "./footer.js";
+
+// --- MOCK MODE SUPPORT ---
+const MOCK_QUIZ = window.MOCK_QUIZ || false;
+
 // Try/catch around the entire script
 try {
   // First load the JSON configuration
   let ENV;
+  
   
   // Immediately-invoked async function to load configuration
   (async function loadConfig() {
@@ -42,6 +49,14 @@ try {
         sessionId: null
       };
 
+      // Expose quiz state and UI functions for mock preview
+      window.quizState = quizState;
+      window.showScreen = showScreen;
+      window.loadQuestion = loadQuestion;
+      window.updatePagination = updatePagination;
+      window.initScoreboard = initScoreboard;
+      window.updateScoreboard = updateScoreboard;
+
       // Try to safely get DOM elements with error handling
       function getElement(id) {
         const element = document.getElementById(id);
@@ -71,6 +86,11 @@ try {
 
       const resultsScore = getElement('results-score');
       const resultsMessage = getElement('results-message');
+
+      // Scoreboard Elements
+      const scoreText = getElement('score-text');
+      const gaugeNeedle = getElement('gauge-needle');
+      const questionButtons = getElement('question-buttons');
 
       // Verify that required elements exist
       if (!startScreen || !loadingScreen || !quizScreen || !resultsScreen) {
@@ -331,6 +351,8 @@ try {
             
             loadQuestion(0);
             updatePagination();
+            initScoreboard();
+            updateScoreboard();
             showScreen('quiz-screen');
           } else {
             throw new Error('No questions received from the server');
@@ -341,6 +363,90 @@ try {
           showScreen('start-screen');
         }
       }
+
+    // Initialize Scoreboard
+    function initScoreboard() {
+      // Initialize score text
+      scoreText.textContent = `0/0`;
+
+      // Initialize gauge needle at starting position
+      updateGaugeNeedle(0);
+      
+      // Create question buttons
+      questionButtons.innerHTML = '';
+      quizState.questions.forEach((_, index) => {
+          const button = document.createElement('button');
+          button.className = 'question-button unanswered';
+          button.textContent = index + 1;
+          
+          button.addEventListener('click', () => {
+              quizState.currentQuestionIndex = index;
+              loadQuestion(index);
+              updatePagination();
+              updateScoreboard();
+          });
+          
+          questionButtons.appendChild(button);
+      });
+    }
+    
+      // Update Scoreboard
+    function updateScoreboard() {
+      // Count answered questions
+      const answered = quizState.userAnswers.filter(ans => ans !== null).length;
+      // Update score text: #correct/#answered (if none answered, show 0/0)
+      scoreText.textContent = answered === 0
+          ? `0/0`
+          : `${quizState.score}/${answered}`;
+
+      // Update gauge needle position
+      const scorePercentage = answered > 0
+          ? quizState.score / answered
+          : 0;
+      updateGaugeNeedle(scorePercentage);
+
+      // Update question buttons
+      const buttons = questionButtons.querySelectorAll('.question-button');
+      buttons.forEach((button, index) => {
+          // Remove all classes except 'question-button'
+          button.className = 'question-button';
+
+          // Add appropriate class based on answer status
+          if (quizState.userAnswers[index] === null) {
+              button.classList.add('unanswered');
+          } else {
+              const isCorrect = quizState.userAnswers[index] === quizState.questions[index].answer;
+              button.classList.add(isCorrect ? 'correct' : 'incorrect');
+          }
+
+          // Highlight current question
+          if (index === quizState.currentQuestionIndex) {
+              button.classList.add('active');
+          }
+      });
+    }
+
+    // Update Gauge Needle Position
+    function updateGaugeNeedle(scorePercentage) {
+      // Calculate angle based on score percentage (0 to 1)
+      // 0% = 180 degrees (pointing left), 100% = 0 degrees (pointing right)
+      // FIX: Make 0% left, 100% right (clockwise)
+      const angle = 180 * (1 - scorePercentage);
+
+      // Calculate endpoint coordinates for the needle
+      const length = 80; // Length of needle
+      const centerX = 100;
+      const centerY = 110;
+      const radians = angle * (Math.PI / 180);
+      const endX = centerX + Math.cos(radians) * length;
+      const endY = centerY - Math.sin(radians) * length;
+
+      // Update needle line
+      gaugeNeedle.setAttribute('x1', centerX);
+      gaugeNeedle.setAttribute('y1', centerY);
+      gaugeNeedle.setAttribute('x2', endX);
+      gaugeNeedle.setAttribute('y2', endY);
+    }
 
       // Load a question by index
       function loadQuestion(index) {
@@ -410,6 +516,8 @@ try {
         }
       }
 
+      
+
       // Select an option
       function selectOption(optionIndex) {
         try {
@@ -453,6 +561,9 @@ try {
           
           // Update pagination
           updatePagination();
+
+          // Update scoreboard
+          updateScoreboard();
         } catch (error) {
           console.error("Error selecting option:", error);
         }
@@ -486,6 +597,7 @@ try {
               quizState.currentQuestionIndex = index;
               loadQuestion(index);
               updatePagination();
+              updateScoreboard();
             });
             
             pagination.appendChild(pageItem);
@@ -583,7 +695,8 @@ try {
                 quizState.currentQuestionIndex--;
                 loadQuestion(quizState.currentQuestionIndex);
                 updatePagination();
-              }
+                updateScoreboard();
+      }
             });
             console.log("Previous button event listener added");
           }
@@ -594,6 +707,7 @@ try {
                 quizState.currentQuestionIndex++;
                 loadQuestion(quizState.currentQuestionIndex);
                 updatePagination();
+                updateScoreboard();
               } else {
                 showResults();
               }

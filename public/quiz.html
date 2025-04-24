@@ -5,6 +5,64 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Class</title>
     <link rel="stylesheet" href="/public/styles/quiz.css"/>
+    <style>
+        /* Scoreboard Styles */
+        .scoreboard-container {
+            text-align: center;
+            margin: 20px auto;
+            max-width: 200px;
+        }
+        
+        .gauge-container {
+            position: relative;
+            width: 200px;
+            height: 120px;
+            margin: 0 auto;
+        }
+        
+        .gauge {
+            width: 100%;
+            height: auto;
+        }
+        
+        .score-display {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .question-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-top: 10px;
+        }
+        
+        .question-button {
+            padding: 5px;
+            border-radius: 4px;
+            border: none;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .question-button.active {
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+        
+        .question-button.correct {
+            background-color: #4caf50;
+        }
+        
+        .question-button.incorrect {
+            background-color: #f44336;
+        }
+        
+        .question-button.unanswered {
+            background-color: #9e9e9e;
+        }
+    </style>
 </head>
 <body>
   <!-- ---------- Navigation ---------- -->
@@ -15,8 +73,8 @@
         <!-- Start Screen -->
         <div class="screen active" id="start-screen">
             <div class="quiz-container">
-                <h2>Subject  Quiz</h2>
-                <p style="margin: 20px 0;">Test your knowledge  this quiz. Click the button below to generate questions based on the lesson materials.</p>
+                <h2>Subject Quiz</h2>
+                <p style="margin: 20px 0;">Test your knowledge with this quiz. Click the button below to generate questions based on the lesson materials.</p>
                 <button class="start-button" id="start-quiz">Start Quiz</button>
             </div>
         </div>
@@ -30,6 +88,40 @@
         
         <!-- Quiz Screen -->
         <div class="screen" id="quiz-screen">
+            <!-- Scoreboard -->
+            <div class="scoreboard-container" id="scoreboard-container">
+                <div class="gauge-container">
+                    <svg class="gauge" viewBox="0 0 200 120">
+                        <!-- Gauge background -->
+                        <path d="M 10,110 A 90,90 0 0,1 190,110" stroke="#f0f0f0" stroke-width="20" fill="none" />
+                        
+                        <!-- Red section -->
+                        <path d="M 10,110 A 90,90 0 0,1 55,70" stroke="#e74c3c" stroke-width="20" fill="none" />
+                        
+                        <!-- Orange section -->
+                        <path d="M 55,70 A 90,90 0 0,1 100,55" stroke="#f39c12" stroke-width="20" fill="none" />
+                        
+                        <!-- Yellow section -->
+                        <path d="M 100,55 A 90,90 0 0,1 145,70" stroke="#f1c40f" stroke-width="20" fill="none" />
+                        
+                        <!-- Green section -->
+                        <path d="M 145,70 A 90,90 0 0,1 190,110" stroke="#2ecc71" stroke-width="20" fill="none" />
+                        
+                        <!-- Gauge needle -->
+                        <line id="gauge-needle" x1="100" y1="110" x2="100" y2="30" stroke="black" stroke-width="4" />
+                        <circle cx="100" cy="110" r="10" fill="black" />
+                        
+                        <!-- Score text -->
+                        <text x="100" y="20" text-anchor="middle" font-weight="bold" font-size="16">Score Board</text>
+                        <text id="score-text" x="100" y="40" text-anchor="middle" font-weight="bold" font-size="16">0/0</text>
+                    </svg>
+                </div>
+                
+                <div class="question-buttons" id="question-buttons">
+                    <!-- Question buttons will be generated dynamically -->
+                </div>
+            </div>
+            
             <!-- Pagination -->
             <div class="pagination" id="pagination">
                 <!-- Pagination items will be generated dynamically -->
@@ -61,15 +153,57 @@
                 <div class="results-title">Quiz Completed!</div>
                 <div class="results-score" id="results-score">0/0</div>
                 <div class="results-message" id="results-message">You've completed the quiz.</div>
-                <button class="restart-button" id="restart-button">Retake Quiz</button>
-                <button class="return-button" id="return-button">Back to Class</button>
+                <button class="restart-button" id="restart-button">Take Another Quiz</button>
             </div>
         </div>
     </div>
     
     <!-- ---------- Footer ---------- -->
     <div id="footer-container"></div>
-    
+    <!-- window.MOCK_QUIZ = true; -->
     <script type="module" src="/public/scripts/quiz.js"></script>
+
+    
+    <!-- MOCK QUIZ SECTION BELOW -->
+    <!--
+    <script>
+    // --- MOCK QUIZ PREVIEW (for frontend testing only) ---
+    window.addEventListener('DOMContentLoaded', () => {
+        // Wait for quiz.js to load
+        setTimeout(() => {
+            if (!window.quizState) return; // quiz.js not loaded yet
+
+            // Mock questions
+            window.quizState.questions = [
+                {
+                    question: "What is the capital of France?",
+                    options: ["Berlin", "London", "Paris", "Madrid"],
+                    answer: 2
+                },
+                {
+                    question: "Which planet is known as the Red Planet?",
+                    options: ["Earth", "Mars", "Jupiter", "Venus"],
+                    answer: 1
+                },
+                {
+                    question: "Who wrote 'To Kill a Mockingbird'?",
+                    options: ["Harper Lee", "Mark Twain", "Jane Austen", "Ernest Hemingway"],
+                    answer: 0
+                }
+            ];
+            window.quizState.currentQuestionIndex = 0;
+            window.quizState.userAnswers = [null, null, null];
+            window.quizState.score = 0;
+
+            // Show quiz screen and initialize UI
+            if (window.showScreen) window.showScreen('quiz-screen');
+            if (window.loadQuestion) window.loadQuestion(0);
+            if (window.updatePagination) window.updatePagination();
+            if (window.initScoreboard) window.initScoreboard();
+            if (window.updateScoreboard) window.updateScoreboard();
+        }, 200);
+    });
+    </script>
+    -->
 </body>
 </html>
