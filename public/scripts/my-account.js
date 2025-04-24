@@ -41,7 +41,6 @@ async function fetchUserInfo() {
     document.getElementById('user-email').innerText = data.email;
     
     // Update grid fields
-    document.getElementById('userIdText').innerText = data.user_id;
     document.getElementById('firstNameText').innerText = data.first_name;
     document.getElementById('lastNameText').innerText = data.last_name;
     document.getElementById('userNameText').innerText = data.user_name;
