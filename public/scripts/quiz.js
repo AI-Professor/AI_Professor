@@ -1,12 +1,6 @@
 // Debug version of quiz.js with error handling
 console.log("Quiz.js starting to load");
 
-import { loadNavbar } from "./navbar.js";
-import { loadFooter } from "./footer.js";
-
-// --- MOCK MODE SUPPORT ---
-const MOCK_QUIZ = window.MOCK_QUIZ || false;
-
 // Try/catch around the entire script
 try {
   // First load the JSON configuration
@@ -48,14 +42,6 @@ try {
         score: 0,
         sessionId: null
       };
-
-      // Expose quiz state and UI functions for mock preview
-      window.quizState = quizState;
-      window.showScreen = showScreen;
-      window.loadQuestion = loadQuestion;
-      window.updatePagination = updatePagination;
-      window.initScoreboard = initScoreboard;
-      window.updateScoreboard = updateScoreboard;
 
       // Try to safely get DOM elements with error handling
       function getElement(id) {

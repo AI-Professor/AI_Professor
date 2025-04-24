@@ -36,6 +36,8 @@
             flex-direction: column;
             gap: 5px;
             margin-top: 10px;
+            max-height: 300px;
+            overflow-y: auto;
         }
         
         .question-button {
@@ -61,6 +63,12 @@
         
         .question-button.unanswered {
             background-color: #9e9e9e;
+        }
+
+        @media (max-width: 900px) {
+            .question-buttons {
+                max-height: 150px;
+            }
         }
     </style>
 </head>
@@ -88,61 +96,55 @@
         
         <!-- Quiz Screen -->
         <div class="screen" id="quiz-screen">
-            <!-- Scoreboard -->
-            <div class="scoreboard-container" id="scoreboard-container">
-                <div class="gauge-container">
-                    <svg class="gauge" viewBox="0 0 200 120">
-                        <!-- Gauge background -->
-                        <path d="M 10,110 A 90,90 0 0,1 190,110" stroke="#f0f0f0" stroke-width="20" fill="none" />
-                        
-                        <!-- Red section -->
-                        <path d="M 10,110 A 90,90 0 0,1 55,70" stroke="#e74c3c" stroke-width="20" fill="none" />
-                        
-                        <!-- Orange section -->
-                        <path d="M 55,70 A 90,90 0 0,1 100,55" stroke="#f39c12" stroke-width="20" fill="none" />
-                        
-                        <!-- Yellow section -->
-                        <path d="M 100,55 A 90,90 0 0,1 145,70" stroke="#f1c40f" stroke-width="20" fill="none" />
-                        
-                        <!-- Green section -->
-                        <path d="M 145,70 A 90,90 0 0,1 190,110" stroke="#2ecc71" stroke-width="20" fill="none" />
-                        
-                        <!-- Gauge needle -->
-                        <line id="gauge-needle" x1="100" y1="110" x2="100" y2="30" stroke="black" stroke-width="4" />
-                        <circle cx="100" cy="110" r="10" fill="black" />
-                        
-                        <!-- Score text -->
-                        <text x="100" y="20" text-anchor="middle" font-weight="bold" font-size="16">Score Board</text>
-                        <text id="score-text" x="100" y="40" text-anchor="middle" font-weight="bold" font-size="16">0/0</text>
-                    </svg>
+            <div style="display: flex; align-items: flex-start; gap: 40px;">
+                <!-- Quiz Question/Main Content (left) -->
+                <div style="flex: 1 1 0; min-width: 0;">
+                    <!-- Pagination -->
+                    <div class="pagination" id="pagination">
+                        <!-- Pagination items will be generated dynamically -->
+                    </div>
+                    <!-- Quiz Question -->
+                    <div class="quiz-container">
+                        <div class="question">
+                            <div class="question-number" id="question-number">Question 1:</div>
+                            <div class="question-text" id="question-text">Question text will appear here.</div>
+                        </div>
+                        <div class="options" id="options-container">
+                            <!-- Options will be generated dynamically -->
+                        </div>
+                        <div class="feedback" id="feedback"></div>
+                        <div class="navigation">
+                            <button class="nav-button prev-button" id="prev-button">Previous</button>
+                            <button class="nav-button next-button" id="next-button">Next</button>
+                        </div>
+                    </div>
                 </div>
-                
-                <div class="question-buttons" id="question-buttons">
-                    <!-- Question buttons will be generated dynamically -->
-                </div>
-            </div>
-            
-            <!-- Pagination -->
-            <div class="pagination" id="pagination">
-                <!-- Pagination items will be generated dynamically -->
-            </div>
-            
-            <!-- Quiz Question -->
-            <div class="quiz-container">
-                <div class="question">
-                    <div class="question-number" id="question-number">Question 1:</div>
-                    <div class="question-text" id="question-text">Question text will appear here.</div>
-                </div>
-                
-                <div class="options" id="options-container">
-                    <!-- Options will be generated dynamically -->
-                </div>
-                
-                <div class="feedback" id="feedback"></div>
-                
-                <div class="navigation">
-                    <button class="nav-button prev-button" id="prev-button">Previous</button>
-                    <button class="nav-button next-button" id="next-button">Next</button>
+                <!-- Scoreboard (right) -->
+                <div class="scoreboard-container" id="scoreboard-container">
+                    <div class="gauge-container">
+                        <svg class="gauge" viewBox="0 0 200 120">
+                            <!-- Gauge background -->
+                            <path d="M 10,110 A 90,90 0 0,1 190,110" stroke="#f0f0f0" stroke-width="20" fill="none" />
+                            <!-- Red section -->
+                            <path d="M 10,110 A 90,90 0 0,1 55,70" stroke="#e74c3c" stroke-width="20" fill="none" />
+                            <!-- Orange section -->
+                            <path d="M 55,70 A 90,90 0 0,1 100,55" stroke="#f39c12" stroke-width="20" fill="none" />
+                            <!-- Yellow section -->
+                            <path d="M 100,55 A 90,90 0 0,1 145,70" stroke="#f1c40f" stroke-width="20" fill="none" />
+                            <!-- Green section -->
+                            <path d="M 145,70 A 90,90 0 0,1 190,110" stroke="#2ecc71" stroke-width="20" fill="none" />
+                            <!-- Gauge needle -->
+                            <line id="gauge-needle" x1="100" y1="110" x2="100" y2="30" stroke="black" stroke-width="4" />
+                            <circle cx="100" cy="110" r="10" fill="black" />
+                            <!-- Score text -->
+                            <text x="100" y="20" text-anchor="middle" font-weight="bold" font-size="16">Score Board</text>
+                            <text id="score-text" x="100" y="40" text-anchor="middle" font-weight="bold" font-size="16">0/0</text>
+                        </svg>
+                    </div>
+                    
+                    <div class="question-buttons" id="question-buttons">
+                        <!-- Question buttons will be generated dynamically -->
+                    </div>
                 </div>
             </div>
         </div>
@@ -160,50 +162,6 @@
     
     <!-- ---------- Footer ---------- -->
     <div id="footer-container"></div>
-    <!-- window.MOCK_QUIZ = true; -->
     <script type="module" src="/public/scripts/quiz.js"></script>
-
-    
-    <!-- MOCK QUIZ SECTION BELOW -->
-    <!--
-    <script>
-    // --- MOCK QUIZ PREVIEW (for frontend testing only) ---
-    window.addEventListener('DOMContentLoaded', () => {
-        // Wait for quiz.js to load
-        setTimeout(() => {
-            if (!window.quizState) return; // quiz.js not loaded yet
-
-            // Mock questions
-            window.quizState.questions = [
-                {
-                    question: "What is the capital of France?",
-                    options: ["Berlin", "London", "Paris", "Madrid"],
-                    answer: 2
-                },
-                {
-                    question: "Which planet is known as the Red Planet?",
-                    options: ["Earth", "Mars", "Jupiter", "Venus"],
-                    answer: 1
-                },
-                {
-                    question: "Who wrote 'To Kill a Mockingbird'?",
-                    options: ["Harper Lee", "Mark Twain", "Jane Austen", "Ernest Hemingway"],
-                    answer: 0
-                }
-            ];
-            window.quizState.currentQuestionIndex = 0;
-            window.quizState.userAnswers = [null, null, null];
-            window.quizState.score = 0;
-
-            // Show quiz screen and initialize UI
-            if (window.showScreen) window.showScreen('quiz-screen');
-            if (window.loadQuestion) window.loadQuestion(0);
-            if (window.updatePagination) window.updatePagination();
-            if (window.initScoreboard) window.initScoreboard();
-            if (window.updateScoreboard) window.updateScoreboard();
-        }, 200);
-    });
-    </script>
-    -->
 </body>
 </html>
