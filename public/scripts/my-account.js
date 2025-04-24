@@ -64,14 +64,25 @@ async function fetchUserInfo() {
   }
 }
 
+const editableFieldIds = [
+  'firstNameText',
+  'lastNameText',
+  'userNameText',
+  'emailText',
+  'majorText',
+  'universityText'
+];
+
 const editButton = document.getElementById('edit-btn');
 editButton.onclick = () => {
-  let textElements = document.querySelectorAll('.info-box');
+  // Only toggle editable fields
+  editableFieldIds.forEach(id => {
+    document.getElementById(id).classList.toggle('hidden');
+  });
   let inputElements = document.querySelectorAll('.info-grid input');
   let editButton = document.getElementById('edit-btn');
   let saveButton = document.getElementById('save-btn');
 
-  textElements.forEach(el => el.classList.toggle('hidden'));
   inputElements.forEach(el => el.classList.toggle('hidden'));
 
   if (editButton.innerText === "Edit") {
@@ -142,12 +153,14 @@ async function saveChanges() {
 }
 
 function toggleEdit() {
-  let textElements = document.querySelectorAll('.info-box');
+  // Only toggle editable fields
+  editableFieldIds.forEach(id => {
+    document.getElementById(id).classList.toggle('hidden');
+  });
   let inputElements = document.querySelectorAll('.info-grid input');
   let editButton = document.getElementById('edit-btn');
   let saveButton = document.getElementById('save-btn');
 
-  textElements.forEach(el => el.classList.toggle('hidden'));
   inputElements.forEach(el => el.classList.toggle('hidden'));
 
   if (editButton.innerText === "Edit") {
