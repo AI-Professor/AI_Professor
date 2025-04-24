@@ -36,45 +36,6 @@
       transition-delay: 0.05s;
     }
 
-    .navbar {
-      position: fixed;
-      top: 0;
-      width: 100%;
-      background: white;
-      z-index: 1000;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-
-    .nav-container {
-      max-width: 100%;
-      margin: 0 auto;
-      padding: 0 3rem; 
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      height: 60px;
-    }
-
-    .nav-logo {
-      font-weight: bold;
-      font-size: 2rem; 
-      background: linear-gradient(to right, #00FFFF, #8A2BE2);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .nav-links a {
-      margin-left: 1rem;
-      color: #1E5FD6;
-      text-decoration: none;
-      font-weight: 500;
-      font-size: 1.1rem;
-    }
-
-    .nav-links a:hover {
-      text-decoration: underline;
-    }
-
     .intro, .features, .pricing, .contact {
       background-color: white;
     }
@@ -437,18 +398,8 @@
 
 <body>
 
-  <header class="navbar">
-    <div class="nav-container">
-      <a class="nav-logo" id="logo" href="#intro">AI Lecturer</a>
-      <nav class="nav-links">
-        <a href="#">Products</a>
-        <a href="#features">Service</a>
-        <a href="#pricing">Pricing</a>
-        <a href="#contact">Contact Us</a>
-        <span id="auth-link"></span>
-      </nav>
-    </div>
-  </header>
+  <!-- ---------- Navigation ---------- -->
+  <div id="navbar-container"></div>
 
   <section class="hero">
     <h1>AI Lecturer</h1>
@@ -554,6 +505,16 @@
   </section>
 
   <script>
+    // Dynamically load navbar.html into #navbar-container
+    fetch('/public/navbar.html')
+      .then(response => response.text())
+      .then(html => {
+        document.getElementById('navbar-container').innerHTML = html;
+        // Optionally, re-run any navbar-related JS here if needed
+      });
+  </script>
+
+  <script>
     const sections = document.querySelectorAll('section');
     const observer = new IntersectionObserver(entries => {
       entries.forEach(entry => {
@@ -566,47 +527,9 @@
     }, { threshold: 0.3 });
 
     sections.forEach(section => observer.observe(section));
-  </script>
 
-  <script>
-    document.getElementById("logo").addEventListener("click", function (e) {
-      e.preventDefault();  
-      window.location.href = window.location.origin + window.location.pathname + "#intro";
-      window.location.reload(true); 
-    });
-  </script>
-
-  <script>
-    function renderAuthLink() {
-      const authLink = document.getElementById("auth-link");
-      const loggedIn = localStorage.getItem("loggedIn") === "true"; // 或你用 sessionStorage 也可以
-
-      if (authLink) {
-        if (loggedIn) {
-          authLink.innerHTML = `
-            <a href="#">My Account</a>
-            <a href="#" onclick="logout()">Logout</a>
-          `;
-        } else {
-          authLink.innerHTML = `
-            <a href="login.html">Log in / Sign up</a>
-          `;
-        }
-      }
-    }
-
-    function logout() {
-      localStorage.removeItem("loggedIn"); 
-      window.location.reload();
-    }
-
-    renderAuthLink();
-  </script>
-
-  <script>
     document.querySelector('.start-button').addEventListener('click', function () {
       const loggedIn = localStorage.getItem("loggedIn") === "true";
-
       if (loggedIn) {
         window.location.href = "service.html"; 
       } else {
@@ -615,6 +538,5 @@
     });
   </script>
 
-  
 </body>
 </html>
